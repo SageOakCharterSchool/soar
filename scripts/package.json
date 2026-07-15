@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "staff-access-check": "tsx ./src/staff-access-check.ts",
     "staff-ui-check": "tsx ./src/staff-ui-check.ts",
+    "prod-login-check": "tsx ./src/prod-login-check.ts",
     "verify-migrations": "tsx ./src/verify-migrations.ts",
     "lint-migrations": "tsx ./src/lint-migrations.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
