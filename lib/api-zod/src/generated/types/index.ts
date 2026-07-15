@@ -39,6 +39,7 @@ export * from './listIssuesStatus';
 export * from './loginInput';
 export * from './mixSlice';
 export * from './resourceUsageRow';
+export * from './rosteringLastSeen';
 export * from './rosteringSummary';
 export * from './schoolUsageRow';
 export * from './term';

@@ -41,6 +41,7 @@ import type {
   ListIssuesParams,
   LoginInput,
   ResourceUsageRow,
+  RosteringLastSeen,
   RosteringSummary,
   SchoolUsageRow,
   Term,
@@ -1285,6 +1286,154 @@ export function useGetRosteringActivity<TData = Awaited<ReturnType<typeof getRos
 
 
 
+
+export const getGetRosteringLastSeenUrl = () => {
+
+
+
+
+  return `/api/rostering/last-seen`
+}
+
+/**
+ * @summary When the logged-in user last viewed the Rostering page
+ */
+export const getRosteringLastSeen = async ( options?: RequestInit): Promise<RosteringLastSeen> => {
+
+  return customFetch<RosteringLastSeen>(getGetRosteringLastSeenUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRosteringLastSeenQueryKey = () => {
+    return [
+    `/api/rostering/last-seen`
+    ] as const;
+    }
+
+
+export const getGetRosteringLastSeenQueryOptions = <TData = Awaited<ReturnType<typeof getRosteringLastSeen>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringLastSeen>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRosteringLastSeenQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRosteringLastSeen>>> = ({ signal }) => getRosteringLastSeen({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRosteringLastSeen>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRosteringLastSeenQueryResult = NonNullable<Awaited<ReturnType<typeof getRosteringLastSeen>>>
+export type GetRosteringLastSeenQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary When the logged-in user last viewed the Rostering page
+ */
+
+export function useGetRosteringLastSeen<TData = Awaited<ReturnType<typeof getRosteringLastSeen>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringLastSeen>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRosteringLastSeenQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkRosteringSeenUrl = () => {
+
+
+
+
+  return `/api/rostering/last-seen`
+}
+
+/**
+ * @summary Record that the logged-in user just viewed the Rostering page
+ */
+export const markRosteringSeen = async ( options?: RequestInit): Promise<RosteringLastSeen> => {
+
+  return customFetch<RosteringLastSeen>(getMarkRosteringSeenUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkRosteringSeenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markRosteringSeen>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markRosteringSeen>>, TError,void, TContext> => {
+
+const mutationKey = ['markRosteringSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markRosteringSeen>>, void> = () => {
+
+
+          return  markRosteringSeen(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkRosteringSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markRosteringSeen>>>
+
+    export type MarkRosteringSeenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record that the logged-in user just viewed the Rostering page
+ */
+export const useMarkRosteringSeen = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markRosteringSeen>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markRosteringSeen>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMarkRosteringSeenMutationOptions(options));
+    }
 
 export const getToggleUpvoteUrl = (id: number,) => {
 

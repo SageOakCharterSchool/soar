@@ -98,6 +98,19 @@ export const appActivityTable = pgTable("app_activity", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const pageLastSeenTable = pgTable(
+  "page_last_seen",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    page: text("page").notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("page_last_seen_user_page_idx").on(t.userId, t.page)],
+);
+
 export const insertApplicationSchema = createInsertSchema(applicationsTable).omit({
   id: true,
   createdAt: true,
@@ -108,3 +121,4 @@ export type AppTermStatus = typeof appTermStatusTable.$inferSelect;
 export type AppUpvote = typeof appUpvotesTable.$inferSelect;
 export type AppIssue = typeof appIssuesTable.$inferSelect;
 export type AppActivity = typeof appActivityTable.$inferSelect;
+export type PageLastSeen = typeof pageLastSeenTable.$inferSelect;

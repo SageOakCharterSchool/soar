@@ -301,6 +301,22 @@ export const GetRosteringActivityResponse = zod.array(GetRosteringActivityRespon
 
 
 /**
+ * @summary When the logged-in user last viewed the Rostering page
+ */
+export const GetRosteringLastSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Record that the logged-in user just viewed the Rostering page
+ */
+export const MarkRosteringSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
  * @summary Toggle the logged-in user's upvote for an app
  */
 export const ToggleUpvoteParams = zod.object({

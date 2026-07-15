@@ -7,6 +7,7 @@ import {
   appUpvotesTable,
   appIssuesTable,
   appActivityTable,
+  pageLastSeenTable,
   usersTable,
   type User,
 } from "@workspace/db";
@@ -57,6 +58,37 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
       : await base;
 
   res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+});
+
+const ROSTERING_PAGE = "rostering";
+
+router.get("/rostering/last-seen", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [row] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(
+      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ROSTERING_PAGE)),
+    );
+  res.json({ lastSeenAt: row ? row.lastSeenAt.toISOString() : null });
+});
+
+router.post("/rostering/last-seen", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [previous] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(
+      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ROSTERING_PAGE)),
+    );
+  await db
+    .insert(pageLastSeenTable)
+    .values({ userId: user.id, page: ROSTERING_PAGE, lastSeenAt: new Date() })
+    .onConflictDoUpdate({
+      target: [pageLastSeenTable.userId, pageLastSeenTable.page],
+      set: { lastSeenAt: new Date() },
+    });
+  res.json({ lastSeenAt: previous ? previous.lastSeenAt.toISOString() : null });
 });
 
 router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {

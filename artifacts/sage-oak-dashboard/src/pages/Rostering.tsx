@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListTerms,
   useGetRosteringBoard,
@@ -10,6 +10,7 @@ import {
   useUpdateTerm,
   useCopyTermStatuses,
   useGetRosteringActivity,
+  useMarkRosteringSeen,
   type ActivityEvent,
   type BoardRow,
   type Term,
@@ -116,10 +117,34 @@ function RecentActivity({ termId }: { termId: number }) {
     { termId, limit: 50 },
     { query: { enabled: termId != null } as any },
   );
+
+  // On first mount, record this visit; the server responds with the *previous*
+  // last-seen time, which we keep for the rest of the visit so the "new"
+  // markers stay visible until the next page view.
+  const markSeen = useMarkRosteringSeen();
+  const [lastSeenAt, setLastSeenAt] = useState<string | null | undefined>(undefined);
+  const markedRef = useRef(false);
+  useEffect(() => {
+    if (markedRef.current) return;
+    markedRef.current = true;
+    markSeen.mutate(undefined, {
+      onSuccess: (res) => setLastSeenAt(res.lastSeenAt ?? null),
+      onError: () => setLastSeenAt(null),
+    });
+  }, [markSeen]);
+
   const events = (activity ?? []) as ActivityEvent[];
   if (events.length === 0) return null;
-  const shown = expanded ? events : events.slice(0, 5);
+
+  const isNewForMe = (e: ActivityEvent) =>
+    typeof lastSeenAt === "string" &&
+    new Date(e.createdAt).getTime() > new Date(lastSeenAt).getTime();
+  const newCount = events.filter(isNewForMe).length;
+  const shown = expanded ? events : events.slice(0, Math.max(5, newCount));
   const recentCount = events.filter((e) => isRecent(e.createdAt)).length;
+  const firstOldIdx = shown.findIndex((e) => !isNewForMe(e));
+  const dividerBeforeId =
+    newCount > 0 && firstOldIdx > 0 ? shown[firstOldIdx]?.id : null;
 
   return (
     <Card>
@@ -128,6 +153,11 @@ function RecentActivity({ termId }: { termId: number }) {
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Recent changes</h3>
+            {newCount > 0 && (
+              <Badge className="border-transparent bg-sky-600 text-white hover:bg-sky-600 dark:bg-sky-500 dark:text-sky-950">
+                {newCount} new since your last visit
+              </Badge>
+            )}
             {recentCount > 0 && (
               <Badge variant="outline" className="border-transparent bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
                 {recentCount} in last 3 days
@@ -143,15 +173,32 @@ function RecentActivity({ termId }: { termId: number }) {
         <ul className="space-y-2">
           {shown.map((e) => {
             const meta = EVENT_META[e.eventType] ?? EVENT_META.status_change;
+            const isNew = isNewForMe(e);
             return (
-              <li key={e.id} className="flex items-start gap-2 text-sm">
-                <meta.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${meta.cls}`} />
-                <div className="min-w-0">
-                  <span className="font-medium">{e.appName}</span>
-                  <span className="text-muted-foreground"> — {e.detail}</span>
-                  <div className="text-xs text-muted-foreground">
-                    {relativeTime(e.createdAt)}
-                    {e.actorName ? ` · ${e.actorName}` : ""}
+              <li key={e.id}>
+                {e.id === dividerBeforeId && (
+                  <div className="flex items-center gap-2 py-1" aria-hidden="true">
+                    <div className="h-px flex-1 bg-sky-300 dark:bg-sky-800" />
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-sky-600 dark:text-sky-400">
+                      Seen on your last visit
+                    </span>
+                    <div className="h-px flex-1 bg-sky-300 dark:bg-sky-800" />
+                  </div>
+                )}
+                <div className="flex items-start gap-2 text-sm">
+                  <meta.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${meta.cls}`} />
+                  <div className="min-w-0">
+                    <span className="font-medium">{e.appName}</span>
+                    {isNew && (
+                      <Badge className="ml-1.5 h-4 border-transparent bg-sky-100 px-1.5 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-300">
+                        New
+                      </Badge>
+                    )}
+                    <span className="text-muted-foreground"> — {e.detail}</span>
+                    <div className="text-xs text-muted-foreground">
+                      {relativeTime(e.createdAt)}
+                      {e.actorName ? ` · ${e.actorName}` : ""}
+                    </div>
                   </div>
                 </div>
               </li>

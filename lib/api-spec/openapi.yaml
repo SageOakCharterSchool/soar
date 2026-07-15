@@ -312,6 +312,29 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityEvent"
+  /rostering/last-seen:
+    get:
+      operationId: getRosteringLastSeen
+      tags: [rostering]
+      summary: When the logged-in user last viewed the Rostering page
+      responses:
+        "200":
+          description: Last seen timestamp (null if never visited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+    post:
+      operationId: markRosteringSeen
+      tags: [rostering]
+      summary: Record that the logged-in user just viewed the Rostering page
+      responses:
+        "200":
+          description: Previous last-seen timestamp before this visit (null if first visit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
   /apps/{id}/upvote:
     post:
       operationId: toggleUpvote
@@ -725,6 +748,12 @@ components:
         actorName:
           type: ["string", "null"]
         createdAt: { type: string }
+    RosteringLastSeen:
+      type: object
+      required: [lastSeenAt]
+      properties:
+        lastSeenAt:
+          type: ["string", "null"]
     UpvoteState:
       type: object
       required: [applicationId, upvoted, upvoteCount]

@@ -283,6 +283,11 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export interface RosteringLastSeen {
+  /** @nullable */
+  lastSeenAt: string | null;
+}
+
 export interface UpvoteState {
   applicationId: number;
   upvoted: boolean;
