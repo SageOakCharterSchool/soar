@@ -260,6 +260,29 @@ export interface RosteringSummary {
   total: number;
 }
 
+export type ActivityEventEventType = typeof ActivityEventEventType[keyof typeof ActivityEventEventType];
+
+
+export const ActivityEventEventType = {
+  status_change: 'status_change',
+  app_added: 'app_added',
+  issue_reported: 'issue_reported',
+  issue_resolved: 'issue_resolved',
+} as const;
+
+export interface ActivityEvent {
+  id: number;
+  applicationId: number;
+  appName: string;
+  /** @nullable */
+  termId?: number | null;
+  eventType: ActivityEventEventType;
+  detail: string;
+  /** @nullable */
+  actorName?: string | null;
+  createdAt: string;
+}
+
 export interface UpvoteState {
   applicationId: number;
   upvoted: boolean;
@@ -406,6 +429,11 @@ termId: number;
 
 export type GetRosteringSummaryParams = {
 termId: number;
+};
+
+export type GetRosteringActivityParams = {
+termId?: number;
+limit?: number;
 };
 
 export type ListIssuesParams = {

@@ -289,6 +289,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AppTermStatus"
+  /rostering/activity:
+    get:
+      operationId: getRosteringActivity
+      tags: [rostering]
+      summary: Recent activity events (status changes, new apps, issues)
+      parameters:
+        - name: termId
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Activity events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
   /apps/{id}/upvote:
     post:
       operationId: toggleUpvote
@@ -686,6 +709,22 @@ components:
         complete: { type: integer }
         needsReview: { type: integer }
         total: { type: integer }
+    ActivityEvent:
+      type: object
+      required: [id, applicationId, appName, eventType, detail, createdAt]
+      properties:
+        id: { type: integer }
+        applicationId: { type: integer }
+        appName: { type: string }
+        termId:
+          type: ["integer", "null"]
+        eventType:
+          type: string
+          enum: [status_change, app_added, issue_reported, issue_resolved]
+        detail: { type: string }
+        actorName:
+          type: ["string", "null"]
+        createdAt: { type: string }
     UpvoteState:
       type: object
       required: [applicationId, upvoted, upvoteCount]

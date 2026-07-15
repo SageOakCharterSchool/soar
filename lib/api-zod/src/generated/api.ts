@@ -280,6 +280,27 @@ export const UpdateAppTermStatusResponse = zod.object({
 
 
 /**
+ * @summary Recent activity events (status changes, new apps, issues)
+ */
+export const GetRosteringActivityQueryParams = zod.object({
+  "termId": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const GetRosteringActivityResponseItem = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number(),
+  "appName": zod.string(),
+  "termId": zod.number().nullish(),
+  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved']),
+  "detail": zod.string(),
+  "actorName": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const GetRosteringActivityResponse = zod.array(GetRosteringActivityResponseItem)
+
+
+/**
  * @summary Toggle the logged-in user's upvote for an app
  */
 export const ToggleUpvoteParams = zod.object({

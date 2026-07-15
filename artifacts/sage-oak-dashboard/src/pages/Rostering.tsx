@@ -9,6 +9,8 @@ import {
   useCreateTerm,
   useUpdateTerm,
   useCopyTermStatuses,
+  useGetRosteringActivity,
+  type ActivityEvent,
   type BoardRow,
   type Term,
   type AppTermStatusUpdate,
@@ -47,7 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ThumbsUp, Flag, Pencil, Settings2 } from "lucide-react";
+import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw } from "lucide-react";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   not_started: { label: "Not started", className: "bg-muted text-muted-foreground" },
@@ -78,6 +80,88 @@ const invalidateBoard = (queryClient: ReturnType<typeof useQueryClient>) =>
       String(q.queryKey[0]).includes("issues") ||
       String(q.queryKey[0]).includes("terms"),
   });
+
+const RECENT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+function isRecent(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  return Date.now() - new Date(iso).getTime() <= RECENT_WINDOW_MS;
+}
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+const EVENT_META: Record<
+  string,
+  { label: string; Icon: typeof History; cls: string }
+> = {
+  status_change: { label: "Status change", Icon: RefreshCw, cls: "text-amber-600 dark:text-amber-400" },
+  app_added: { label: "New app", Icon: PlusCircle, cls: "text-sky-600 dark:text-sky-400" },
+  issue_reported: { label: "Issue reported", Icon: Flag, cls: "text-red-600 dark:text-red-400" },
+  issue_resolved: { label: "Issue resolved", Icon: CheckCircle2, cls: "text-emerald-600 dark:text-emerald-400" },
+};
+
+function RecentActivity({ termId }: { termId: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: activity } = useGetRosteringActivity(
+    { termId, limit: 50 },
+    { query: { enabled: termId != null } as any },
+  );
+  const events = (activity ?? []) as ActivityEvent[];
+  if (events.length === 0) return null;
+  const shown = expanded ? events : events.slice(0, 5);
+  const recentCount = events.filter((e) => isRecent(e.createdAt)).length;
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Recent changes</h3>
+            {recentCount > 0 && (
+              <Badge variant="outline" className="border-transparent bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                {recentCount} in last 3 days
+              </Badge>
+            )}
+          </div>
+          {events.length > 5 && (
+            <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
+              {expanded ? "Show less" : `Show all ${events.length}`}
+            </Button>
+          )}
+        </div>
+        <ul className="space-y-2">
+          {shown.map((e) => {
+            const meta = EVENT_META[e.eventType] ?? EVENT_META.status_change;
+            return (
+              <li key={e.id} className="flex items-start gap-2 text-sm">
+                <meta.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${meta.cls}`} />
+                <div className="min-w-0">
+                  <span className="font-medium">{e.appName}</span>
+                  <span className="text-muted-foreground"> — {e.detail}</span>
+                  <div className="text-xs text-muted-foreground">
+                    {relativeTime(e.createdAt)}
+                    {e.actorName ? ` · ${e.actorName}` : ""}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
 
 function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const [open, setOpen] = useState(false);
@@ -490,6 +574,8 @@ export default function Rostering() {
         </div>
       )}
 
+      {termId != null && <RecentActivity termId={termId} />}
+
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search apps, category, owner..."
@@ -555,7 +641,16 @@ export default function Rostering() {
                 {rows.map((row) => (
                   <TableRow key={row.applicationId}>
                     <TableCell>
-                      <div className="font-medium">{row.appName}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{row.appName}</span>
+                        {isRecent(row.updatedAt) && (
+                          <span
+                            className="h-2 w-2 rounded-full bg-amber-500 shrink-0"
+                            title="Changed in the last 3 days"
+                            aria-label="Changed recently"
+                          />
+                        )}
+                      </div>
                       {row.category && (
                         <div className="text-xs text-muted-foreground">{row.category}</div>
                       )}

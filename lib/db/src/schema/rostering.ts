@@ -84,6 +84,20 @@ export const appIssuesTable = pgTable("app_issues", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const appActivityTable = pgTable("app_activity", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id")
+    .notNull()
+    .references(() => applicationsTable.id, { onDelete: "cascade" }),
+  termId: integer("term_id").references(() => termsTable.id, { onDelete: "cascade" }),
+  eventType: text("event_type", {
+    enum: ["status_change", "app_added", "issue_reported", "issue_resolved"],
+  }).notNull(),
+  detail: text("detail").notNull(),
+  actorId: integer("actor_id").references(() => usersTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertApplicationSchema = createInsertSchema(applicationsTable).omit({
   id: true,
   createdAt: true,
@@ -93,3 +107,4 @@ export type Application = typeof applicationsTable.$inferSelect;
 export type AppTermStatus = typeof appTermStatusTable.$inferSelect;
 export type AppUpvote = typeof appUpvotesTable.$inferSelect;
 export type AppIssue = typeof appIssuesTable.$inferSelect;
+export type AppActivity = typeof appActivityTable.$inferSelect;

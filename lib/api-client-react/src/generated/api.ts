@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivityEvent,
   ApiMessage,
   AppEngagementRow,
   AppTermStatus,
@@ -28,6 +29,7 @@ import type {
   BoardRow,
   DailyUsageRow,
   GetDailyUsageParams,
+  GetRosteringActivityParams,
   GetRosteringBoardParams,
   GetRosteringSummaryParams,
   HealthStatus,
@@ -1199,6 +1201,90 @@ export const useUpdateAppTermStatus = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateAppTermStatusMutationOptions(options));
     }
+
+export const getGetRosteringActivityUrl = (params?: GetRosteringActivityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/rostering/activity?${stringifiedParams}` : `/api/rostering/activity`
+}
+
+/**
+ * @summary Recent activity events (status changes, new apps, issues)
+ */
+export const getRosteringActivity = async (params?: GetRosteringActivityParams, options?: RequestInit): Promise<ActivityEvent[]> => {
+
+  return customFetch<ActivityEvent[]>(getGetRosteringActivityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRosteringActivityQueryKey = (params?: GetRosteringActivityParams,) => {
+    return [
+    `/api/rostering/activity`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRosteringActivityQueryOptions = <TData = Awaited<ReturnType<typeof getRosteringActivity>>, TError = ErrorType<unknown>>(params?: GetRosteringActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRosteringActivityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRosteringActivity>>> = ({ signal }) => getRosteringActivity(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRosteringActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRosteringActivityQueryResult = NonNullable<Awaited<ReturnType<typeof getRosteringActivity>>>
+export type GetRosteringActivityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Recent activity events (status changes, new apps, issues)
+ */
+
+export function useGetRosteringActivity<TData = Awaited<ReturnType<typeof getRosteringActivity>>, TError = ErrorType<unknown>>(
+ params?: GetRosteringActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRosteringActivityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getToggleUpvoteUrl = (id: number,) => {
 

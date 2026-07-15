@@ -1,11 +1,12 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import {
   db,
   applicationsTable,
   appTermStatusTable,
   appUpvotesTable,
   appIssuesTable,
+  appActivityTable,
   usersTable,
   type User,
 } from "@workspace/db";
@@ -13,6 +14,50 @@ import { UpdateAppTermStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 
 const router: IRouter = Router();
+
+const STATUS_LABELS: Record<string, string> = {
+  not_started: "Not started",
+  in_progress: "In progress",
+  complete: "Complete",
+  needs_review: "Needs review",
+};
+
+router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> => {
+  const termIdRaw = req.query.termId;
+  const termId = termIdRaw != null ? parseInt(String(termIdRaw), 10) : null;
+  if (termIdRaw != null && Number.isNaN(termId)) {
+    res.status(400).json({ message: "termId must be an integer" });
+    return;
+  }
+  const limitRaw = parseInt(String(req.query.limit ?? "25"), 10);
+  const limit = Number.isNaN(limitRaw) ? 25 : Math.min(Math.max(limitRaw, 1), 100);
+
+  const base = db
+    .select({
+      id: appActivityTable.id,
+      applicationId: appActivityTable.applicationId,
+      appName: applicationsTable.name,
+      termId: appActivityTable.termId,
+      eventType: appActivityTable.eventType,
+      detail: appActivityTable.detail,
+      actorName: usersTable.displayName,
+      createdAt: appActivityTable.createdAt,
+    })
+    .from(appActivityTable)
+    .innerJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
+    .leftJoin(usersTable, eq(appActivityTable.actorId, usersTable.id))
+    .orderBy(desc(appActivityTable.createdAt), desc(appActivityTable.id))
+    .limit(limit);
+
+  const rows =
+    termId != null
+      ? await base.where(
+          or(eq(appActivityTable.termId, termId), isNull(appActivityTable.termId)),
+        )
+      : await base;
+
+  res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+});
 
 router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
   const termId = parseInt(String(req.query.termId ?? ""), 10);
@@ -116,6 +161,14 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
     return;
   }
   const user = (req as Request & { user: User }).user;
+  const [before] = await db
+    .select()
+    .from(appTermStatusTable)
+    .where(eq(appTermStatusTable.id, id));
+  if (!before) {
+    res.status(404).json({ message: "Status row not found" });
+    return;
+  }
   const [row] = await db
     .update(appTermStatusTable)
     .set({ ...parsed.data, updatedBy: user.id, updatedAt: new Date() })
@@ -124,6 +177,32 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
   if (!row) {
     res.status(404).json({ message: "Status row not found" });
     return;
+  }
+  const changes: string[] = [];
+  if (before.studentSharingStatus !== row.studentSharingStatus) {
+    changes.push(
+      `Student sharing: ${STATUS_LABELS[before.studentSharingStatus]} → ${STATUS_LABELS[row.studentSharingStatus]}`,
+    );
+  }
+  if (before.staffSharingStatus !== row.staffSharingStatus) {
+    changes.push(
+      `Staff sharing: ${STATUS_LABELS[before.staffSharingStatus]} → ${STATUS_LABELS[row.staffSharingStatus]}`,
+    );
+  }
+  if ((before.owner ?? null) !== (row.owner ?? null)) {
+    changes.push(`Owner set to ${row.owner ?? "—"}`);
+  }
+  if ((before.syncMethod ?? null) !== (row.syncMethod ?? null)) {
+    changes.push(`Sync method set to ${row.syncMethod ?? "—"}`);
+  }
+  if (changes.length > 0) {
+    await db.insert(appActivityTable).values({
+      applicationId: row.applicationId,
+      termId: row.termId,
+      eventType: "status_change",
+      detail: changes.join("; "),
+      actorId: user.id,
+    });
   }
   const [updater] = await db.select().from(usersTable).where(eq(usersTable.id, user.id));
   res.json({

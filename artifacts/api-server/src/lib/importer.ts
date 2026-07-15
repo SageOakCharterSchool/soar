@@ -16,6 +16,7 @@ import {
   usageDailyStudentTable,
   usageDailyTeacherTable,
   importLogTable,
+  appActivityTable,
 } from "@workspace/db";
 
 export interface UploadedFile {
@@ -454,13 +455,28 @@ export async function runImport(
     const existingApps = await db.select().from(applicationsTable);
     const known = new Set(existingApps.map((a) => a.name));
     const newNames = [...appNames].filter((n) => !known.has(n));
+    let insertedApps: Array<{ id: number; name: string }> = [];
     if (newNames.length > 0) {
-      await db.insert(applicationsTable).values(newNames.map((name) => ({ name })));
+      insertedApps = await db
+        .insert(applicationsTable)
+        .values(newNames.map((name) => ({ name })))
+        .returning({ id: applicationsTable.id, name: applicationsTable.name });
     }
     const [currentTerm] = await db
       .select()
       .from(termsTable)
       .where(eq(termsTable.isCurrent, true));
+    if (insertedApps.length > 0) {
+      await db.insert(appActivityTable).values(
+        insertedApps.map((a) => ({
+          applicationId: a.id,
+          termId: currentTerm?.id ?? null,
+          eventType: "app_added" as const,
+          detail: "Added automatically from a usage upload",
+          actorId: uploadedBy,
+        })),
+      );
+    }
     if (currentTerm) {
       const allApps = await db.select().from(applicationsTable);
       const statuses = await db

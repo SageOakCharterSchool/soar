@@ -5,6 +5,8 @@ import {
   applicationsTable,
   appUpvotesTable,
   appIssuesTable,
+  appActivityTable,
+  termsTable,
   usersTable,
   type User,
 } from "@workspace/db";
@@ -78,6 +80,21 @@ router.post("/apps/:id/issues", requireAuth, async (req, res): Promise<void> => 
     .insert(appIssuesTable)
     .values({ applicationId, userId: user.id, comment: parsed.data.comment })
     .returning();
+  const [currentTerm] = await db
+    .select()
+    .from(termsTable)
+    .where(eq(termsTable.isCurrent, true));
+  const snippet =
+    parsed.data.comment.length > 120
+      ? `${parsed.data.comment.slice(0, 117)}...`
+      : parsed.data.comment;
+  await db.insert(appActivityTable).values({
+    applicationId,
+    termId: currentTerm?.id ?? null,
+    eventType: "issue_reported",
+    detail: `Issue reported: ${snippet}`,
+    actorId: user.id,
+  });
   res.status(201).json({
     id: issue!.id,
     applicationId,
@@ -130,6 +147,14 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ message: parsed.error.message });
     return;
   }
+  const [existingIssue] = await db
+    .select()
+    .from(appIssuesTable)
+    .where(eq(appIssuesTable.id, id));
+  if (!existingIssue) {
+    res.status(404).json({ message: "Issue not found" });
+    return;
+  }
   const [issue] = await db
     .update(appIssuesTable)
     .set({ status: parsed.data.status })
@@ -138,6 +163,22 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
   if (!issue) {
     res.status(404).json({ message: "Issue not found" });
     return;
+  }
+  if (existingIssue.status !== "resolved" && issue.status === "resolved") {
+    const admin = (req as Request & { user: User }).user;
+    const [currentTerm] = await db
+      .select()
+      .from(termsTable)
+      .where(eq(termsTable.isCurrent, true));
+    const snippet =
+      issue.comment.length > 120 ? `${issue.comment.slice(0, 117)}...` : issue.comment;
+    await db.insert(appActivityTable).values({
+      applicationId: issue.applicationId,
+      termId: currentTerm?.id ?? null,
+      eventType: "issue_resolved",
+      detail: `Issue resolved: ${snippet}`,
+      actorId: admin.id,
+    });
   }
   const [app] = await db
     .select()

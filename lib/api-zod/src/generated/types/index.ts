@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activityEvent';
+export * from './activityEventEventType';
 export * from './apiMessage';
 export * from './appEngagementRow';
 export * from './appTermStatus';
@@ -21,6 +23,7 @@ export * from './boardRowStaffSharingStatus';
 export * from './boardRowStudentSharingStatus';
 export * from './dailyUsageRow';
 export * from './getDailyUsageParams';
+export * from './getRosteringActivityParams';
 export * from './getRosteringBoardParams';
 export * from './getRosteringSummaryParams';
 export * from './healthStatus';
