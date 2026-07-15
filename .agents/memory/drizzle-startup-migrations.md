@@ -9,3 +9,4 @@ The api-server applies committed SQL migrations (lib/db/migrations, drizzle-orm 
 **How to apply:**
 - Schema changes: edit schema, run `drizzle-kit generate` in lib/db, then hand-edit the new SQL to be idempotent (CREATE TABLE/INDEX IF NOT EXISTS; wrap ADD CONSTRAINT / CREATE TYPE in DO $$ ... EXCEPTION WHEN duplicate_object THEN null; END $$). Existing dev/prod DBs were created via `drizzle-kit push`, so the migration journal is empty there and migration 0000 re-runs against pre-existing tables.
 - Never rely on drizzle-kit at runtime; migrations must be plain SQL files shipped next to the bundle.
+- After adding a migration, run the `migrations` validation step (verify-migrations script in the scripts package): it boots the built server against an empty DB and a push-created DB (schema present, journal empty) and fails on any migration error. Contributor notes live in lib/db/migrations/README.md.

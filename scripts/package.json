@@ -7,11 +7,16 @@
     "hello": "tsx ./src/hello.ts",
     "staff-access-check": "tsx ./src/staff-access-check.ts",
     "staff-ui-check": "tsx ./src/staff-ui-check.ts",
+    "verify-migrations": "tsx ./src/verify-migrations.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "^8.20.0",
     "playwright-core": "^1.61.1",
     "tsx": "catalog:"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   }
 }

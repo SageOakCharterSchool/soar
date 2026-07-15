@@ -670,10 +670,17 @@ importers:
         version: 0.31.10
 
   scripts:
+    dependencies:
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.5
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
       playwright-core:
         specifier: ^1.61.1
         version: 1.61.1
