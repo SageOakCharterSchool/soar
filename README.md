@@ -36,22 +36,19 @@ The server refuses to start in production without `SESSION_SECRET`, and will not
 
 ## Deploying to Railway
 
+This repo deploys as **one single service** (the API server also serves the built web app). The root `railway.json` already defines the build and start commands, and `package.json` pins `pnpm@10.26.1` — Railway must use pnpm 10, or the install fails with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
+
 1. Create a new Railway project and add a **PostgreSQL** database. Railway exposes `DATABASE_URL` automatically.
-2. Add a service from this repository.
+2. Add **one** service from this repository, with the **root directory left as `/`** (the repo root). If Railway auto-detected the pnpm workspace and created a service per package (`@workspace/db`, `@workspace/api-zod`, etc.), delete those extra services — only the single root service is needed.
 3. Set environment variables on the service: `SESSION_SECRET` (long random string), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `NODE_ENV=production`. Reference the database's `DATABASE_URL`.
-4. Build command:
+4. Build and start commands come from `railway.json`:
+   - Build: `corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build`
+   - Start: `node artifacts/api-server/dist/index.mjs`
+5. Apply the schema once (Railway one-off shell, or a pre-deploy command). `--force` is needed because there is no interactive terminal:
    ```bash
-   corepack enable && pnpm install && pnpm run build
+   pnpm --filter @workspace/db run push-force
    ```
-5. Pre-deploy (or one-off) command to apply the schema:
-   ```bash
-   pnpm --filter @workspace/db run push
-   ```
-6. Start command:
-   ```bash
-   node artifacts/api-server/dist/index.mjs
-   ```
-   The server binds to `PORT` and serves both the API and the built web app. On boot it creates the session table and seeds the admin user and the four school terms if missing.
+6. Deploy. The server binds to `PORT` and serves both the API and the web app at the root URL. On boot it creates the session table and seeds the admin user and the four school terms if missing.
 
 ## Embedding in another site (iframe)
 
