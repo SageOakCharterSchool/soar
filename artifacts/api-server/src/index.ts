@@ -20,8 +20,12 @@ if (Number.isNaN(port) || port <= 0) {
 seed()
   .catch((err) => {
     logger.error({ err }, "Seeding failed");
+    if (process.env.NODE_ENV === "production") {
+      logger.error("Refusing to start in production after seed failure.");
+      process.exit(1);
+    }
   })
-  .finally(() => {
+  .then(() => {
     app.listen(port, (err) => {
       if (err) {
         logger.error({ err }, "Error listening on port");

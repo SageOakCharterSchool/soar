@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { LoginBody } from "@workspace/api-zod";
-import { getSessionUser, toUserDto } from "../lib/auth";
+import { getSessionUser, toUserDto, DEFAULT_DEV_ADMIN_PASSWORD } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -11,6 +11,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Email and password are required" });
+    return;
+  }
+  if (
+    process.env.NODE_ENV === "production" &&
+    parsed.data.password === DEFAULT_DEV_ADMIN_PASSWORD
+  ) {
+    res.status(401).json({ message: "Invalid email or password" });
     return;
   }
   const [user] = await db
