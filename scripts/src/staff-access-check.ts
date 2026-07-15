@@ -6,16 +6,39 @@
  * Requires the API server to be running (uses REPLIT_DEV_DOMAIN or API_BASE_URL).
  */
 
+import { randomBytes } from "node:crypto";
+
 const base =
   process.env.API_BASE_URL ??
   (process.env.REPLIT_DEV_DOMAIN
     ? `https://${process.env.REPLIT_DEV_DOMAIN}/api`
     : "http://localhost:3001/api");
 
+// Refuse to run against anything that isn't the local dev environment.
+// This check creates a temporary staff account; it must never touch production.
+function assertNotProduction() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Refusing to run staff access check with NODE_ENV=production. This check creates a temporary test account and must only run in development.",
+    );
+  }
+  const host = new URL(base).hostname;
+  const devHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+  if (process.env.REPLIT_DEV_DOMAIN) devHosts.add(process.env.REPLIT_DEV_DOMAIN);
+  if (!devHosts.has(host)) {
+    throw new Error(
+      `Refusing to run staff access check against non-development host "${host}". ` +
+        "This check creates a temporary test account and must only run against localhost or the Replit dev domain.",
+    );
+  }
+}
+
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@sageoak.org";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "sageoak-admin";
 const STAFF_EMAIL = "staff-e2e@sageoak.org";
-const STAFF_PASSWORD = "staff-e2e-pass1";
+// Random per-run password: even if this account ever leaks somewhere, the
+// credentials are never known/publishable, and the user is deleted after the run.
+const STAFF_PASSWORD = randomBytes(24).toString("base64url");
 
 let failures = 0;
 
@@ -57,7 +80,36 @@ async function login(email: string, password: string): Promise<string> {
   return cookie.split(";")[0];
 }
 
-async function ensureStaffUser(adminCookie: string) {
+async function findStaffUserId(adminCookie: string): Promise<number | null> {
+  const res = await fetch(`${base}/users`, {
+    headers: { Cookie: adminCookie },
+  });
+  if (!res.ok) return null;
+  const users = (await res.json()) as Array<{ id: number; email: string }>;
+  const match = users.find((u) => u.email === STAFF_EMAIL);
+  return match ? match.id : null;
+}
+
+async function deleteStaffUser(adminCookie: string): Promise<void> {
+  const id = await findStaffUserId(adminCookie);
+  if (id == null) return;
+  const res = await fetch(`${base}/users/${id}`, {
+    method: "DELETE",
+    headers: { Cookie: adminCookie },
+  });
+  if (res.ok) {
+    console.log(`Deleted staff test user ${STAFF_EMAIL}`);
+  } else {
+    console.error(
+      `WARNING: could not delete staff test user ${STAFF_EMAIL}: HTTP ${res.status}`,
+    );
+  }
+}
+
+async function createStaffUser(adminCookie: string) {
+  // Remove any leftover account from a previous (possibly interrupted) run so
+  // this run's fresh random password is the only valid credential.
+  await deleteStaffUser(adminCookie);
   const res = await fetch(`${base}/users`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: adminCookie },
@@ -68,23 +120,14 @@ async function ensureStaffUser(adminCookie: string) {
       role: "staff",
     }),
   });
-  if (res.ok) {
-    console.log(`Created staff test user ${STAFF_EMAIL}`);
-    return;
+  if (!res.ok) {
+    throw new Error(`Could not create staff user: HTTP ${res.status}`);
   }
-  // Already exists (conflict) is fine; anything else is not.
-  if (res.status === 409 || res.status === 400) {
-    console.log(`Staff test user ${STAFF_EMAIL} already exists`);
-    return;
-  }
-  throw new Error(`Could not create staff user: HTTP ${res.status}`);
+  console.log(`Created staff test user ${STAFF_EMAIL} (random per-run password)`);
 }
 
-async function main() {
-  console.log(`Staff access check against ${base}`);
-
-  const adminCookie = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
-  await ensureStaffUser(adminCookie);
+async function runChecks(adminCookie: string) {
+  await createStaffUser(adminCookie);
   const staffCookie = await login(STAFF_EMAIL, STAFF_PASSWORD);
 
   const adminEndpoints: Array<[string, string]> = [
@@ -145,9 +188,25 @@ async function main() {
     console.error(
       `\nSTAFF ACCESS CHECK FAILED: ${failures} admin surface(s) reachable or misbehaving for staff.`,
     );
-    process.exit(1);
+    return false;
   }
   console.log("\nStaff access check passed: all admin surfaces blocked for staff.");
+  return true;
+}
+
+async function main() {
+  assertNotProduction();
+  console.log(`Staff access check against ${base}`);
+
+  const adminCookie = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  let passed = false;
+  try {
+    passed = await runChecks(adminCookie);
+  } finally {
+    // Always remove the temporary staff account, even if checks failed.
+    await deleteStaffUser(adminCookie);
+  }
+  if (!passed) process.exit(1);
 }
 
 main().catch((err) => {
