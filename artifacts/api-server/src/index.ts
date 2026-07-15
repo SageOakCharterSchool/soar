@@ -18,9 +18,19 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+function describeError(err: unknown): string {
+  if (err instanceof Error) {
+    const includeStack = process.env.NODE_ENV !== "production";
+    const text =
+      includeStack && err.stack ? `${err.message}\n${err.stack}` : err.message;
+    return text.slice(0, 2000);
+  }
+  return String(err).slice(0, 2000);
+}
+
 runMigrations()
   .catch((err) => {
-    logger.error({ err }, "Database migration failed");
+    logger.error({ err }, `Database migration failed: ${describeError(err)}`);
     if (process.env.NODE_ENV === "production") {
       logger.error("Refusing to start in production after migration failure.");
       process.exit(1);
@@ -28,7 +38,7 @@ runMigrations()
   })
   .then(() => seed())
   .catch((err) => {
-    logger.error({ err }, "Seeding failed");
+    logger.error({ err }, `Seeding failed: ${describeError(err)}`);
     if (process.env.NODE_ENV === "production") {
       logger.error("Refusing to start in production after seed failure.");
       process.exit(1);
