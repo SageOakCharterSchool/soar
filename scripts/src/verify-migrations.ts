@@ -122,8 +122,9 @@ function envNumber(name: string, fallback: number, max: number): number {
   return n;
 }
 
-/** Number of bulk rows seeded into app_activity so migration timing runs
- * against realistic data volume, not a near-empty table. */
+/** Number of bulk rows seeded into each large-in-production table
+ * (app_activity, usage_* snapshots, session) so migration timing runs
+ * against realistic data volume, not near-empty tables. */
 const BULK_ACTIVITY_ROWS = envNumber("VERIFY_MIG_BULK_ROWS", 5000, 1_000_000);
 
 /** Per-statement time budgets when re-running migrations on the populated
@@ -167,8 +168,9 @@ async function seedSampleRows(dbUrl: string) {
   }
 }
 
-/** Seed a large volume of app_activity rows (referencing seeded
- * applications/terms/users) so migration timing reflects real data volume. */
+/** Seed a large volume of rows into every table that grows large in
+ * production (app_activity, usage_* snapshots, session) so migration timing
+ * reflects real data volume on each of them, not just activity history. */
 async function seedBulkActivityRows(dbUrl: string) {
   const client = new pg.Client({ connectionString: dbUrl });
   await client.connect();
@@ -183,6 +185,70 @@ async function seedBulkActivityRows(dbUrl: string) {
         'bulk seeded activity row #' || gs,
         (SELECT id FROM users WHERE email = 'seed-admin@example.invalid'),
         now() - (gs || ' minutes')::interval
+      FROM generate_series(1, $1) AS gs
+      `,
+      [BULK_ACTIVITY_ROWS],
+    );
+
+    // usage_by_app: unique on (snapshot_date, application) — vary both.
+    await client.query(
+      `
+      INSERT INTO usage_by_app (snapshot_date, application, unique_users, scoped_users)
+      SELECT
+        ('2025-09-01'::date + (gs % 30)),
+        'bulk-seed-app-' || gs,
+        gs % 500,
+        gs % 400
+      FROM generate_series(1, $1) AS gs
+      `,
+      [BULK_ACTIVITY_ROWS],
+    );
+
+    // usage_applist: unique on (snapshot_date, app_name) — vary both.
+    await client.query(
+      `
+      INSERT INTO usage_applist
+        (snapshot_date, app_name, student_count, student_percent, teacher_count, teacher_percent, active_time_per_user_minutes)
+      SELECT
+        ('2025-09-01'::date + (gs % 30)),
+        'bulk-seed-applist-' || gs,
+        gs % 1000,
+        (gs % 100)::double precision,
+        gs % 100,
+        (gs % 100)::double precision,
+        (gs % 60)::double precision
+      FROM generate_series(1, $1) AS gs
+      `,
+      [BULK_ACTIVITY_ROWS],
+    );
+
+    // usage_daily_student / usage_daily_teacher: date is the PRIMARY KEY,
+    // so each row needs a distinct date.
+    await client.query(
+      `
+      INSERT INTO usage_daily_student (date, active_users)
+      SELECT ('2000-01-01'::date + gs), gs % 2000
+      FROM generate_series(1, $1) AS gs
+      `,
+      [BULK_ACTIVITY_ROWS],
+    );
+    await client.query(
+      `
+      INSERT INTO usage_daily_teacher (date, active_users)
+      SELECT ('2000-01-01'::date + gs), gs % 300
+      FROM generate_series(1, $1) AS gs
+      `,
+      [BULK_ACTIVITY_ROWS],
+    );
+
+    // session: sid is the primary key; seed realistic-looking session blobs.
+    await client.query(
+      `
+      INSERT INTO session (sid, sess, expire)
+      SELECT
+        'bulk-seed-sid-' || gs,
+        json_build_object('cookie', json_build_object('maxAge', 86400000), 'seed', gs),
+        now() + interval '7 days'
       FROM generate_series(1, $1) AS gs
       `,
       [BULK_ACTIVITY_ROWS],
@@ -236,7 +302,8 @@ async function timeMigrationsOnPopulatedDb(dbUrl: string): Promise<void> {
   if (tooSlow.length > 0) {
     throw new Error(
       `[pushed-db] Migration statements exceeded the ${STATEMENT_FAIL_MS}ms time budget on a database with ` +
-        `${BULK_ACTIVITY_ROWS} app_activity rows — they would likely lock or rewrite whole tables in production:\n` +
+        `${BULK_ACTIVITY_ROWS} rows in each large table (app_activity, usage_by_app, usage_applist, ` +
+        `usage_daily_student, usage_daily_teacher, session) — they would likely lock or rewrite whole tables in production:\n` +
         tooSlow.map((s) => `  - ${s}`).join("\n"),
     );
   }
@@ -287,19 +354,30 @@ async function verifySeededRowsSurvived(dbUrl: string) {
   }
 }
 
-/** Verify the bulk-seeded app_activity rows survived the migration re-runs. */
+/** Verify the bulk-seeded rows in every large table survived the migration
+ * re-runs. */
 async function verifyBulkRowsSurvived(dbUrl: string) {
+  const checks: { table: string; where: string }[] = [
+    { table: "app_activity", where: `detail LIKE 'bulk seeded activity row #%'` },
+    { table: "usage_by_app", where: `application LIKE 'bulk-seed-app-%'` },
+    { table: "usage_applist", where: `app_name LIKE 'bulk-seed-applist-%'` },
+    { table: "usage_daily_student", where: `date BETWEEN '2000-01-02' AND ('2000-01-01'::date + ${BULK_ACTIVITY_ROWS})` },
+    { table: "usage_daily_teacher", where: `date BETWEEN '2000-01-02' AND ('2000-01-01'::date + ${BULK_ACTIVITY_ROWS})` },
+    { table: "session", where: `sid LIKE 'bulk-seed-sid-%'` },
+  ];
   const client = new pg.Client({ connectionString: dbUrl });
   await client.connect();
   try {
-    const res = await client.query(
-      `SELECT COUNT(*)::int AS n FROM app_activity WHERE detail LIKE 'bulk seeded activity row #%'`,
-    );
-    const n: number = res.rows[0].n;
-    if (n < BULK_ACTIVITY_ROWS) {
-      throw new Error(
-        `[pushed-db] Data loss detected: app_activity has ${n} bulk-seeded rows after migration, expected ${BULK_ACTIVITY_ROWS}.`,
+    for (const { table, where } of checks) {
+      const res = await client.query(
+        `SELECT COUNT(*)::int AS n FROM ${table} WHERE ${where}`,
       );
+      const n: number = res.rows[0].n;
+      if (n < BULK_ACTIVITY_ROWS) {
+        throw new Error(
+          `[pushed-db] Data loss detected: ${table} has ${n} bulk-seeded rows after migration, expected ${BULK_ACTIVITY_ROWS}.`,
+        );
+      }
     }
   } finally {
     await client.end();
@@ -390,7 +468,7 @@ async function main() {
     await seedSampleRows(tempDbUrl(pushedDb));
     await seedBulkActivityRows(tempDbUrl(pushedDb));
     console.log(
-      `Timing migration statements against populated data (${BULK_ACTIVITY_ROWS} app_activity rows; warn >${STATEMENT_WARN_MS}ms, fail >${STATEMENT_FAIL_MS}ms)...`,
+      `Timing migration statements against populated data (${BULK_ACTIVITY_ROWS} rows each in app_activity, usage_by_app, usage_applist, usage_daily_student, usage_daily_teacher, session; warn >${STATEMENT_WARN_MS}ms, fail >${STATEMENT_FAIL_MS}ms)...`,
     );
     await timeMigrationsOnPopulatedDb(tempDbUrl(pushedDb));
     await bootServer(tempDbUrl(pushedDb), "pushed-db");
