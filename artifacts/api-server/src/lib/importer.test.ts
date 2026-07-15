@@ -1,144 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { fakeDb, tables, resetFakeDb } from "../test/fakeDb";
 
-type Cond =
-  | { type: "eq"; col: { name: string }; val: unknown }
-  | { type: "and"; conds: Cond[] };
-
-const { fakeDb, tables, state } = vi.hoisted(() => {
-  type HCond =
-    | { type: "eq"; col: { name: string }; val: unknown }
-    | { type: "and"; conds: HCond[] };
-
-  function matches(row: Record<string, unknown>, cond: HCond | undefined): boolean {
-    if (!cond) return true;
-    if (cond.type === "eq") return row[cond.col.name] === cond.val;
-    return cond.conds.every((c) => matches(row, c));
-  }
-
-  function makeTable(label: string) {
-    return new Proxy(
-      { __label: label },
-      {
-        get(_target, prop: string) {
-          if (prop === "__label") return label;
-          return { name: prop, table: label };
-        },
-      },
-    );
-  }
-
-  const state = { idCounter: 0 };
-
-  class FakeDb {
-    store = new Map<object, Record<string, unknown>[]>();
-
-    rows(table: object): Record<string, unknown>[] {
-      if (!this.store.has(table)) this.store.set(table, []);
-      return this.store.get(table)!;
-    }
-
-    select() {
-      const self = this;
-      return {
-        from(table: object) {
-          const all = self.rows(table);
-          return {
-            where(cond: HCond) {
-              return Promise.resolve(all.filter((r) => matches(r, cond)));
-            },
-            then(
-              resolve: (rows: Record<string, unknown>[]) => void,
-              reject?: (e: unknown) => void,
-            ) {
-              return Promise.resolve([...all]).then(resolve, reject);
-            },
-          };
-        },
-      };
-    }
-
-    insert(table: object) {
-      const self = this;
-      return {
-        values: (vals: Record<string, unknown> | Record<string, unknown>[]) => {
-          const list = Array.isArray(vals) ? vals : [vals];
-          const apply = () =>
-            list.map((v) => {
-              const row = { id: ++state.idCounter, ...v };
-              self.rows(table).push(row);
-              return row;
-            });
-          return {
-            then<T1, T2>(
-              resolve?:
-                | ((rows: Record<string, unknown>[]) => T1 | PromiseLike<T1>)
-                | null,
-              reject?: ((e: unknown) => T2 | PromiseLike<T2>) | null,
-            ) {
-              return Promise.resolve(apply()).then(resolve, reject);
-            },
-            returning: async (fields?: Record<string, { name: string }>) => {
-              const rows: Record<string, unknown>[] = apply();
-              if (!fields) return rows;
-              return rows.map((row) => {
-                const out: Record<string, unknown> = {};
-                for (const [key, col] of Object.entries(fields)) {
-                  out[key] = row[col.name];
-                }
-                return out;
-              });
-            },
-          };
-        },
-      };
-    }
-
-    update(table: object) {
-      const self = this;
-      return {
-        set: (vals: Record<string, unknown>) => ({
-          where: async (cond: HCond) => {
-            for (const row of self.rows(table)) {
-              if (matches(row, cond)) Object.assign(row, vals);
-            }
-          },
-        }),
-      };
-    }
-  }
-
-  const fakeDb = new FakeDb();
-
-  const tables = {
-    applicationsTable: makeTable("applications"),
-    appTermStatusTable: makeTable("appTermStatus"),
-    appActivityTable: makeTable("appActivity"),
-    termsTable: makeTable("terms"),
-    usageKeyMetricsTable: makeTable("usageKeyMetrics"),
-    usageByAppTable: makeTable("usageByApp"),
-    usageBySchoolTable: makeTable("usageBySchool"),
-    usageByDeviceTable: makeTable("usageByDevice"),
-    usageByBrowserTable: makeTable("usageByBrowser"),
-    usageByLoginMethodTable: makeTable("usageByLoginMethod"),
-    usageAdditionalResourcesTable: makeTable("usageAdditionalResources"),
-    usageAppListTable: makeTable("usageAppList"),
-    usageDailyStudentTable: makeTable("usageDailyStudent"),
-    usageDailyTeacherTable: makeTable("usageDailyTeacher"),
-    importLogTable: makeTable("importLog"),
-  };
-
-  return { fakeDb, tables, state };
-});
-
-vi.mock("drizzle-orm", () => ({
-  eq: (col: { name: string }, val: unknown): Cond => ({ type: "eq", col, val }),
-  and: (...conds: Cond[]): Cond => ({ type: "and", conds }),
-}));
-
-vi.mock("@workspace/db", () => ({
-  db: fakeDb,
-  ...tables,
-}));
+vi.mock("drizzle-orm", async () => (await import("../test/fakeDb")).drizzleOrmMock);
+vi.mock("@workspace/db", async () => (await import("../test/fakeDb")).dbModuleMock);
 
 import { classifyFile, normalizeDate, runImport } from "./importer";
 import type { ImportOutcome } from "./importer";
@@ -154,8 +18,7 @@ function ok(result: ImportOutcome | { error: string }): ImportOutcome {
 }
 
 beforeEach(() => {
-  fakeDb.store.clear();
-  state.idCounter = 0;
+  resetFakeDb();
 });
 
 describe("classifyFile", () => {
