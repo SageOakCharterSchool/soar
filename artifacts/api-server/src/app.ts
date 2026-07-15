@@ -1,6 +1,8 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import path from "path";
+import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { buildSessionMiddleware } from "./lib/auth";
@@ -62,5 +64,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use(buildSessionMiddleware());
 
 app.use("/api", router);
+
+// In production, serve the built web app from this same server (single
+// Railway service hosts both API and frontend). SPA fallback for client-side
+// routes; no frame-blocking headers so the app stays iframe-embeddable.
+if (process.env.NODE_ENV === "production") {
+  const candidates = [
+    path.resolve(process.cwd(), "artifacts/sage-oak-dashboard/dist/public"),
+    path.resolve(__dirname, "../../sage-oak-dashboard/dist/public"),
+  ];
+  const staticDir = candidates.find((dir) =>
+    fs.existsSync(path.join(dir, "index.html")),
+  );
+  if (staticDir) {
+    app.use(express.static(staticDir));
+    app.get(/^\/(?!api\/).*/, (_req, res) => {
+      res.sendFile(path.join(staticDir, "index.html"));
+    });
+    logger.info({ staticDir }, "Serving web app");
+  } else {
+    logger.warn(
+      { candidates },
+      "Web app build not found — API-only mode. Run the frontend build first.",
+    );
+  }
+}
 
 export default app;

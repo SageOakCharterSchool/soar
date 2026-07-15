@@ -16,6 +16,8 @@ export const applicationsTable = pgTable("applications", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
   category: text("category"),
+  // Reserved for the future Clever API integration phase.
+  cleverAppId: text("clever_app_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
