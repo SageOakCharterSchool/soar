@@ -44,11 +44,7 @@ This repo deploys as **one single service** (the API server also serves the buil
 4. Build and start commands come from `railway.json`:
    - Build: `corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build`
    - Start: `node artifacts/api-server/dist/index.mjs`
-5. Apply the schema once (Railway one-off shell, or a pre-deploy command). `--force` is needed because there is no interactive terminal:
-   ```bash
-   pnpm --filter @workspace/db run push-force
-   ```
-6. Deploy. The server binds to `PORT` and serves both the API and the web app at the root URL. On boot it creates the session table and seeds the admin user and the four school terms if missing.
+5. Deploy. The server binds to `PORT` and serves both the API and the web app at the root URL. On boot it applies the database schema automatically (bundled SQL migrations), then seeds the admin user and the four school terms if missing — no manual schema step is needed. (Optional fallback: `pnpm --filter @workspace/db run push-force` from a one-off shell if you ever need to force-sync the schema manually.)
 
 ## Embedding in another site (iframe)
 

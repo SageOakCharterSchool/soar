@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seed } from "./lib/auth";
+import { runMigrations } from "./lib/migrate";
 import { startActivityRetentionJob } from "./lib/activityRetention";
 
 const rawPort = process.env["PORT"];
@@ -17,7 +18,15 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-seed()
+runMigrations()
+  .catch((err) => {
+    logger.error({ err }, "Database migration failed");
+    if (process.env.NODE_ENV === "production") {
+      logger.error("Refusing to start in production after migration failure.");
+      process.exit(1);
+    }
+  })
+  .then(() => seed())
   .catch((err) => {
     logger.error({ err }, "Seeding failed");
     if (process.env.NODE_ENV === "production") {
