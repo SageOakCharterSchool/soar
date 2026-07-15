@@ -1,2 +1,3 @@
 - [connect-pg-simple bundling](connect-pg-simple-bundling.md) — createTableIfMissing reads a .sql file from disk and silently fails in esbuild bundles; create the session table at startup instead.
 - [TS project references stale dist](ts-project-references-stale-dist.md) — typecheck reads lib/db dist declarations, not src; rebuild refs (tsc -b) before trusting "missing export" errors.
+- [api-server fake-db tests](api-server-fake-db-tests.md) — mocks must return row copies, add new schema tables to every test file's db mock, and rebuild lib/db dist when tsc claims missing exports.

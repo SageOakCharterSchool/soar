@@ -62,20 +62,31 @@ const { fakeDb, tables, state } = vi.hoisted(() => {
       return {
         values: (vals: Record<string, unknown> | Record<string, unknown>[]) => {
           const list = Array.isArray(vals) ? vals : [vals];
-          const inserted: Record<string, unknown>[] = [];
-          for (const v of list) {
-            const row = { id: ++state.idCounter, ...v };
-            self.rows(table).push(row);
-            inserted.push(row);
-          }
+          const apply = () =>
+            list.map((v) => {
+              const row = { id: ++state.idCounter, ...v };
+              self.rows(table).push(row);
+              return row;
+            });
           return {
-            returning: async (_sel?: Record<string, { name: string }>) =>
-              inserted.map((r) => ({ ...r })),
-            then(
-              resolve: (v: undefined) => void,
-              reject?: (e: unknown) => void,
+            then<T1, T2>(
+              resolve?:
+                | ((rows: Record<string, unknown>[]) => T1 | PromiseLike<T1>)
+                | null,
+              reject?: ((e: unknown) => T2 | PromiseLike<T2>) | null,
             ) {
-              return Promise.resolve(undefined).then(resolve, reject);
+              return Promise.resolve(apply()).then(resolve, reject);
+            },
+            returning: async (fields?: Record<string, { name: string }>) => {
+              const rows: Record<string, unknown>[] = apply();
+              if (!fields) return rows;
+              return rows.map((row) => {
+                const out: Record<string, unknown> = {};
+                for (const [key, col] of Object.entries(fields)) {
+                  out[key] = row[col.name];
+                }
+                return out;
+              });
             },
           };
         },
@@ -101,6 +112,7 @@ const { fakeDb, tables, state } = vi.hoisted(() => {
   const tables = {
     applicationsTable: makeTable("applications"),
     appTermStatusTable: makeTable("appTermStatus"),
+    appActivityTable: makeTable("appActivity"),
     termsTable: makeTable("terms"),
     usageKeyMetricsTable: makeTable("usageKeyMetrics"),
     usageByAppTable: makeTable("usageByApp"),
@@ -113,8 +125,6 @@ const { fakeDb, tables, state } = vi.hoisted(() => {
     usageDailyStudentTable: makeTable("usageDailyStudent"),
     usageDailyTeacherTable: makeTable("usageDailyTeacher"),
     importLogTable: makeTable("importLog"),
-    appActivityTable: makeTable("appActivity"),
-    pageLastSeenTable: makeTable("pageLastSeen"),
   };
 
   return { fakeDb, tables, state };
