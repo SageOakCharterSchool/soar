@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seed } from "./lib/auth";
+import { startActivityRetentionJob } from "./lib/activityRetention";
 
 const rawPort = process.env["PORT"];
 
@@ -28,5 +29,6 @@ seed()
       }
 
       logger.info({ port }, "Server listening");
+      startActivityRetentionJob();
     });
   });

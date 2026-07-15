@@ -6,6 +6,7 @@ import {
   timestamp,
   date,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -84,19 +85,26 @@ export const appIssuesTable = pgTable("app_issues", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const appActivityTable = pgTable("app_activity", {
-  id: serial("id").primaryKey(),
-  applicationId: integer("application_id")
-    .notNull()
-    .references(() => applicationsTable.id, { onDelete: "cascade" }),
-  termId: integer("term_id").references(() => termsTable.id, { onDelete: "cascade" }),
-  eventType: text("event_type", {
-    enum: ["status_change", "app_added", "issue_reported", "issue_resolved"],
-  }).notNull(),
-  detail: text("detail").notNull(),
-  actorId: integer("actor_id").references(() => usersTable.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const appActivityTable = pgTable(
+  "app_activity",
+  {
+    id: serial("id").primaryKey(),
+    applicationId: integer("application_id")
+      .notNull()
+      .references(() => applicationsTable.id, { onDelete: "cascade" }),
+    termId: integer("term_id").references(() => termsTable.id, { onDelete: "cascade" }),
+    eventType: text("event_type", {
+      enum: ["status_change", "app_added", "issue_reported", "issue_resolved"],
+    }).notNull(),
+    detail: text("detail").notNull(),
+    actorId: integer("actor_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("app_activity_created_at_idx").on(t.createdAt.desc(), t.id.desc()),
+    index("app_activity_term_created_at_idx").on(t.termId, t.createdAt.desc()),
+  ],
+);
 
 export const pageLastSeenTable = pgTable(
   "page_last_seen",
