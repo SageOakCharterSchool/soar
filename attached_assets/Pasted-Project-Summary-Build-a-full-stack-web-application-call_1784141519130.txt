@@ -1,0 +1,134 @@
+Project Summary
+
+Build a full-stack web application called the Sage Oak App Dashboard for Sage Oak Charter Schools (a charter network with three campuses: Sage Oak Charter School, Sage Oak Charter School - South, Sage Oak Charter School - Keppel). The app has two purposes:
+
+
+Usage analytics overview — visualize student/teacher usage of rostered applications (from Clever export data), using interactive charts.
+Rostering status tracker — an at-a-glance, editable board showing every application's rostering/sharing-rule status for the 2026-27 school year, plus a way for staff to upvote apps and report issues on them.
+
+
+The finished app must be deployable at a Replit-hosted URL and embeddable via <iframe> in another website (a staff intranet/portal), so it needs responsive layout and must not set headers that block framing (no restrictive X-Frame-Options/frame-ancestors — allow embedding from our domain).
+
+Tech Stack
+
+
+Frontend: React (Vite), responsive layout, works well inside an iframe at various widths (target 100%-width fluid layout, no fixed pixel widths).
+Charts: amCharts 5 (@amcharts/amcharts5) for all interactive charts — do not substitute Chart.js/Recharts.
+Backend: Node.js + Express (or Replit's recommended full-stack template).
+Database: Replit's built-in PostgreSQL (via Replit Database integration). Use an ORM (Drizzle or Prisma) for schema management.
+Auth: Per-user login with hashed passwords and sessions (or Replit Auth if available in this workspace) with two roles: admin and staff. Seed one initial admin account from environment variables (ADMIN_EMAIL, ADMIN_PASSWORD) on first run.
+File ingestion: CSV parsing on the backend (e.g. papaparse or csv-parse) with an admin-only upload endpoint.
+
+
+Data Sources (uploaded once at setup, re-uploaded manually to refresh)
+
+These are Clever "last 28 days" export CSVs. Build a parser for each into its own database table, keyed by an import_batch timestamp so historical snapshots aren't overwritten:
+
+FileColumnsUseKeyMetrics.csvUnique_students, Scoped_students, Total_student_logins, Unique_teachers, Scoped_teachers, Total_teacher_loginsTop-line KPI cardsExportProperties.csvExport_date, Time_range, Application, Users, Schools, GradesMetadata banner ("Data as of...")UsageByApp.csvApplication, Unique_users, Scoped_usersTop-apps bar chart, adoption % (Unique/Scoped)UsageBySchool.csvSchool, Unique_users, Scoped_usersPer-campus breakdownUsageByDevice.csvDevice, Unique_usersDevice-mix donut chartUsageByBrowser.csvBrowser, Unique_usersBrowser-mix donut chartUsageByLoginMethod.csvLogin Method, Unique_usersLogin-method donut chartUsageByAdditionalResources.csvLink, Unique_users"Other resources accessed" tableDailyStudentUsage.csvDate, Unique_users, Scoped_usersDaily student trend lineDailyTeacherUsage.csvDate, Unique_users, Scoped_usersDaily teacher trend lineapplist_last_28_days_all_schools_all_grades.csvapp_name, student_count, student_percent, teacher_count, teacher_percent, active_time_per_user_minutesApp engagement table (adds avg. minutes/user, sortable)usercounts_last_28_days_all_schools_all_grades.csvdate, user_type, countStacked daily active-users trend (student vs teacher)
+
+Build an admin-only "Upload Data" page where these 11 CSVs can be dragged in (or updated one at a time) to refresh the analytics tables. Validate headers on upload and show a clear error if a file doesn't match the expected schema.
+
+Database Schema
+
+users
+  id, email, password_hash, display_name, role ('admin' | 'staff'), created_at
+
+applications
+  id, name, category (nullable), clever_app_id (nullable, for future API matching),
+  student_sharing_status ('not_started' | 'in_progress' | 'complete' | 'needs_review'),
+  staff_sharing_status ('not_started' | 'in_progress' | 'complete' | 'needs_review'),
+  sync_method ('SSO' | 'SAML' | 'manual' | 'other', nullable),
+  last_synced_at (nullable date),
+  school_year (text, e.g. '2026-27'),
+  owner (nullable, staff member responsible),
+  notes (text, nullable),
+  updated_at, updated_by (fk users.id)
+
+app_feedback
+  id, application_id (fk), user_id (fk), type ('upvote' | 'issue'),
+  comment (text, nullable — required for 'issue'),
+  status ('open' | 'resolved', default 'open' for issues, null for upvotes),
+  created_at
+
+usage_import_batches
+  id, imported_at, imported_by (fk users.id), source_files (json list)
+
+usage_key_metrics / usage_by_app / usage_by_school / usage_by_device /
+usage_by_browser / usage_by_login_method / usage_by_additional_resources /
+usage_daily_student / usage_daily_teacher / usage_applist / usage_user_counts
+  each: batch_id (fk usage_import_batches), + the columns from its source CSV
+
+Enforce one upvote per user per application (unique constraint on application_id, user_id, type='upvote' — toggle on/off if clicked again). Issues have no such limit (a user can report multiple issues over time).
+
+Pages & Features
+
+1. Overview Dashboard (home page)
+
+
+KPI cards: unique students, unique teachers, total student logins, total teacher logins, and adoption rate (unique/scoped) — pulled from the latest usage_key_metrics batch, with the export date shown ("Data as of [ExportProperties.Export_date]").
+amCharts XYChart: daily active users, two series (student, teacher) as smoothed lines, built from usage_daily_student + usage_daily_teacher (or the combined usage_user_counts table).
+amCharts bar chart (horizontal, sorted descending): top 15 apps by unique users, from usage_by_app, with a toggle to switch the metric between unique users and % adoption (unique/scoped).
+amCharts pie/donut charts (small multiples row): device mix, browser mix, login method — from the respective usage tables.
+Table: per-school breakdown (usage_by_school) with unique/scoped users and adoption %.
+Table: app engagement detail from applist_last_28_days...csv — sortable by student_percent, teacher_percent, and active_time_per_user_minutes.
+
+
+2. Rostering Status Board
+
+
+A grid/table of every application in applications, one row per app, showing: name, category, student sharing status, staff sharing status, sync method, last synced date, owner, and a status badge (color-coded: gray = not started, yellow = in progress, green = complete, red = needs review).
+Filters: by status (either sharing status), by category, text search by app name.
+Summary strip above the table: counts of apps in each status bucket for the 2026-27 school year (e.g. "12 complete · 5 in progress · 8 not started · 2 needs review"), so it reads at a glance.
+Admin-only inline editing: click a row to edit sharing statuses, sync method, last synced date, owner, and notes. Every edit updates updated_at/updated_by.
+Seed the applications table from the distinct app names already present in UsageByApp.csv / applist_last_28_days...csv, defaulting all statuses to not_started, so the team isn't starting from a blank list.
+Design the schema so clever_app_id and an auto_synced boolean can later be populated by a script that pulls status directly from Clever's admin console/API (not part of this build — just don't block it).
+
+
+3. Feedback: Upvotes & Issue Reporting
+
+
+On each app's row/detail view: an upvote button (shows current count, highlights if the logged-in user has upvoted) and a "Report an issue" button that opens a small form (free-text comment, required).
+A separate "Issues" page listing all open issues across apps, sortable by date, with app name, reporter, comment, and status. Admins can mark issues resolved.
+Sort the Rostering Status Board's default view by upvote count descending as an option, so high-demand apps needing rostering work surface first.
+
+
+Auth & Roles
+
+
+Login page (email + password). No public self-serve signup — admins create accounts from a simple "Manage Users" admin page (email, temp password, role).
+staff role: view all dashboards, upvote apps, report issues.
+admin role: everything staff can do, plus edit rostering status/fields, resolve issues, upload usage CSVs, manage user accounts.
+Store sessions securely (httpOnly cookies); hash passwords with bcrypt.
+
+
+Embedding Requirements
+
+
+The deployed Replit app must render cleanly inside an <iframe> on an external site: fluid/responsive CSS (no fixed widths), and Express should not send X-Frame-Options: DENY or a restrictive frame-ancestors CSP — explicitly allow the parent domain(s) we'll embed from (ask the user for the exact parent domain if unknown, or default to allowing all with a documented security tradeoff).
+Provide a short embed snippet in the README, e.g.:
+
+
+html  <iframe src="https://<your-repl-url>" style="width:100%; min-height:900px; border:0;" title="Sage Oak App Dashboard"></iframe>
+
+
+Confirm the hosted URL supports HTTPS (required for iframe embedding on most sites).
+
+
+Build Order (for the Replit agent to follow)
+
+
+Scaffold the React + Express + Postgres project; set up the ORM and run initial migrations for the schema above.
+Build CSV parsers and the admin "Upload Data" page; manually test with the 11 sample files' column headers listed above.
+Build the Overview Dashboard with amCharts5, wired to the parsed usage tables.
+Build auth (login, sessions, roles, seed admin account, "Manage Users" admin page).
+Build the Rostering Status Board (table, filters, summary counts, admin inline edit, seeded from app names in the usage data).
+Build Upvote/Issue features and the Issues admin page.
+Add responsive/iframe-friendly styling and correct framing headers.
+Write a short README with the embed snippet and instructions for re-uploading usage CSVs each reporting period.
+
+
+Explicitly Out of Scope for This Build
+
+
+Live Clever API integration or automated scraping of rostering status — planned as a future phase; just don't design anything that would block adding it later (keep clever_app_id/auto_synced fields in the schema).
+Public/anonymous access — every user must log in.

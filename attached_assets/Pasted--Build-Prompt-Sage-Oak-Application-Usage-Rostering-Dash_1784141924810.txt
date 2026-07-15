@@ -1,0 +1,188 @@
+# Build Prompt: Sage Oak Application Usage & Rostering Dashboard
+
+Copy everything below into your AI coding agent (e.g. Replit Agent) to start the build. The app will be deployed and hosted on **Railway**, not the coding tool's own hosting.
+
+---
+
+## Project Summary
+
+Build a full-stack web application called the **Sage Oak App Dashboard** for Sage Oak Charter Schools (a charter network with three campuses: Sage Oak Charter School, Sage Oak Charter School - South, Sage Oak Charter School - Keppel). The app has two purposes:
+
+1. **Usage analytics overview** — visualize student/teacher usage of rostered applications (from Clever export data) over time, using interactive charts.
+2. **Rostering status tracker** — an at-a-glance, editable board showing every application's rostering/sharing-rule status, scoped to a specific school-year "term" (current year, an upcoming Summer School window, and the next regular school year), plus a way for staff to upvote apps and report issues on them.
+
+The finished app must run on Railway and be embeddable via `<iframe>` in another website (a staff intranet/portal), so it needs responsive layout and must not set headers that block framing.
+
+## Tech Stack
+
+- **Frontend**: React (Vite), responsive layout, works well inside an iframe at various widths (fluid/100%-width, no fixed pixel widths).
+- **Charts**: amCharts 5 (`@amcharts/amcharts5`) for all interactive charts — do not substitute Chart.js/Recharts.
+- **Backend**: Node.js + Express.
+- **Database**: PostgreSQL, provisioned as a Railway plugin/service in the same project (Railway auto-injects a `DATABASE_URL` env var into the app service — use it directly, don't hardcode credentials). Use an ORM (Drizzle or Prisma) for schema management and migrations.
+- **Auth**: Per-user login with hashed passwords (bcrypt) and sessions, two roles: `admin` and `staff`. Seed one initial admin account from environment variables (`ADMIN_EMAIL`, `ADMIN_PASSWORD`) on first run.
+- **File ingestion**: CSV parsing on the backend (`papaparse` or `csv-parse`) with an admin-only upload endpoint.
+- **Server**: must listen on `process.env.PORT` (Railway assigns this dynamically) — do not hardcode a port.
+
+## Deployment Target: Railway
+
+- The repo should run cleanly with `npm install && npm run build && npm start` (or Railway's Nixpacks auto-detection) with no Replit-specific config.
+- Add a Postgres service in the same Railway project; reference it in code purely via `process.env.DATABASE_URL`.
+- Set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `SESSION_SECRET`, and any other secrets as Railway environment variables — never commit them.
+- After first deploy, generate a public domain via Railway's Networking settings (or attach a custom domain); Railway provisions HTTPS automatically either way.
+- Document these steps in the README: create Railway project → attach Postgres → set env vars → connect the GitHub repo for auto-deploy on push → generate/attach domain.
+
+## Embedding Requirements
+
+- The deployed app must render cleanly inside an `<iframe>` on an external site: fluid/responsive CSS (no fixed widths), and Express must not send `X-Frame-Options: DENY` or a restrictive `frame-ancestors` CSP — explicitly allow the parent domain(s) it will be embedded from.
+- Provide an embed snippet in the README:
+  ```html
+  <iframe src="https://<your-railway-domain>" style="width:100%; min-height:900px; border:0;" title="Sage Oak App Dashboard"></iframe>
+  ```
+
+## Data Sources (uploaded routinely — see "Data Refresh & History" below for how updates are handled)
+
+These are Clever "last 28 days" export CSVs, uploaded together as one batch each time (an upload always includes `ExportProperties.csv`, whose `Export_date` field is used as the snapshot key for that batch):
+
+| File | Columns | Use |
+|---|---|---|
+| `KeyMetrics.csv` | Unique_students, Scoped_students, Total_student_logins, Unique_teachers, Scoped_teachers, Total_teacher_logins | Top-line KPI cards |
+| `ExportProperties.csv` | Export_date, Time_range, Application, Users, Schools, Grades | Batch metadata — supplies the snapshot date for this upload |
+| `UsageByApp.csv` | Application, Unique_users, Scoped_users | Top-apps bar chart, adoption % (Unique/Scoped) |
+| `UsageBySchool.csv` | School, Unique_users, Scoped_users | Per-campus breakdown |
+| `UsageByDevice.csv` | Device, Unique_users | Device-mix donut chart |
+| `UsageByBrowser.csv` | Browser, Unique_users | Browser-mix donut chart |
+| `UsageByLoginMethod.csv` | Login Method, Unique_users | Login-method donut chart |
+| `UsageByAdditionalResources.csv` | Link, Unique_users | "Other resources accessed" table |
+| `DailyStudentUsage.csv` | Date, Unique_users, Scoped_users | Daily student trend line (dated rows) |
+| `DailyTeacherUsage.csv` | Date, Unique_users, Scoped_users | Daily teacher trend line (dated rows) |
+| `applist_last_28_days_all_schools_all_grades.csv` | app_name, student_count, student_percent, teacher_count, teacher_percent, active_time_per_user_minutes | App engagement table, sortable |
+| `usercounts_last_28_days_all_schools_all_grades.csv` | date, user_type, count | Stacked daily active-users trend (student vs teacher, dated rows) |
+
+## Data Refresh & History (important — do not treat uploads as full replacements)
+
+Files will be uploaded routinely (e.g. weekly) throughout the year, and each upload only covers a rolling 28-day window. The app must **accumulate history, never blindly overwrite it**:
+
+- **Dated-row tables** (`DailyStudentUsage`, `DailyTeacherUsage`, `usercounts_last_28_days...`): each row has its own `date`. On upload, upsert by date (and `user_type` where applicable): insert rows for new dates; for a date that already exists, overwrite only if the incoming values differ from what's stored (log that it was corrected); if identical, no-op. Never delete existing dates just because they've fallen outside the new file's 28-day window — that's how the full school-year picture is preserved.
+- **Snapshot/aggregate tables** (`KeyMetrics`, `UsageByApp`, `UsageBySchool`, `UsageByDevice`, `UsageByBrowser`, `UsageByLoginMethod`, `UsageByAdditionalResources`, `applist_last_28_days...`): these represent one rolling-28-day snapshot as of that batch's `Export_date`. Key each row by `(snapshot_date, entity)` — e.g. `(snapshot_date, application)` for `UsageByApp`, `(snapshot_date)` alone for `KeyMetrics`. Upsert on that key (update if the snapshot for that exact date is re-uploaded with different numbers, insert if it's a new date). This lets the app chart a given metric's trend across every snapshot date collected over the year, while never discarding prior snapshots.
+- Reject an upload if `ExportProperties.csv` is missing (there's no snapshot date to key it to) and show a clear validation error.
+- Keep an `import_log` table (id, uploaded_at, uploaded_by, snapshot_date, files_included, rows_inserted, rows_updated) so admins can audit what changed on each upload.
+
+## Planning Terms / School-Year Windows
+
+Both the rostering status board and (optionally, as a filter) the usage dashboard need to operate within a **term** — a school-year window. Add a `terms` table:
+
+```
+terms
+  id, label (e.g. "2026-27 Regular School Year"), school_year (e.g. "2026-27"),
+  term_type ('regular' | 'summer'), start_date, end_date,
+  sort_order (integer, chronological), is_current (boolean)
+```
+
+Seed at least these four terms:
+
+| Label | Type | Role |
+|---|---|---|
+| 2025-26 Regular School Year | regular | Previous — available for review |
+| 2026-27 Regular School Year | regular | **Current (default view)** |
+| 2026-27 Summer School | summer | Upcoming planning window |
+| 2027-28 Regular School Year | regular | Next — planning ahead |
+
+- Exactly one term is flagged `is_current` at a time (enforce in application logic); admins can change which term is current as the year progresses, and can add further future terms (e.g. next year's Summer School) — don't hardcode the list to just these four.
+- The dashboard opens on the current term by default. Show a tab/segmented control listing all terms in chronological (`sort_order`) order, labeling each relative to current (e.g. "Previous," "Current," "Next") so users can step backward to review or forward to plan, without needing every term visible at once.
+
+## Database Schema
+
+```
+users
+  id, email, password_hash, display_name, role ('admin' | 'staff'), created_at
+
+terms
+  (see above)
+
+applications
+  id, name, category (nullable), clever_app_id (nullable, for future API matching), created_at
+
+app_term_status   -- rostering status is per application PER TERM
+  id, application_id (fk), term_id (fk),
+  student_sharing_status ('not_started' | 'in_progress' | 'complete' | 'needs_review'),
+  staff_sharing_status ('not_started' | 'in_progress' | 'complete' | 'needs_review'),
+  sync_method ('SSO' | 'SAML' | 'manual' | 'other', nullable),
+  last_synced_at (nullable date), owner (nullable, staff member responsible),
+  notes (text, nullable), updated_at, updated_by (fk users.id),
+  unique (application_id, term_id)
+
+app_feedback
+  id, application_id (fk), user_id (fk), type ('upvote' | 'issue'),
+  comment (text, nullable — required for 'issue'),
+  status ('open' | 'resolved', default 'open' for issues, null for upvotes),
+  created_at
+  -- enforce one upvote per user per application (unique on application_id, user_id where type='upvote'); toggle off if clicked again. No such limit on issues.
+
+import_log
+  id, uploaded_at, uploaded_by (fk users.id), snapshot_date, files_included (json), rows_inserted, rows_updated
+
+usage_key_metrics        -- one row per snapshot_date
+usage_by_app             -- keyed (snapshot_date, application)
+usage_by_school          -- keyed (snapshot_date, school)
+usage_by_device          -- keyed (snapshot_date, device)
+usage_by_browser         -- keyed (snapshot_date, browser)
+usage_by_login_method    -- keyed (snapshot_date, login_method)
+usage_by_additional_resources -- keyed (snapshot_date, link)
+usage_applist            -- keyed (snapshot_date, app_name)
+usage_daily_student       -- keyed (date)
+usage_daily_teacher       -- keyed (date)
+usage_user_counts         -- keyed (date, user_type)
+  each: the columns from its source CSV plus its key column(s) above
+```
+
+## Pages & Features
+
+### 1. Overview Dashboard (home page)
+- KPI cards: unique students, unique teachers, total student logins, total teacher logins, and adoption rate (unique/scoped) — pulled from the most recent `usage_key_metrics` snapshot, with "Data as of [snapshot_date]" shown.
+- amCharts XYChart: daily active users, student and teacher as two line series, built from `usage_daily_student` + `usage_daily_teacher` (or `usage_user_counts`), spanning the full history accumulated across all uploads — not just the latest 28 days.
+- amCharts bar chart (horizontal, sorted descending): top 15 apps by unique users for the latest snapshot, from `usage_by_app`, with a toggle for unique users vs. % adoption.
+- amCharts pie/donut charts (small multiples row): device mix, browser mix, login method — latest snapshot.
+- Table: per-school breakdown (`usage_by_school`), latest snapshot.
+- Table: app engagement detail from `usage_applist`, sortable by student_percent, teacher_percent, active_time_per_user_minutes.
+- Optional date-range / term filter so the trend charts can be scoped to a specific term's `start_date`–`end_date` for year-over-year comparison.
+
+### 2. Rostering Status Board
+- Term selector (see "Planning Terms" above) defaulting to the current term.
+- A grid/table of every application, one row per app, scoped to the selected term, showing: name, category, student sharing status, staff sharing status, sync method, last synced date, owner, and a color-coded status badge (gray = not started, yellow = in progress, green = complete, red = needs review).
+- Filters: by status (either sharing status), by category, text search by app name.
+- Summary strip above the table: counts of apps in each status bucket for the selected term (e.g. "12 complete · 5 in progress · 8 not started · 2 needs review").
+- Admin-only inline editing of the selected term's status row for each app; every edit updates `updated_at`/`updated_by` on that `app_term_status` row.
+- Seed `applications` from the distinct app names in `usage_by_app`/`usage_applist`, and create a `not_started` `app_term_status` row for each app in the current term (2026-27 Regular) as a starting point. When a new term is added (e.g. Summer School), an admin action ("copy from term X") can pre-populate its statuses from an existing term as a starting point, then be edited independently.
+- Keep `clever_app_id`/future automation in mind in the schema — a later phase may auto-populate status from Clever directly; this build only needs manual entry.
+
+### 3. Feedback: Upvotes & Issue Reporting
+- On each app's row/detail view: an upvote button (shows current count, highlights if the logged-in user has upvoted) and a "Report an issue" button opening a small form (free-text comment, required).
+- A separate "Issues" page listing all open issues across apps, sortable by date, with app name, reporter, comment, status. Admins can mark issues resolved.
+- Sort option on the Rostering Status Board: upvote count descending, so high-demand apps needing rostering work surface first.
+
+## Auth & Roles
+
+- Login page (email + password). No public self-serve signup — admins create accounts from a "Manage Users" admin page (email, temp password, role).
+- `staff`: view all dashboards, upvote apps, report issues, switch between terms (view-only on non-current terms unless also admin).
+- `admin`: everything staff can do, plus edit rostering status/fields for any term, resolve issues, upload usage CSVs, manage user accounts, manage terms (add new terms, change which is current).
+- Store sessions securely (httpOnly cookies); hash passwords with bcrypt.
+
+## Build Order (for the coding agent to follow)
+
+1. Scaffold the React + Express + Postgres project (using Railway's injected `DATABASE_URL`); set up the ORM and run initial migrations for the full schema above, including `terms` seeded with the four rows listed.
+2. Build CSV parsers and the admin "Upload Data" page implementing the upsert-by-date / upsert-by-snapshot-date logic described in "Data Refresh & History"; log every upload to `import_log`.
+3. Build the Overview Dashboard with amCharts5, wired to the accumulated usage tables (full history, not just latest snapshot).
+4. Build auth (login, sessions, roles, seed admin account, "Manage Users" admin page).
+5. Build the Rostering Status Board: term selector, table, filters, summary counts, admin inline edit, seeded app list, "copy from term" helper.
+6. Build Upvote/Issue features and the Issues admin page.
+7. Add responsive/iframe-friendly styling and correct framing headers.
+8. Configure for Railway: `process.env.PORT`, `DATABASE_URL` from the Postgres service, other secrets as env vars, and confirm `npm start` boots cleanly.
+9. Write a README covering: Railway setup steps (create project, attach Postgres, set env vars, connect repo, generate domain), the iframe embed snippet, and instructions for routine CSV uploads (which files are required together, and that history accumulates rather than being replaced).
+
+## Explicitly Out of Scope for This Build
+
+- Live Clever API integration or automated scraping of rostering status — a future phase; the schema (`clever_app_id`) just shouldn't block adding it later.
+- Public/anonymous access — every user must log in.
+
+---
+Sources consulted for Railway deployment mechanics: [Deploy an Express App – Railway Guides](https://docs.railway.com/guides/express), [Deploy Node.js & Express API with Autoscaling, Secrets, and Zero Downtime – Railway Guides](https://docs.railway.com/guides/deploy-node-express-api-with-auto-scaling-secrets-and-zero-downtime)
