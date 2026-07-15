@@ -98,6 +98,94 @@ async function applySchemaWithoutJournal(dbUrl: string) {
   }
 }
 
+/** Seed representative rows into key tables so scenario B verifies that
+ * migrations survive on a POPULATED database (e.g. a NOT NULL column added
+ * without a default would fail here, and data loss is detected after boot). */
+const seedCounts = {
+  users: 2,
+  terms: 2,
+  applications: 2,
+  app_term_status: 2,
+} as const;
+
+async function seedSampleRows(dbUrl: string) {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query(`
+      INSERT INTO users (email, password_hash, display_name, role) VALUES
+        ('seed-admin@example.invalid', 'x-not-a-real-hash', 'Seed Admin', 'admin'),
+        ('seed-staff@example.invalid', 'x-not-a-real-hash', 'Seed Staff', 'staff');
+
+      INSERT INTO terms (label, school_year, term_type, start_date, end_date, sort_order, is_current) VALUES
+        ('Fall 2025', '2025-2026', 'regular', '2025-08-15', '2025-12-19', 1, false),
+        ('Spring 2026', '2025-2026', 'regular', '2026-01-05', '2026-05-29', 2, true);
+
+      INSERT INTO applications (name, category) VALUES
+        ('Seed App One', 'Math'),
+        ('Seed App Two', NULL);
+
+      INSERT INTO app_term_status
+        (application_id, term_id, student_sharing_status, staff_sharing_status, sync_method, last_synced_at, owner, notes, updated_by)
+      VALUES
+        ((SELECT id FROM applications WHERE name = 'Seed App One'),
+         (SELECT id FROM terms WHERE label = 'Fall 2025'),
+         'complete', 'in_progress', 'manual', '2025-09-01', 'Seed Admin', 'seeded row', 
+         (SELECT id FROM users WHERE email = 'seed-admin@example.invalid')),
+        ((SELECT id FROM applications WHERE name = 'Seed App Two'),
+         (SELECT id FROM terms WHERE label = 'Spring 2026'),
+         'not_started', 'not_started', NULL, NULL, NULL, NULL, NULL);
+    `);
+  } finally {
+    await client.end();
+  }
+}
+
+/** After the server booted (and re-ran all migrations), verify no seeded
+ * rows disappeared or were mangled. */
+async function verifySeededRowsSurvived(dbUrl: string) {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    for (const [table, expected] of Object.entries(seedCounts)) {
+      const filter =
+        table === "users"
+          ? `WHERE email LIKE 'seed-%@example.invalid'`
+          : table === "applications"
+            ? `WHERE name LIKE 'Seed App %'`
+            : table === "terms"
+              ? `WHERE label IN ('Fall 2025', 'Spring 2026')`
+              : "";
+      const res = await client.query(`SELECT COUNT(*)::int AS n FROM ${table} ${filter}`);
+      const n: number = res.rows[0].n;
+      if (n < expected) {
+        throw new Error(
+          `[pushed-db] Data loss detected: table "${table}" has ${n} seeded rows after migration, expected ${expected}.`,
+        );
+      }
+    }
+    const status = await client.query(
+      `SELECT student_sharing_status, staff_sharing_status, notes
+         FROM app_term_status ats
+         JOIN applications a ON a.id = ats.application_id
+        WHERE a.name = 'Seed App One'`,
+    );
+    const row = status.rows[0];
+    if (
+      !row ||
+      row.student_sharing_status !== "complete" ||
+      row.staff_sharing_status !== "in_progress" ||
+      row.notes !== "seeded row"
+    ) {
+      throw new Error(
+        `[pushed-db] Data corruption detected: app_term_status seeded values changed after migration: ${JSON.stringify(row)}`,
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 /** Boot the built server against dbUrl; resolve when it logs "Server
  * listening", reject on exit or timeout. */
 function bootServer(dbUrl: string, label: string): Promise<void> {
@@ -176,11 +264,15 @@ async function main() {
     await bootServer(tempDbUrl(emptyDb), "empty-db");
     console.log("PASS: server booted and migrated an empty database.");
 
-    console.log(`\nScenario B: existing schema with empty journal (${pushedDb})`);
+    console.log(`\nScenario B: existing schema with seeded data and empty journal (${pushedDb})`);
     await createDb(pushedDb);
     await applySchemaWithoutJournal(tempDbUrl(pushedDb));
+    await seedSampleRows(tempDbUrl(pushedDb));
     await bootServer(tempDbUrl(pushedDb), "pushed-db");
-    console.log("PASS: migrations re-ran idempotently against an existing schema.");
+    await verifySeededRowsSurvived(tempDbUrl(pushedDb));
+    console.log(
+      "PASS: migrations re-ran idempotently against a populated schema and seeded rows survived intact.",
+    );
 
     console.log("\nAll migration safety checks passed.");
   } finally {
