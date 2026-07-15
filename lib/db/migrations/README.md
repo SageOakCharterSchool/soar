@@ -25,6 +25,18 @@ migration SQL must therefore be idempotent.
    - Keep the `--> statement-breakpoint` markers intact.
    - Never write destructive statements (DROP TABLE/COLUMN, data-losing type
      changes) without an explicit, reviewed plan for existing data.
+     A lint pass (`pnpm --filter @workspace/scripts lint-migrations`, also run
+     automatically as the first phase of `verify-migrations`) fails the build
+     if a migration contains `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`,
+     `ALTER COLUMN ... TYPE`, `DELETE FROM` without `WHERE`, or
+     `DROP SCHEMA/DATABASE`. If such a change is intentional and existing
+     data has been accounted for, add a marker comment inside the flagged
+     statement block (between `--> statement-breakpoint` markers):
+
+     ```sql
+     -- destructive: <reason it is safe / plan for existing data>
+     ALTER TABLE "example" DROP COLUMN "legacy_field";
+     ```
 4. Verify against both an empty database and one that already has the schema:
 
    ```sh

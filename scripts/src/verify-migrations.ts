@@ -23,6 +23,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { runLint } from "./lint-migrations.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
@@ -150,6 +151,11 @@ function bootServer(dbUrl: string, label: string): Promise<void> {
 }
 
 async function main() {
+  console.log("Linting migrations for destructive statements...");
+  if (!runLint(migrationsDir)) {
+    throw new Error("Destructive-migration lint failed (see findings above).");
+  }
+
   console.log("Building api-server bundle...");
   const build = spawnSync("pnpm", ["--filter", "@workspace/api-server", "build"], {
     cwd: repoRoot,
