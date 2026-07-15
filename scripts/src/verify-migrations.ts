@@ -379,9 +379,112 @@ async function verifyBulkRowsSurvived(dbUrl: string) {
         );
       }
     }
+    await verifyBulkRowValues(client);
   } finally {
     await client.end();
   }
+}
+
+/** Spot-check actual VALUES in a sample of the bulk-seeded rows. Row counts
+ * alone would not catch a migration that nulls out or zeroes a column (e.g.
+ * `UPDATE usage_by_app SET unique_users = 0` or a column rewrite that
+ * re-defaults values), so we recompute the deterministic seeded value for a
+ * handful of generate_series indices and compare each column exactly. */
+async function verifyBulkRowValues(client: pg.Client) {
+  // Sample indices across the seeded range (same gs values used at seed time).
+  const samples = Array.from(
+    new Set([1, 7, Math.floor(BULK_ACTIVITY_ROWS / 2), BULK_ACTIVITY_ROWS - 1, BULK_ACTIVITY_ROWS]),
+  ).filter((gs) => gs >= 1 && gs <= BULK_ACTIVITY_ROWS);
+
+  const fail = (table: string, gs: number, column: string, expected: unknown, actual: unknown): never => {
+    throw new Error(
+      `[pushed-db] Data corruption detected: ${table} bulk-seeded row (gs=${gs}) has ` +
+        `${column}=${JSON.stringify(actual)} after migration, expected ${JSON.stringify(expected)}. ` +
+        `A migration likely rewrote or defaulted this column even though row counts survived.`,
+    );
+  };
+
+  for (const gs of samples) {
+    // usage_by_app: unique_users = gs % 500, scoped_users = gs % 400
+    {
+      const res = await client.query(
+        `SELECT unique_users, scoped_users FROM usage_by_app WHERE application = $1`,
+        [`bulk-seed-app-${gs}`],
+      );
+      const row = res.rows[0];
+      if (!row) fail("usage_by_app", gs, "row", "present", "missing");
+      if (row.unique_users !== gs % 500) fail("usage_by_app", gs, "unique_users", gs % 500, row.unique_users);
+      if (row.scoped_users !== gs % 400) fail("usage_by_app", gs, "scoped_users", gs % 400, row.scoped_users);
+    }
+
+    // usage_applist: counts/percents/minutes derived from gs
+    {
+      const res = await client.query(
+        `SELECT student_count, student_percent, teacher_count, teacher_percent, active_time_per_user_minutes
+           FROM usage_applist WHERE app_name = $1`,
+        [`bulk-seed-applist-${gs}`],
+      );
+      const row = res.rows[0];
+      if (!row) fail("usage_applist", gs, "row", "present", "missing");
+      if (row.student_count !== gs % 1000) fail("usage_applist", gs, "student_count", gs % 1000, row.student_count);
+      if (Number(row.student_percent) !== gs % 100) fail("usage_applist", gs, "student_percent", gs % 100, row.student_percent);
+      if (row.teacher_count !== gs % 100) fail("usage_applist", gs, "teacher_count", gs % 100, row.teacher_count);
+      if (Number(row.teacher_percent) !== gs % 100) fail("usage_applist", gs, "teacher_percent", gs % 100, row.teacher_percent);
+      if (Number(row.active_time_per_user_minutes) !== gs % 60) {
+        fail("usage_applist", gs, "active_time_per_user_minutes", gs % 60, row.active_time_per_user_minutes);
+      }
+    }
+
+    // usage_daily_student / usage_daily_teacher: active_users derived from gs
+    {
+      const res = await client.query(
+        `SELECT active_users FROM usage_daily_student WHERE date = ('2000-01-01'::date + $1::int)`,
+        [gs],
+      );
+      const row = res.rows[0];
+      if (!row) fail("usage_daily_student", gs, "row", "present", "missing");
+      if (row.active_users !== gs % 2000) fail("usage_daily_student", gs, "active_users", gs % 2000, row.active_users);
+    }
+    {
+      const res = await client.query(
+        `SELECT active_users FROM usage_daily_teacher WHERE date = ('2000-01-01'::date + $1::int)`,
+        [gs],
+      );
+      const row = res.rows[0];
+      if (!row) fail("usage_daily_teacher", gs, "row", "present", "missing");
+      if (row.active_users !== gs % 300) fail("usage_daily_teacher", gs, "active_users", gs % 300, row.active_users);
+    }
+
+    // session: the sess JSON payload must survive byte-for-byte semantically.
+    {
+      const res = await client.query(
+        `SELECT sess FROM session WHERE sid = $1`,
+        [`bulk-seed-sid-${gs}`],
+      );
+      const row = res.rows[0];
+      if (!row) fail("session", gs, "row", "present", "missing");
+      const sess = row.sess;
+      if (!sess || typeof sess !== "object") fail("session", gs, "sess", "json object", sess);
+      if (sess.seed !== gs) fail("session", gs, "sess.seed", gs, sess?.seed);
+      if (sess.cookie?.maxAge !== 86400000) fail("session", gs, "sess.cookie.maxAge", 86400000, sess?.cookie?.maxAge);
+    }
+
+    // app_activity: detail text and event_type derived from gs
+    {
+      const res = await client.query(
+        `SELECT event_type FROM app_activity WHERE detail = $1`,
+        [`bulk seeded activity row #${gs}`],
+      );
+      const row = res.rows[0];
+      if (!row) fail("app_activity", gs, "row", "present", "missing");
+      const expectedType = gs % 3 === 0 ? "status_change" : gs % 3 === 1 ? "note_added" : "issue_opened";
+      if (row.event_type !== expectedType) fail("app_activity", gs, "event_type", expectedType, row.event_type);
+    }
+  }
+  console.log(
+    `  value spot check passed: ${samples.length} sampled rows per table match seeded values ` +
+      `(usage_by_app, usage_applist, usage_daily_student, usage_daily_teacher, session, app_activity).`,
+  );
 }
 
 /** Boot the built server against dbUrl; resolve when it logs "Server
