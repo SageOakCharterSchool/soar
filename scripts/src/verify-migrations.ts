@@ -108,6 +108,32 @@ const seedCounts = {
   app_term_status: 2,
 } as const;
 
+/** Parse a numeric env override, failing fast on invalid or non-positive
+ * values so a typo cannot silently disable the timing enforcement. */
+function envNumber(name: string, fallback: number, max: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > max) {
+    throw new Error(
+      `Invalid ${name}="${raw}": must be a positive number <= ${max}.`,
+    );
+  }
+  return n;
+}
+
+/** Number of bulk rows seeded into app_activity so migration timing runs
+ * against realistic data volume, not a near-empty table. */
+const BULK_ACTIVITY_ROWS = envNumber("VERIFY_MIG_BULK_ROWS", 5000, 1_000_000);
+
+/** Per-statement time budgets when re-running migrations on the populated
+ * database. A statement that rewrites/locks the whole table will blow past
+ * these on real data volumes. Note: timing happens on an extra re-run before
+ * the server boot re-runs migrations again — intentionally stricter than
+ * production, since every migration must already be idempotent. */
+const STATEMENT_WARN_MS = envNumber("VERIFY_MIG_WARN_MS", 1000, 600_000);
+const STATEMENT_FAIL_MS = envNumber("VERIFY_MIG_FAIL_MS", 5000, 600_000);
+
 async function seedSampleRows(dbUrl: string) {
   const client = new pg.Client({ connectionString: dbUrl });
   await client.connect();
@@ -138,6 +164,81 @@ async function seedSampleRows(dbUrl: string) {
     `);
   } finally {
     await client.end();
+  }
+}
+
+/** Seed a large volume of app_activity rows (referencing seeded
+ * applications/terms/users) so migration timing reflects real data volume. */
+async function seedBulkActivityRows(dbUrl: string) {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    await client.query(
+      `
+      INSERT INTO app_activity (application_id, term_id, event_type, detail, actor_id, created_at)
+      SELECT
+        (SELECT id FROM applications WHERE name = 'Seed App One'),
+        (SELECT id FROM terms WHERE label = 'Fall 2025'),
+        CASE WHEN gs % 3 = 0 THEN 'status_change' WHEN gs % 3 = 1 THEN 'note_added' ELSE 'issue_opened' END,
+        'bulk seeded activity row #' || gs,
+        (SELECT id FROM users WHERE email = 'seed-admin@example.invalid'),
+        now() - (gs || ' minutes')::interval
+      FROM generate_series(1, $1) AS gs
+      `,
+      [BULK_ACTIVITY_ROWS],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+/** Re-run every migration statement against the populated database, timing
+ * each one. This mirrors what the startup migrator does on a pushed-schema
+ * database, but lets us flag statements that take a long lock or rewrite
+ * whole tables — those pass instantly on tiny data but stall the live app. */
+async function timeMigrationsOnPopulatedDb(dbUrl: string): Promise<void> {
+  const journalPath = path.join(migrationsDir, "meta/_journal.json");
+  const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
+    entries: { tag: string }[];
+  };
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  const slow: string[] = [];
+  const tooSlow: string[] = [];
+  try {
+    for (const entry of journal.entries) {
+      const sqlText = readFileSync(path.join(migrationsDir, `${entry.tag}.sql`), "utf8");
+      const statements = sqlText
+        .split("--> statement-breakpoint")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      let fileTotal = 0;
+      for (let i = 0; i < statements.length; i++) {
+        const start = performance.now();
+        await client.query(statements[i]);
+        const ms = performance.now() - start;
+        fileTotal += ms;
+        if (ms >= STATEMENT_WARN_MS) {
+          const preview = statements[i].replace(/\s+/g, " ").slice(0, 120);
+          const desc = `${entry.tag}.sql statement ${i + 1} took ${Math.round(ms)}ms: ${preview}...`;
+          if (ms >= STATEMENT_FAIL_MS) tooSlow.push(desc);
+          else slow.push(desc);
+        }
+      }
+      console.log(`  timed ${entry.tag}.sql: ${statements.length} statements in ${Math.round(fileTotal)}ms`);
+    }
+  } finally {
+    await client.end();
+  }
+  for (const s of slow) {
+    console.warn(`WARN: slow migration statement (>${STATEMENT_WARN_MS}ms) on populated data: ${s}`);
+  }
+  if (tooSlow.length > 0) {
+    throw new Error(
+      `[pushed-db] Migration statements exceeded the ${STATEMENT_FAIL_MS}ms time budget on a database with ` +
+        `${BULK_ACTIVITY_ROWS} app_activity rows — they would likely lock or rewrite whole tables in production:\n` +
+        tooSlow.map((s) => `  - ${s}`).join("\n"),
+    );
   }
 }
 
@@ -179,6 +280,25 @@ async function verifySeededRowsSurvived(dbUrl: string) {
     ) {
       throw new Error(
         `[pushed-db] Data corruption detected: app_term_status seeded values changed after migration: ${JSON.stringify(row)}`,
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+/** Verify the bulk-seeded app_activity rows survived the migration re-runs. */
+async function verifyBulkRowsSurvived(dbUrl: string) {
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    const res = await client.query(
+      `SELECT COUNT(*)::int AS n FROM app_activity WHERE detail LIKE 'bulk seeded activity row #%'`,
+    );
+    const n: number = res.rows[0].n;
+    if (n < BULK_ACTIVITY_ROWS) {
+      throw new Error(
+        `[pushed-db] Data loss detected: app_activity has ${n} bulk-seeded rows after migration, expected ${BULK_ACTIVITY_ROWS}.`,
       );
     }
   } finally {
@@ -268,8 +388,14 @@ async function main() {
     await createDb(pushedDb);
     await applySchemaWithoutJournal(tempDbUrl(pushedDb));
     await seedSampleRows(tempDbUrl(pushedDb));
+    await seedBulkActivityRows(tempDbUrl(pushedDb));
+    console.log(
+      `Timing migration statements against populated data (${BULK_ACTIVITY_ROWS} app_activity rows; warn >${STATEMENT_WARN_MS}ms, fail >${STATEMENT_FAIL_MS}ms)...`,
+    );
+    await timeMigrationsOnPopulatedDb(tempDbUrl(pushedDb));
     await bootServer(tempDbUrl(pushedDb), "pushed-db");
     await verifySeededRowsSurvived(tempDbUrl(pushedDb));
+    await verifyBulkRowsSurvived(tempDbUrl(pushedDb));
     console.log(
       "PASS: migrations re-ran idempotently against a populated schema and seeded rows survived intact.",
     );
