@@ -1,0 +1,1 @@
+- [connect-pg-simple bundling](connect-pg-simple-bundling.md) — createTableIfMissing reads a .sql file from disk and silently fails in esbuild bundles; create the session table at startup instead.

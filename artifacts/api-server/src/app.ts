@@ -3,8 +3,12 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { buildSessionMiddleware } from "./lib/auth";
 
 const app: Express = express();
+
+// Behind a proxy (Railway / Replit) — required for secure cookies.
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -25,9 +29,37 @@ app.use(
     },
   }),
 );
-app.use(cors());
-app.use(express.json());
+// The web app is served from the same origin as the API, so no CORS is
+// needed in production. In development, the Vite dev server may sit on a
+// different origin, so allow credentialed CORS there only.
+if (process.env.NODE_ENV !== "production") {
+  app.use(cors({ credentials: true, origin: true }));
+}
+
+// CSRF guard: session cookies use SameSite=None in production (required for
+// iframe embedding), so reject state-changing requests whose Origin header
+// does not match the request host.
+app.use((req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const origin = req.headers.origin;
+  if (!origin) return next();
+  try {
+    const originHost = new URL(origin).host;
+    const requestHost = req.headers.host;
+    if (process.env.NODE_ENV === "production" && originHost !== requestHost) {
+      res.status(403).json({ message: "Cross-origin request rejected" });
+      return;
+    }
+  } catch {
+    res.status(403).json({ message: "Invalid Origin header" });
+    return;
+  }
+  next();
+});
+// CSV uploads arrive as JSON with file text content — allow larger bodies.
+app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use(buildSessionMiddleware());
 
 app.use("/api", router);
 

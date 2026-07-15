@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Sage Oak App Dashboard"
+version = "1.0.0"
+id = "artifacts/sage-oak-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21803
+
+[services.development]
+run = "pnpm --filter @workspace/sage-oak-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sage-oak-dashboard", "run", "build" ]
+publicDir = "artifacts/sage-oak-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21803"
+BASE_PATH = "/"

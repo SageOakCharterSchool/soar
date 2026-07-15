@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Sage Oak App Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: users
+  - name: terms
+  - name: rostering
+  - name: feedback
+  - name: usage
+  - name: uploads
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +29,821 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the logged-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (admin)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user account (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /terms:
+    get:
+      operationId: listTerms
+      tags: [terms]
+      summary: List all terms in chronological order
+      responses:
+        "200":
+          description: Terms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Term"
+    post:
+      operationId: createTerm
+      tags: [terms]
+      summary: Add a term (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TermInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Term"
+  /terms/{id}:
+    patch:
+      operationId: updateTerm
+      tags: [terms]
+      summary: Update a term or set it current (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TermUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Term"
+  /terms/{id}/copy-statuses:
+    post:
+      operationId: copyTermStatuses
+      tags: [terms]
+      summary: Pre-populate this term's rostering statuses from another term (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TermCopyInput"
+      responses:
+        "200":
+          description: Copied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /rostering/board:
+    get:
+      operationId: getRosteringBoard
+      tags: [rostering]
+      summary: Rostering board rows for a term, with feedback counts
+      parameters:
+        - name: termId
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Board rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BoardRow"
+  /rostering/summary:
+    get:
+      operationId: getRosteringSummary
+      tags: [rostering]
+      summary: Status bucket counts for a term
+      parameters:
+        - name: termId
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Summary counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringSummary"
+  /rostering/status/{id}:
+    patch:
+      operationId: updateAppTermStatus
+      tags: [rostering]
+      summary: Edit an app's rostering status row (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppTermStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppTermStatus"
+  /apps/{id}/upvote:
+    post:
+      operationId: toggleUpvote
+      tags: [feedback]
+      summary: Toggle the logged-in user's upvote for an app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: New upvote state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpvoteState"
+  /apps/{id}/issues:
+    post:
+      operationId: reportIssue
+      tags: [feedback]
+      summary: Report an issue on an app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+  /issues:
+    get:
+      operationId: listIssues
+      tags: [feedback]
+      summary: List issues across all apps
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, resolved, all]
+      responses:
+        "200":
+          description: Issues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Issue"
+  /issues/{id}:
+    patch:
+      operationId: updateIssue
+      tags: [feedback]
+      summary: Resolve or reopen an issue (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Issue"
+  /usage/summary:
+    get:
+      operationId: getUsageSummary
+      tags: [usage]
+      summary: Latest snapshot KPI metrics with snapshot date
+      responses:
+        "200":
+          description: KPI summary (nullable fields when no data uploaded yet)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageSummary"
+  /usage/daily:
+    get:
+      operationId: getDailyUsage
+      tags: [usage]
+      summary: Full-history daily student and teacher usage
+      parameters:
+        - name: startDate
+          in: query
+          required: false
+          schema: { type: string }
+        - name: endDate
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Daily rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyUsageRow"
+  /usage/by-app:
+    get:
+      operationId: getUsageByApp
+      tags: [usage]
+      summary: Latest snapshot app usage rows
+      responses:
+        "200":
+          description: App usage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppUsageRow"
+  /usage/by-school:
+    get:
+      operationId: getUsageBySchool
+      tags: [usage]
+      summary: Latest snapshot per-school usage
+      responses:
+        "200":
+          description: School usage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SchoolUsageRow"
+  /usage/mix:
+    get:
+      operationId: getUsageMix
+      tags: [usage]
+      summary: Latest snapshot device, browser, and login-method mixes
+      responses:
+        "200":
+          description: Mixes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageMix"
+  /usage/applist:
+    get:
+      operationId: getAppEngagement
+      tags: [usage]
+      summary: Latest snapshot app engagement detail
+      responses:
+        "200":
+          description: Engagement rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppEngagementRow"
+  /usage/additional-resources:
+    get:
+      operationId: getAdditionalResources
+      tags: [usage]
+      summary: Latest snapshot other resources accessed
+      responses:
+        "200":
+          description: Resource rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResourceUsageRow"
+  /uploads:
+    post:
+      operationId: uploadUsageData
+      tags: [uploads]
+      summary: Upload a batch of Clever export CSVs (admin, multipart form)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadBatch"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /uploads/log:
+    get:
+      operationId: getImportLog
+      tags: [uploads]
+      summary: Audit log of past uploads (admin)
+      responses:
+        "200":
+          description: Import log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImportLogEntry"
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
+        status: { type: string }
+      required: [status]
+    ApiMessage:
+      type: object
+      properties:
+        message: { type: string }
+      required: [message]
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+    User:
+      type: object
+      required: [id, email, displayName, role, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        displayName: { type: string }
+        role:
+          type: string
+          enum: [admin, staff]
+        createdAt: { type: string }
+    UserInput:
+      type: object
+      required: [email, password, displayName, role]
+      properties:
+        email: { type: string }
+        password: { type: string }
+        displayName: { type: string }
+        role:
+          type: string
+          enum: [admin, staff]
+    UserUpdate:
+      type: object
+      properties:
+        displayName: { type: string }
+        role:
+          type: string
+          enum: [admin, staff]
+        password: { type: string }
+    Term:
+      type: object
+      required: [id, label, schoolYear, termType, startDate, endDate, sortOrder, isCurrent]
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        schoolYear: { type: string }
+        termType:
+          type: string
+          enum: [regular, summer]
+        startDate: { type: string }
+        endDate: { type: string }
+        sortOrder: { type: integer }
+        isCurrent: { type: boolean }
+    TermInput:
+      type: object
+      required: [label, schoolYear, termType, startDate, endDate, sortOrder]
+      properties:
+        label: { type: string }
+        schoolYear: { type: string }
+        termType:
+          type: string
+          enum: [regular, summer]
+        startDate: { type: string }
+        endDate: { type: string }
+        sortOrder: { type: integer }
+        isCurrent: { type: boolean }
+    TermUpdate:
+      type: object
+      properties:
+        label: { type: string }
+        schoolYear: { type: string }
+        termType:
+          type: string
+          enum: [regular, summer]
+        startDate: { type: string }
+        endDate: { type: string }
+        sortOrder: { type: integer }
+        isCurrent: { type: boolean }
+    TermCopyInput:
+      type: object
+      required: [sourceTermId]
+      properties:
+        sourceTermId: { type: integer }
+    AppTermStatus:
+      type: object
+      required: [id, applicationId, termId, studentSharingStatus, staffSharingStatus, updatedAt]
+      properties:
+        id: { type: integer }
+        applicationId: { type: integer }
+        termId: { type: integer }
+        studentSharingStatus:
+          type: string
+          enum: [not_started, in_progress, complete, needs_review]
+        staffSharingStatus:
+          type: string
+          enum: [not_started, in_progress, complete, needs_review]
+        syncMethod:
+          type: ["string", "null"]
+        lastSyncedAt:
+          type: ["string", "null"]
+        owner:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        updatedAt: { type: string }
+        updatedByName:
+          type: ["string", "null"]
+    AppTermStatusUpdate:
+      type: object
+      properties:
+        studentSharingStatus:
+          type: string
+          enum: [not_started, in_progress, complete, needs_review]
+        staffSharingStatus:
+          type: string
+          enum: [not_started, in_progress, complete, needs_review]
+        syncMethod:
+          type: ["string", "null"]
+          enum: [SSO, SAML, manual, other, null]
+        lastSyncedAt:
+          type: ["string", "null"]
+        owner:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+    BoardRow:
+      type: object
+      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, upvoteCount, upvotedByMe, openIssueCount]
+      properties:
+        applicationId: { type: integer }
+        appName: { type: string }
+        category:
+          type: ["string", "null"]
+        statusId: { type: integer }
+        studentSharingStatus:
+          type: string
+          enum: [not_started, in_progress, complete, needs_review]
+        staffSharingStatus:
+          type: string
+          enum: [not_started, in_progress, complete, needs_review]
+        syncMethod:
+          type: ["string", "null"]
+        lastSyncedAt:
+          type: ["string", "null"]
+        owner:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        updatedAt:
+          type: ["string", "null"]
+        updatedByName:
+          type: ["string", "null"]
+        upvoteCount: { type: integer }
+        upvotedByMe: { type: boolean }
+        openIssueCount: { type: integer }
+    RosteringSummary:
+      type: object
+      required: [notStarted, inProgress, complete, needsReview, total]
+      properties:
+        notStarted: { type: integer }
+        inProgress: { type: integer }
+        complete: { type: integer }
+        needsReview: { type: integer }
+        total: { type: integer }
+    UpvoteState:
+      type: object
+      required: [applicationId, upvoted, upvoteCount]
+      properties:
+        applicationId: { type: integer }
+        upvoted: { type: boolean }
+        upvoteCount: { type: integer }
+    IssueInput:
+      type: object
+      required: [comment]
+      properties:
+        comment: { type: string, minLength: 1 }
+    Issue:
+      type: object
+      required: [id, applicationId, appName, userId, reporterName, comment, status, createdAt]
+      properties:
+        id: { type: integer }
+        applicationId: { type: integer }
+        appName: { type: string }
+        userId: { type: integer }
+        reporterName: { type: string }
+        comment: { type: string }
         status:
           type: string
-      required:
-        - status
-
+          enum: [open, resolved]
+        createdAt: { type: string }
+    IssueUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [open, resolved]
+    UsageSummary:
+      type: object
+      required: [hasData]
+      properties:
+        hasData: { type: boolean }
+        snapshotDate:
+          type: ["string", "null"]
+        timeRange:
+          type: ["string", "null"]
+        uniqueStudents:
+          type: ["integer", "null"]
+        scopedStudents:
+          type: ["integer", "null"]
+        totalStudentLogins:
+          type: ["integer", "null"]
+        uniqueTeachers:
+          type: ["integer", "null"]
+        scopedTeachers:
+          type: ["integer", "null"]
+        totalTeacherLogins:
+          type: ["integer", "null"]
+        studentAdoptionPct:
+          type: ["number", "null"]
+        teacherAdoptionPct:
+          type: ["number", "null"]
+    DailyUsageRow:
+      type: object
+      required: [date, studentUsers, teacherUsers]
+      properties:
+        date: { type: string }
+        studentUsers:
+          type: ["integer", "null"]
+        teacherUsers:
+          type: ["integer", "null"]
+    AppUsageRow:
+      type: object
+      required: [application, uniqueUsers, scopedUsers, adoptionPct]
+      properties:
+        application: { type: string }
+        uniqueUsers: { type: integer }
+        scopedUsers: { type: integer }
+        adoptionPct: { type: number }
+    SchoolUsageRow:
+      type: object
+      required: [school, uniqueUsers, scopedUsers, adoptionPct]
+      properties:
+        school: { type: string }
+        uniqueUsers: { type: integer }
+        scopedUsers: { type: integer }
+        adoptionPct: { type: number }
+    MixSlice:
+      type: object
+      required: [label, uniqueUsers]
+      properties:
+        label: { type: string }
+        uniqueUsers: { type: integer }
+    UsageMix:
+      type: object
+      required: [devices, browsers, loginMethods]
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/MixSlice"
+        browsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MixSlice"
+        loginMethods:
+          type: array
+          items:
+            $ref: "#/components/schemas/MixSlice"
+    AppEngagementRow:
+      type: object
+      required: [appName, studentCount, studentPercent, teacherCount, teacherPercent, activeTimePerUserMinutes]
+      properties:
+        appName: { type: string }
+        studentCount: { type: integer }
+        studentPercent: { type: number }
+        teacherCount: { type: integer }
+        teacherPercent: { type: number }
+        activeTimePerUserMinutes: { type: number }
+    ResourceUsageRow:
+      type: object
+      required: [link, uniqueUsers]
+      properties:
+        link: { type: string }
+        uniqueUsers: { type: integer }
+    UploadFile:
+      type: object
+      required: [name, content]
+      properties:
+        name: { type: string }
+        content: { type: string }
+    UploadBatch:
+      type: object
+      required: [files]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadFile"
+    ImportResult:
+      type: object
+      required: [snapshotDate, filesProcessed, rowsInserted, rowsUpdated, warnings]
+      properties:
+        snapshotDate: { type: string }
+        filesProcessed:
+          type: array
+          items: { type: string }
+        rowsInserted: { type: integer }
+        rowsUpdated: { type: integer }
+        warnings:
+          type: array
+          items: { type: string }
+    ImportLogEntry:
+      type: object
+      required: [id, uploadedAt, uploadedByName, snapshotDate, filesIncluded, rowsInserted, rowsUpdated]
+      properties:
+        id: { type: integer }
+        uploadedAt: { type: string }
+        uploadedByName: { type: string }
+        snapshotDate: { type: string }
+        filesIncluded:
+          type: array
+          items: { type: string }
+        rowsInserted: { type: integer }
+        rowsUpdated: { type: integer }
