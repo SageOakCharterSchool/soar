@@ -60,11 +60,24 @@ const { fakeDb, tables, state } = vi.hoisted(() => {
     insert(table: object) {
       const self = this;
       return {
-        values: async (vals: Record<string, unknown> | Record<string, unknown>[]) => {
+        values: (vals: Record<string, unknown> | Record<string, unknown>[]) => {
           const list = Array.isArray(vals) ? vals : [vals];
+          const inserted: Record<string, unknown>[] = [];
           for (const v of list) {
-            self.rows(table).push({ id: ++state.idCounter, ...v });
+            const row = { id: ++state.idCounter, ...v };
+            self.rows(table).push(row);
+            inserted.push(row);
           }
+          return {
+            returning: async (_sel?: Record<string, { name: string }>) =>
+              inserted.map((r) => ({ ...r })),
+            then(
+              resolve: (v: undefined) => void,
+              reject?: (e: unknown) => void,
+            ) {
+              return Promise.resolve(undefined).then(resolve, reject);
+            },
+          };
         },
       };
     }
@@ -100,6 +113,8 @@ const { fakeDb, tables, state } = vi.hoisted(() => {
     usageDailyStudentTable: makeTable("usageDailyStudent"),
     usageDailyTeacherTable: makeTable("usageDailyTeacher"),
     importLogTable: makeTable("importLog"),
+    appActivityTable: makeTable("appActivity"),
+    pageLastSeenTable: makeTable("pageLastSeen"),
   };
 
   return { fakeDb, tables, state };
