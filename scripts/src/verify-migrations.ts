@@ -364,6 +364,73 @@ async function verifySeededRowsSurvived(dbUrl: string) {
   }
 }
 
+/** Negative self-test for the corruption alarm itself: deliberately tamper
+ * with the seeded app_term_status row (re-point term_id, then updated_by —
+ * the exact silent-corruption cases the join-based spot check exists to
+ * catch) and assert verifySeededRowsSurvived throws for each. If a future
+ * refactor weakens the check (e.g. a join that returns no rows passing
+ * silently), this fails loudly. Each tamper is restored and the check is
+ * re-run clean afterwards so later verifications see untouched data. */
+async function selfTestCorruptionAlarm(dbUrl: string) {
+  const seedRowFilter = `WHERE application_id = (SELECT id FROM applications WHERE name = 'Seed App One')`;
+  const tampers: { name: string; tamperSql: string; restoreSql: string }[] = [
+    {
+      name: "term_id re-pointed to the wrong term",
+      tamperSql: `UPDATE app_term_status SET term_id = (SELECT id FROM terms WHERE label = 'Spring 2026') ${seedRowFilter}`,
+      restoreSql: `UPDATE app_term_status SET term_id = (SELECT id FROM terms WHERE label = 'Fall 2025') ${seedRowFilter}`,
+    },
+    {
+      name: "updated_by re-pointed to the wrong user",
+      tamperSql: `UPDATE app_term_status SET updated_by = (SELECT id FROM users WHERE email = 'seed-staff@example.invalid') ${seedRowFilter}`,
+      restoreSql: `UPDATE app_term_status SET updated_by = (SELECT id FROM users WHERE email = 'seed-admin@example.invalid') ${seedRowFilter}`,
+    },
+  ];
+
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    for (const { name, tamperSql, restoreSql } of tampers) {
+      const tampered = await client.query(tamperSql);
+      if (tampered.rowCount !== 1) {
+        throw new Error(
+          `[alarm-self-test] Tamper "${name}" updated ${tampered.rowCount} rows, expected exactly 1 — ` +
+            `the seeded row the self-test relies on is missing or duplicated.`,
+        );
+      }
+      let threw: Error | null = null;
+      try {
+        await verifySeededRowsSurvived(dbUrl);
+      } catch (err) {
+        threw = err as Error;
+      }
+      if (!threw) {
+        throw new Error(
+          `[alarm-self-test] Corruption alarm FAILED to fire: verifySeededRowsSurvived passed even though ` +
+            `the seeded app_term_status row had ${name}. The data-corruption spot check has been weakened.`,
+        );
+      }
+      if (!threw.message.includes("Data corruption detected")) {
+        throw new Error(
+          `[alarm-self-test] verifySeededRowsSurvived threw an unexpected error while ${name} ` +
+            `(expected a "Data corruption detected" failure): ${threw.message}`,
+        );
+      }
+      const restored = await client.query(restoreSql);
+      if (restored.rowCount !== 1) {
+        throw new Error(
+          `[alarm-self-test] Restore after tamper "${name}" updated ${restored.rowCount} rows, expected exactly 1.`,
+        );
+      }
+      console.log(`  alarm fired correctly for: ${name}`);
+    }
+  } finally {
+    await client.end();
+  }
+  // Prove the restores worked: the spot check must pass again on clean data.
+  await verifySeededRowsSurvived(dbUrl);
+  console.log("  alarm self-test passed: spot check fails on tampered data and passes after restore.");
+}
+
 /** Verify the bulk-seeded rows in every large table survived the migration
  * re-runs. */
 async function verifyBulkRowsSurvived(dbUrl: string) {
@@ -628,6 +695,8 @@ async function main() {
     await timeMigrationsOnPopulatedDb(tempDbUrl(pushedDb));
     await bootServer(tempDbUrl(pushedDb), "pushed-db");
     await verifySeededRowsSurvived(tempDbUrl(pushedDb));
+    console.log("Self-testing the data-corruption alarm (tamper seeded row, expect the spot check to fail)...");
+    await selfTestCorruptionAlarm(tempDbUrl(pushedDb));
     await verifyBulkRowsSurvived(tempDbUrl(pushedDb));
     console.log(
       "PASS: migrations re-ran idempotently against a populated schema and seeded rows survived intact.",
