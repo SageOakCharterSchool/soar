@@ -317,6 +317,14 @@ export const MarkRosteringSeenResponse = zod.object({
 
 
 /**
+ * @summary Number of activity events newer than the user's last Rostering visit
+ */
+export const GetRosteringUnseenCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
  * @summary Toggle the logged-in user's upvote for an app
  */
 export const ToggleUpvoteParams = zod.object({

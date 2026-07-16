@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import {
   db,
   applicationsTable,
@@ -71,6 +71,25 @@ router.get("/rostering/last-seen", requireAuth, async (req, res): Promise<void> 
       and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ROSTERING_PAGE)),
     );
   res.json({ lastSeenAt: row ? row.lastSeenAt.toISOString() : null });
+});
+
+router.get("/rostering/unseen-count", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [row] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(
+      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ROSTERING_PAGE)),
+    );
+  const [result] = row
+    ? await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appActivityTable)
+        .where(gt(appActivityTable.createdAt, row.lastSeenAt))
+    : await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appActivityTable);
+  res.json({ count: result?.count ?? 0 });
 });
 
 router.post("/rostering/last-seen", requireAuth, async (req, res): Promise<void> => {

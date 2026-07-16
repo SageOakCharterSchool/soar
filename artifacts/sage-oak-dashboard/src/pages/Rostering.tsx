@@ -11,6 +11,7 @@ import {
   useCopyTermStatuses,
   useGetRosteringActivity,
   useMarkRosteringSeen,
+  getGetRosteringUnseenCountQueryKey,
   type ActivityEvent,
   type BoardRow,
   type Term,
@@ -122,16 +123,20 @@ function RecentActivity({ termId }: { termId: number }) {
   // last-seen time, which we keep for the rest of the visit so the "new"
   // markers stay visible until the next page view.
   const markSeen = useMarkRosteringSeen();
+  const queryClient = useQueryClient();
   const [lastSeenAt, setLastSeenAt] = useState<string | null | undefined>(undefined);
   const markedRef = useRef(false);
   useEffect(() => {
     if (markedRef.current) return;
     markedRef.current = true;
     markSeen.mutate(undefined, {
-      onSuccess: (res) => setLastSeenAt(res.lastSeenAt ?? null),
+      onSuccess: (res) => {
+        setLastSeenAt(res.lastSeenAt ?? null);
+        queryClient.invalidateQueries({ queryKey: getGetRosteringUnseenCountQueryKey() });
+      },
       onError: () => setLastSeenAt(null),
     });
-  }, [markSeen]);
+  }, [markSeen, queryClient]);
 
   const events = (activity ?? []) as ActivityEvent[];
   if (events.length === 0) return null;

@@ -288,6 +288,10 @@ export interface RosteringLastSeen {
   lastSeenAt: string | null;
 }
 
+export interface RosteringUnseenCount {
+  count: number;
+}
+
 export interface UpvoteState {
   applicationId: number;
   upvoted: boolean;

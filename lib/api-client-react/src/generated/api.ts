@@ -43,6 +43,7 @@ import type {
   ResourceUsageRow,
   RosteringLastSeen,
   RosteringSummary,
+  RosteringUnseenCount,
   SchoolUsageRow,
   SftpSyncStatus,
   SftpSyncSummary,
@@ -1437,6 +1438,83 @@ export const useMarkRosteringSeen = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getMarkRosteringSeenMutationOptions(options));
     }
+
+export const getGetRosteringUnseenCountUrl = () => {
+
+
+
+
+  return `/api/rostering/unseen-count`
+}
+
+/**
+ * @summary Number of activity events newer than the user's last Rostering visit
+ */
+export const getRosteringUnseenCount = async ( options?: RequestInit): Promise<RosteringUnseenCount> => {
+
+  return customFetch<RosteringUnseenCount>(getGetRosteringUnseenCountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRosteringUnseenCountQueryKey = () => {
+    return [
+    `/api/rostering/unseen-count`
+    ] as const;
+    }
+
+
+export const getGetRosteringUnseenCountQueryOptions = <TData = Awaited<ReturnType<typeof getRosteringUnseenCount>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringUnseenCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRosteringUnseenCountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRosteringUnseenCount>>> = ({ signal }) => getRosteringUnseenCount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRosteringUnseenCount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRosteringUnseenCountQueryResult = NonNullable<Awaited<ReturnType<typeof getRosteringUnseenCount>>>
+export type GetRosteringUnseenCountQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Number of activity events newer than the user's last Rostering visit
+ */
+
+export function useGetRosteringUnseenCount<TData = Awaited<ReturnType<typeof getRosteringUnseenCount>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringUnseenCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRosteringUnseenCountQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getToggleUpvoteUrl = (id: number,) => {
 

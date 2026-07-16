@@ -21,6 +21,7 @@ export type Cond =
   | { type: "eq"; col: Col; val: unknown }
   | { type: "ne"; col: Col; val: unknown }
   | { type: "gte"; col: Col; val: unknown }
+  | { type: "gt"; col: Col; val: unknown }
   | { type: "lte"; col: Col; val: unknown }
   | { type: "isNull"; col: Col }
   | { type: "and"; conds: Cond[] }
@@ -68,6 +69,7 @@ function matches(ctx: RowCtx, cond: Cond | undefined): boolean {
   if (cond.type === "eq") return v === val;
   if (cond.type === "ne") return v !== val;
   if (cond.type === "gte") return v >= val;
+  if (cond.type === "gt") return v > val;
   return v <= val;
 }
 
@@ -400,6 +402,7 @@ export const drizzleOrmMock = {
   eq: (col: Col, val: unknown) => ({ type: "eq", col, val }),
   ne: (col: Col, val: unknown) => ({ type: "ne", col, val }),
   gte: (col: Col, val: unknown) => ({ type: "gte", col, val }),
+  gt: (col: Col, val: unknown) => ({ type: "gt", col, val }),
   lte: (col: Col, val: unknown) => ({ type: "lte", col, val }),
   isNull: (col: Col) => ({ type: "isNull", col }),
   and: (...conds: unknown[]) => ({ type: "and", conds }),

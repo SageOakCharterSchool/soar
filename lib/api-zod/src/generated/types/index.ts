@@ -42,6 +42,7 @@ export * from './mixSlice';
 export * from './resourceUsageRow';
 export * from './rosteringLastSeen';
 export * from './rosteringSummary';
+export * from './rosteringUnseenCount';
 export * from './schoolUsageRow';
 export * from './sftpSyncRun';
 export * from './sftpSyncStatus';

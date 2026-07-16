@@ -564,6 +564,72 @@ describe("rostering last-seen", () => {
   });
 });
 
+describe("GET /api/rostering/unseen-count", () => {
+  it("requires authentication", async () => {
+    expect((await new Client().get("/rostering/unseen-count")).status).toBe(401);
+  });
+
+  it("counts all activity when the user has never visited", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push(
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "status_change",
+        detail: "one",
+        actorId: null,
+        createdAt: new Date("2026-07-01T09:00:00Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "status_change",
+        detail: "two",
+        actorId: null,
+        createdAt: new Date("2026-07-02T09:00:00Z"),
+      },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/rostering/unseen-count");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: 2 });
+  });
+
+  it("counts only activity newer than the last visit and resets after marking seen", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "status_change",
+      detail: "old",
+      actorId: null,
+      createdAt: new Date("2026-07-01T09:00:00Z"),
+    });
+    const client = await loginAs(STAFF);
+    await client.post("/rostering/last-seen");
+
+    const cleared = await client.get("/rostering/unseen-count");
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toEqual({ count: 0 });
+
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "status_change",
+      detail: "new",
+      actorId: null,
+      createdAt: new Date(Date.now() + 60_000),
+    });
+    const after = await client.get("/rostering/unseen-count");
+    expect(after.status).toBe(200);
+    expect(after.body).toEqual({ count: 1 });
+  });
+});
+
 describe("PATCH /api/rostering/status/:id", () => {
   it("requires admin", async () => {
     const staff = await loginAs(STAFF);

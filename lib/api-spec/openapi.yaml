@@ -335,6 +335,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosteringLastSeen"
+  /rostering/unseen-count:
+    get:
+      operationId: getRosteringUnseenCount
+      tags: [rostering]
+      summary: Number of activity events newer than the user's last Rostering visit
+      responses:
+        "200":
+          description: Count of unseen activity events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringUnseenCount"
   /apps/{id}/upvote:
     post:
       operationId: toggleUpvote
@@ -828,6 +840,11 @@ components:
       properties:
         lastSeenAt:
           type: ["string", "null"]
+    RosteringUnseenCount:
+      type: object
+      required: [count]
+      properties:
+        count: { type: integer }
     UpvoteState:
       type: object
       required: [applicationId, upvoted, upvoteCount]

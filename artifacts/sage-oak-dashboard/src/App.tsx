@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useGetRosteringUnseenCount } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
@@ -13,6 +14,26 @@ import Upload from "@/pages/Upload";
 import Users from "@/pages/Users";
 
 const queryClient = new QueryClient();
+
+function RosteringNavBadge({ active }: { active: boolean }) {
+  const { data } = useGetRosteringUnseenCount({
+    query: {
+      refetchInterval: 60_000,
+      refetchOnWindowFocus: true,
+    } as any,
+  });
+  const count = data?.count ?? 0;
+  if (active || count <= 0) return null;
+  return (
+    <span
+      className="ml-1.5 inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-primary text-primary-foreground text-[0.65rem] font-semibold leading-none"
+      data-testid="badge-rostering-unseen"
+      aria-label={`${count} new rostering ${count === 1 ? "update" : "updates"}`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
@@ -38,10 +59,11 @@ function Layout({ children }: { children: React.ReactNode }) {
                 Overview
               </button>
               <button 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/rostering" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center ${location === "/rostering" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                 onClick={() => setLocation("/rostering")}
               >
                 Rostering
+                <RosteringNavBadge active={location === "/rostering"} />
               </button>
               <button 
                 className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/issues" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
