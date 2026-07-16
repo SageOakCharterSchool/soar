@@ -606,6 +606,144 @@ async function verifyBulkRowValues(client: pg.Client) {
   );
 }
 
+/** Negative self-test for the BULK-data corruption alarms
+ * (verifyBulkRowsSurvived / verifyBulkRowValues): deliberately tamper with a
+ * bulk-seeded row that the value spot check samples (gs=7 is always in the
+ * sample set) and assert the checks throw. If a future refactor weakens them
+ * (e.g. a sample query returning no rows passing silently, or the count
+ * check comparing against the wrong number), this fails loudly. Every tamper
+ * is restored and the checks are re-run clean afterwards. */
+async function selfTestBulkCorruptionAlarm(dbUrl: string) {
+  // Pick a tamper target that is guaranteed to be among the sampled indices
+  // in verifyBulkRowValues even when VERIFY_MIG_BULK_ROWS is set very small.
+  const gs = BULK_ACTIVITY_ROWS >= 7 ? 7 : 1;
+  const tampers: {
+    name: string;
+    expect: string; // substring the thrown error must contain
+    tamper: (c: pg.Client) => Promise<void>;
+    restore: (c: pg.Client) => Promise<void>;
+  }[] = [
+    {
+      name: `usage_by_app.unique_users zeroed out (gs=${gs})`,
+      expect: "Data corruption detected",
+      tamper: async (c) => {
+        const r = await c.query(
+          `UPDATE usage_by_app SET unique_users = 0 WHERE application = $1`,
+          [`bulk-seed-app-${gs}`],
+        );
+        if (r.rowCount !== 1) {
+          throw new Error(
+            `[bulk-alarm-self-test] Tamper updated ${r.rowCount} usage_by_app rows, expected exactly 1 — ` +
+              `the sampled bulk row the self-test relies on is missing or duplicated.`,
+          );
+        }
+      },
+      restore: async (c) => {
+        const r = await c.query(
+          `UPDATE usage_by_app SET unique_users = $2 WHERE application = $1`,
+          [`bulk-seed-app-${gs}`, gs % 500],
+        );
+        if (r.rowCount !== 1) {
+          throw new Error(
+            `[bulk-alarm-self-test] Restore updated ${r.rowCount} usage_by_app rows, expected exactly 1.`,
+          );
+        }
+      },
+    },
+    {
+      name: `session row deleted (gs=${gs})`,
+      expect: "Data loss detected",
+      tamper: async (c) => {
+        const r = await c.query(`DELETE FROM session WHERE sid = $1`, [`bulk-seed-sid-${gs}`]);
+        if (r.rowCount !== 1) {
+          throw new Error(
+            `[bulk-alarm-self-test] Tamper deleted ${r.rowCount} session rows, expected exactly 1 — ` +
+              `the sampled bulk row the self-test relies on is missing or duplicated.`,
+          );
+        }
+      },
+      restore: async (c) => {
+        const r = await c.query(
+          `INSERT INTO session (sid, sess, expire)
+           VALUES ($1,
+                   json_build_object('cookie', json_build_object('maxAge', 86400000), 'seed', $2::int),
+                   '2030-01-01T00:00:00Z'::timestamptz + ($2 || ' seconds')::interval)`,
+          [`bulk-seed-sid-${gs}`, gs],
+        );
+        if (r.rowCount !== 1) {
+          throw new Error(
+            `[bulk-alarm-self-test] Restore inserted ${r.rowCount} session rows, expected exactly 1.`,
+          );
+        }
+      },
+    },
+    {
+      name: `app_activity.actor_id nulled out (gs=${gs})`,
+      expect: "Data corruption detected",
+      tamper: async (c) => {
+        const r = await c.query(
+          `UPDATE app_activity SET actor_id = NULL WHERE detail = $1`,
+          [`bulk seeded activity row #${gs}`],
+        );
+        if (r.rowCount !== 1) {
+          throw new Error(
+            `[bulk-alarm-self-test] Tamper updated ${r.rowCount} app_activity rows, expected exactly 1 — ` +
+              `the sampled bulk row the self-test relies on is missing or duplicated.`,
+          );
+        }
+      },
+      restore: async (c) => {
+        const r = await c.query(
+          `UPDATE app_activity
+              SET actor_id = (SELECT id FROM users WHERE email = 'seed-admin@example.invalid')
+            WHERE detail = $1`,
+          [`bulk seeded activity row #${gs}`],
+        );
+        if (r.rowCount !== 1) {
+          throw new Error(
+            `[bulk-alarm-self-test] Restore updated ${r.rowCount} app_activity rows, expected exactly 1.`,
+          );
+        }
+      },
+    },
+  ];
+
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    for (const { name, expect, tamper, restore } of tampers) {
+      await tamper(client);
+      let threw: Error | null = null;
+      try {
+        await verifyBulkRowsSurvived(dbUrl);
+      } catch (err) {
+        threw = err as Error;
+      }
+      if (!threw) {
+        throw new Error(
+          `[bulk-alarm-self-test] Bulk corruption alarm FAILED to fire: verifyBulkRowsSurvived passed even ` +
+            `though a bulk-seeded row had ${name}. The bulk-data corruption checks have been weakened.`,
+        );
+      }
+      if (!threw.message.includes(expect)) {
+        throw new Error(
+          `[bulk-alarm-self-test] verifyBulkRowsSurvived threw an unexpected error while ${name} ` +
+            `(expected a "${expect}" failure): ${threw.message}`,
+        );
+      }
+      await restore(client);
+      console.log(`  bulk alarm fired correctly for: ${name}`);
+    }
+  } finally {
+    await client.end();
+  }
+  // Prove the restores worked: the bulk checks must pass again on clean data.
+  await verifyBulkRowsSurvived(dbUrl);
+  console.log(
+    "  bulk alarm self-test passed: bulk checks fail on tampered data and pass after restore.",
+  );
+}
+
 /** Boot the built server against dbUrl; resolve when it logs "Server
  * listening", reject on exit or timeout. */
 function bootServer(dbUrl: string, label: string): Promise<void> {
@@ -698,6 +836,8 @@ async function main() {
     console.log("Self-testing the data-corruption alarm (tamper seeded row, expect the spot check to fail)...");
     await selfTestCorruptionAlarm(tempDbUrl(pushedDb));
     await verifyBulkRowsSurvived(tempDbUrl(pushedDb));
+    console.log("Self-testing the bulk-data corruption alarms (tamper bulk-seeded rows, expect the checks to fail)...");
+    await selfTestBulkCorruptionAlarm(tempDbUrl(pushedDb));
     console.log(
       "PASS: migrations re-ran idempotently against a populated schema and seeded rows survived intact.",
     );
