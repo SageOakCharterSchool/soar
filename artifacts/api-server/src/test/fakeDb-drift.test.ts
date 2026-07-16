@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { Table } from "drizzle-orm";
 import * as realSchema from "@workspace/db/schema";
-import { tables as fakeTables } from "./fakeDb";
+import { tables as fakeTables, drizzleOrmMock } from "./fakeDb";
 
 const realTableExports = Object.entries(realSchema)
   .filter(([, value]) => value instanceof Table)
@@ -48,5 +48,26 @@ describe("fakeDb schema drift guard", () => {
 
   it("sanity: the real schema exports at least one table", () => {
     expect(realTableExports.length).toBeGreaterThan(0);
+  });
+});
+
+describe("fakeDb drizzle-orm operator guard", () => {
+  it("throws a clear error naming an unsupported operator", () => {
+    expect(
+      () => (drizzleOrmMock as Record<string, unknown>).inArray,
+    ).toThrowError(/does not implement "inArray"/);
+  });
+
+  it("still returns implemented operators", () => {
+    expect(typeof (drizzleOrmMock as Record<string, unknown>).eq).toBe(
+      "function",
+    );
+  });
+
+  it("tolerates module-interop probes without throwing", () => {
+    const mock = drizzleOrmMock as Record<string, unknown>;
+    expect(mock.default).toBeUndefined();
+    expect(mock.__esModule).toBeUndefined();
+    expect(mock.then).toBeUndefined();
   });
 });

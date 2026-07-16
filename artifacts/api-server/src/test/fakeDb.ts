@@ -441,8 +441,7 @@ const sqlTag = (strings: TemplateStringsArray, ...vals: unknown[]) => ({
 });
 sqlTag.raw = (s: string) => s;
 
-/** Factory for `vi.mock("drizzle-orm", ...)`. */
-export const drizzleOrmMock = {
+const drizzleOrmImpl = {
   eq: (col: Col, val: unknown) => ({ type: "eq", col, val }),
   ne: (col: Col, val: unknown) => ({ type: "ne", col, val }),
   gte: (col: Col, val: unknown) => ({ type: "gte", col, val }),
@@ -457,6 +456,28 @@ export const drizzleOrmMock = {
   desc: (col: Col) => ({ col, dir: "desc" }),
   sql: sqlTag,
 };
+
+/**
+ * Factory for `vi.mock("drizzle-orm", ...)`. Any drizzle-orm export the fake
+ * doesn't implement (e.g. inArray, like, notInArray) throws a clear error
+ * instead of returning undefined and silently mis-filtering rows.
+ */
+export const drizzleOrmMock = new Proxy(drizzleOrmImpl, {
+  get(target, prop, receiver) {
+    if (typeof prop === "symbol" || prop in target) {
+      return Reflect.get(target, prop, receiver);
+    }
+    // Module-interop probes vitest/node may perform on the mocked module.
+    if (prop === "default" || prop === "__esModule" || prop === "then") {
+      return undefined;
+    }
+    throw new Error(
+      `fakeDb drizzle-orm mock does not implement "${prop}". ` +
+        `Add it to drizzleOrmImpl (and the Cond union / matches() if it is a ` +
+        `filter operator) in artifacts/api-server/src/test/fakeDb.ts.`,
+    );
+  },
+});
 
 /** Factory for `vi.mock("@workspace/db", ...)`. */
 export const dbModuleMock = {
