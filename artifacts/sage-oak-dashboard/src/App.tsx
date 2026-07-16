@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
+import { SyncAlertBanner } from "@/components/SyncAlertBanner";
 import { Login } from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import Overview from "@/pages/Overview";
@@ -77,6 +78,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      {isAdmin && <SyncAlertBanner />}
       <main className="flex-1 p-4 container mx-auto">
         {children}
       </main>

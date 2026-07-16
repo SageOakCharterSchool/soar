@@ -1,6 +1,6 @@
 - [connect-pg-simple bundling](connect-pg-simple-bundling.md) — createTableIfMissing reads a .sql file from disk and silently fails in esbuild bundles; create the session table at startup instead.
 - [TS project references stale dist](ts-project-references-stale-dist.md) — typecheck reads lib/db dist declarations, not src; rebuild refs (tsc -b) before trusting "missing export" errors.
-- [api-server fake-db tests](api-server-fake-db-tests.md) — mocks must return row copies, add new schema tables to every test file's db mock, and rebuild lib/db dist when tsc claims missing exports.
+- [api-server fake-db tests](api-server-fake-db-tests.md) — mocks must return row copies, new schema tables go in the shared fakeDb tables map (one place), rebuild lib/db dist when tsc claims missing exports.
 - [Drizzle startup migrations](drizzle-startup-migrations.md) — schema applied at boot from bundled SQL; new migrations must be hand-edited to be idempotent since existing DBs came from `push`.
 - [esbuild externalized transitive deps](esbuild-transitive-deps.md) — externalized packages' own deps (ssh2 for ssh2-sftp-client) must be direct deps; verify by booting the bundle, not just building.
 - [Clever Reports SFTP real layout](clever-sftp-real-layout.md) — real server publishes raw per-user daily CSVs (~13-day retention), not snapshot batches; keep the daily-report adapter path working.

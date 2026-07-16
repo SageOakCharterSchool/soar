@@ -228,6 +228,13 @@ const DEFAULTS: Record<string, () => Row> = {
     warnings: [],
     error: null,
   }),
+  syncAlerts: () => ({
+    occurrences: 1,
+    firstSeenAt: new Date(),
+    lastSeenAt: new Date(),
+    resolvedAt: null,
+    resolvedReason: null,
+  }),
 };
 
 function thenable(apply: () => Row[]) {
@@ -372,6 +379,7 @@ export const tables = {
   usageDailyTeacherTable: makeTable("usageDailyTeacher"),
   importLogTable: makeTable("importLog"),
   syncRunsTable: makeTable("syncRuns"),
+  syncAlertsTable: makeTable("syncAlerts"),
   feedbackTable: makeTable("feedback"),
 };
 

@@ -596,6 +596,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /uploads/sftp/alerts:
+    get:
+      operationId: getSyncAlerts
+      tags: [uploads]
+      summary: Active alerts from failed Clever SFTP syncs (admin)
+      responses:
+        "200":
+          description: Active sync alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SyncAlert"
+  /uploads/sftp/alerts/{id}/dismiss:
+    post:
+      operationId: dismissSyncAlert
+      tags: [uploads]
+      summary: Dismiss a sync failure alert (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alert dismissed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Alert not found or already resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
 components:
   schemas:
     HealthStatus:
@@ -1001,3 +1039,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SftpSyncRun"
+    SyncAlert:
+      type: object
+      required: [id, message, occurrences, firstSeenAt, lastSeenAt]
+      properties:
+        id: { type: integer }
+        message: { type: string }
+        occurrences: { type: integer }
+        firstSeenAt: { type: string }
+        lastSeenAt: { type: string }

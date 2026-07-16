@@ -46,6 +46,7 @@ export * from './schoolUsageRow';
 export * from './sftpSyncRun';
 export * from './sftpSyncStatus';
 export * from './sftpSyncSummary';
+export * from './syncAlert';
 export * from './term';
 export * from './termCopyInput';
 export * from './termInput';

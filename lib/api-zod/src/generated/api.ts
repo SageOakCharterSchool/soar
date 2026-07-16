@@ -570,3 +570,28 @@ export const TriggerSftpSyncResponse = zod.object({
 })
 
 
+/**
+ * @summary Active alerts from failed Clever SFTP syncs (admin)
+ */
+export const GetSyncAlertsResponseItem = zod.object({
+  "id": zod.number(),
+  "message": zod.string(),
+  "occurrences": zod.number(),
+  "firstSeenAt": zod.string(),
+  "lastSeenAt": zod.string()
+})
+export const GetSyncAlertsResponse = zod.array(GetSyncAlertsResponseItem)
+
+
+/**
+ * @summary Dismiss a sync failure alert (admin)
+ */
+export const DismissSyncAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DismissSyncAlertResponse = zod.object({
+  "message": zod.string()
+})
+
+

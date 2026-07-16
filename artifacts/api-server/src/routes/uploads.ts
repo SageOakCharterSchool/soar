@@ -5,6 +5,7 @@ import { UploadUsageDataBody } from "@workspace/api-zod";
 import { requireAdmin } from "../lib/auth";
 import { runImport } from "../lib/importer";
 import { getSftpSyncStatus, runSftpSync } from "../lib/sftpSync";
+import { dismissSyncAlert, listActiveSyncAlerts } from "../lib/syncAlerts";
 
 const router: IRouter = Router();
 
@@ -65,5 +66,36 @@ router.post("/uploads/sftp/sync", requireAdmin, async (_req, res): Promise<void>
   }
   res.json(result.summary);
 });
+
+router.get("/uploads/sftp/alerts", requireAdmin, async (_req, res): Promise<void> => {
+  const alerts = await listActiveSyncAlerts();
+  res.json(
+    alerts.map((a) => ({
+      id: a.id,
+      message: a.message,
+      occurrences: a.occurrences,
+      firstSeenAt: a.firstSeenAt.toISOString(),
+      lastSeenAt: a.lastSeenAt.toISOString(),
+    })),
+  );
+});
+
+router.post(
+  "/uploads/sftp/alerts/:id/dismiss",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const id = Number(req.params["id"]);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ message: "Invalid alert id" });
+      return;
+    }
+    const dismissed = await dismissSyncAlert(id);
+    if (!dismissed) {
+      res.status(404).json({ message: "Alert not found or already resolved" });
+      return;
+    }
+    res.json({ message: "Alert dismissed" });
+  },
+);
 
 export default router;

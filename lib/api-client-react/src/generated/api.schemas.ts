@@ -465,6 +465,14 @@ export interface SftpSyncStatus {
   recentRuns: SftpSyncRun[];
 }
 
+export interface SyncAlert {
+  id: number;
+  message: string;
+  occurrences: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 export type GetRosteringBoardParams = {
 termId: number;
 };

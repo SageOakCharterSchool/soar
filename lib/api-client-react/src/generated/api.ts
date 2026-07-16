@@ -46,6 +46,7 @@ import type {
   SchoolUsageRow,
   SftpSyncStatus,
   SftpSyncSummary,
+  SyncAlert,
   Term,
   TermCopyInput,
   TermInput,
@@ -2576,5 +2577,153 @@ export const useTriggerSftpSync = <TError = ErrorType<ApiMessage>,
         TContext
       > => {
       return useMutation(getTriggerSftpSyncMutationOptions(options));
+    }
+
+export const getGetSyncAlertsUrl = () => {
+
+
+
+
+  return `/api/uploads/sftp/alerts`
+}
+
+/**
+ * @summary Active alerts from failed Clever SFTP syncs (admin)
+ */
+export const getSyncAlerts = async ( options?: RequestInit): Promise<SyncAlert[]> => {
+
+  return customFetch<SyncAlert[]>(getGetSyncAlertsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSyncAlertsQueryKey = () => {
+    return [
+    `/api/uploads/sftp/alerts`
+    ] as const;
+    }
+
+
+export const getGetSyncAlertsQueryOptions = <TData = Awaited<ReturnType<typeof getSyncAlerts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSyncAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSyncAlertsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSyncAlerts>>> = ({ signal }) => getSyncAlerts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSyncAlerts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSyncAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof getSyncAlerts>>>
+export type GetSyncAlertsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Active alerts from failed Clever SFTP syncs (admin)
+ */
+
+export function useGetSyncAlerts<TData = Awaited<ReturnType<typeof getSyncAlerts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSyncAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSyncAlertsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDismissSyncAlertUrl = (id: number,) => {
+
+
+
+
+  return `/api/uploads/sftp/alerts/${id}/dismiss`
+}
+
+/**
+ * @summary Dismiss a sync failure alert (admin)
+ */
+export const dismissSyncAlert = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDismissSyncAlertUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDismissSyncAlertMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissSyncAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dismissSyncAlert>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['dismissSyncAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dismissSyncAlert>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  dismissSyncAlert(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DismissSyncAlertMutationResult = NonNullable<Awaited<ReturnType<typeof dismissSyncAlert>>>
+
+    export type DismissSyncAlertMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Dismiss a sync failure alert (admin)
+ */
+export const useDismissSyncAlert = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissSyncAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dismissSyncAlert>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDismissSyncAlertMutationOptions(options));
     }
 

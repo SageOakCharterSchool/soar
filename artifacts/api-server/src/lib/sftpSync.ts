@@ -2,6 +2,7 @@ import SftpClient from "ssh2-sftp-client";
 import { desc } from "drizzle-orm";
 import { db, importLogTable, syncRunsTable } from "@workspace/db";
 import { logger } from "./logger";
+import { safeRecordSyncOutcome } from "./syncAlerts";
 import {
   classifyFile,
   extractSnapshotInfo,
@@ -353,11 +354,13 @@ export async function runSftpSync(): Promise<
       },
       "SFTP report sync finished",
     );
+    await safeRecordSyncOutcome({ ok: true });
     return { ok: true, summary };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await recordSyncRun({ ok: false, summary: null, error: message });
     logger.error({ err }, "SFTP report sync failed");
+    await safeRecordSyncOutcome({ ok: false, error: message });
     return { ok: false, error: message };
   } finally {
     syncRunning = false;
