@@ -4,6 +4,9 @@ import {
   useUpdateIssue,
   useDeleteIssue,
   useMarkIssuesSeen,
+  useGetAppSettings,
+  useUpdateAppSettings,
+  getGetAppSettingsQueryKey,
   getGetIssuesUnseenCountQueryKey,
   type ListIssuesStatus,
 } from "@workspace/api-client-react";
@@ -21,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,7 +46,8 @@ function formatTurnaround(days: number): string {
   return rounded === 1 ? "1 day" : `${rounded} days`;
 }
 
-const STALE_OPEN_DAYS = 7;
+// Fallback while the configured threshold loads (or if it can't be fetched).
+const DEFAULT_STALE_OPEN_DAYS = 7;
 
 function openDays(createdAt: string, now: number): number | null {
   const ms = now - new Date(createdAt).getTime();
@@ -75,6 +80,45 @@ export default function Issues() {
   );
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();
+
+  const { data: settings } = useGetAppSettings();
+  const staleOpenDays = settings?.staleOpenDays ?? DEFAULT_STALE_OPEN_DAYS;
+  const updateSettings = useUpdateAppSettings();
+  const [thresholdDraft, setThresholdDraft] = useState<string | null>(null);
+  const saveThreshold = () => {
+    if (thresholdDraft === null) return;
+    const parsed = parseInt(thresholdDraft, 10);
+    setThresholdDraft(null);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 365) {
+      if (thresholdDraft.trim() !== "" && String(parsed) !== String(staleOpenDays)) {
+        toast({
+          title: "Invalid threshold",
+          description: "Enter a whole number of days between 1 and 365.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+    if (parsed === staleOpenDays) return;
+    updateSettings.mutate(
+      { data: { staleOpenDays: parsed } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetAppSettingsQueryKey() });
+          toast({
+            title: "Threshold updated",
+            description: `Open issues are now flagged after ${parsed} ${parsed === 1 ? "day" : "days"}.`,
+          });
+        },
+        onError: (err: any) =>
+          toast({
+            title: "Update failed",
+            description: err?.data?.message ?? "Try again.",
+            variant: "destructive",
+          }),
+      },
+    );
+  };
 
   // Record this visit once so the Issues nav badge clears. The server
   // responds with the *previous* last-seen time, which we keep for the rest
@@ -189,6 +233,26 @@ export default function Issues() {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {isAdmin && (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Flag open issues after
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                className="h-8 w-16 text-center"
+                value={thresholdDraft ?? String(staleOpenDays)}
+                disabled={updateSettings.isPending}
+                onChange={(e) => setThresholdDraft(e.target.value)}
+                onBlur={saveThreshold}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                aria-label="Days before an open issue is flagged as open too long"
+              />
+              days
+            </label>
+          )}
           <div className="flex gap-1">
             {FILTERS.map((f) => (
               <Button
@@ -254,7 +318,7 @@ export default function Issues() {
                       (() => {
                         const d = openDays(issue.createdAt, now);
                         if (d === null) return null;
-                        const stale = d >= STALE_OPEN_DAYS;
+                        const stale = d >= staleOpenDays;
                         return (
                           <Badge
                             variant="outline"

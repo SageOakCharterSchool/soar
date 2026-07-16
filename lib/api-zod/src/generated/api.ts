@@ -510,6 +510,38 @@ export const DeleteIssueResponse = zod.object({
 
 
 /**
+ * @summary Admin-configurable application settings
+ */
+export const getAppSettingsResponseStaleOpenDaysMax = 365;
+
+
+
+export const GetAppSettingsResponse = zod.object({
+  "staleOpenDays": zod.number().min(1).max(getAppSettingsResponseStaleOpenDaysMax)
+})
+
+
+/**
+ * @summary Update application settings (admin)
+ */
+export const updateAppSettingsBodyStaleOpenDaysMax = 365;
+
+
+
+export const UpdateAppSettingsBody = zod.object({
+  "staleOpenDays": zod.number().min(1).max(updateAppSettingsBodyStaleOpenDaysMax)
+})
+
+export const updateAppSettingsResponseStaleOpenDaysMax = 365;
+
+
+
+export const UpdateAppSettingsResponse = zod.object({
+  "staleOpenDays": zod.number().min(1).max(updateAppSettingsResponseStaleOpenDaysMax)
+})
+
+
+/**
  * @summary Latest snapshot KPI metrics with snapshot date
  */
 export const GetUsageSummaryResponse = zod.object({

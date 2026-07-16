@@ -458,6 +458,7 @@ export const tables = {
   raciMembersTable: makeTable("raciMembers"),
   raciRowsTable: makeTable("raciRows"),
   raciAssignmentsTable: makeTable("raciAssignments"),
+  appSettingsTable: makeTable("appSettings"),
 };
 
 /** Reset all fake-db state between tests. */

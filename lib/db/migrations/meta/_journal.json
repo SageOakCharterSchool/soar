@@ -71,6 +71,13 @@
       "when": 1784155222854,
       "tag": "0009_issue_resolved_at",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784155222855,
+      "tag": "0010_app_settings",
+      "breakpoints": true
     }
   ]
 }

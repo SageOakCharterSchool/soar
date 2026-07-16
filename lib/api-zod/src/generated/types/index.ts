@@ -10,6 +10,8 @@ export * from './activityEvent';
 export * from './activityEventEventType';
 export * from './apiMessage';
 export * from './appEngagementRow';
+export * from './appSettings';
+export * from './appSettingsUpdate';
 export * from './appTermStatus';
 export * from './appTermStatusStaffSharingStatus';
 export * from './appTermStatusStudentSharingStatus';

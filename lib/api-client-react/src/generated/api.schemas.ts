@@ -5,6 +5,22 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+export interface AppSettings {
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  staleOpenDays: number;
+}
+
+export interface AppSettingsUpdate {
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  staleOpenDays: number;
+}
+
 export interface HealthStatus {
   status: string;
 }

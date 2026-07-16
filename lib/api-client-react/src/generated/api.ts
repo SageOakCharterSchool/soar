@@ -23,6 +23,8 @@ import type {
   ActivityEvent,
   ApiMessage,
   AppEngagementRow,
+  AppSettings,
+  AppSettingsUpdate,
   AppTermStatus,
   AppTermStatusUpdate,
   AppUsageRow,
@@ -2368,6 +2370,154 @@ export const useDeleteIssue = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteIssueMutationOptions(options));
+    }
+
+export const getGetAppSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Admin-configurable application settings
+ */
+export const getAppSettings = async ( options?: RequestInit): Promise<AppSettings> => {
+
+  return customFetch<AppSettings>(getGetAppSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAppSettingsQueryKey = () => {
+    return [
+    `/api/settings`
+    ] as const;
+    }
+
+
+export const getGetAppSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAppSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAppSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppSettings>>> = ({ signal }) => getAppSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAppSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAppSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAppSettings>>>
+export type GetAppSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-configurable application settings
+ */
+
+export function useGetAppSettings<TData = Awaited<ReturnType<typeof getAppSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAppSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAppSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Update application settings (admin)
+ */
+export const updateAppSettings = async (appSettingsUpdate: AppSettingsUpdate, options?: RequestInit): Promise<AppSettings> => {
+
+  return customFetch<AppSettings>(getUpdateAppSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(appSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAppSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAppSettings>>, TError,{data: BodyType<AppSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAppSettings>>, TError,{data: BodyType<AppSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateAppSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAppSettings>>, {data: BodyType<AppSettingsUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAppSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAppSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAppSettings>>>
+    export type UpdateAppSettingsMutationBody = BodyType<AppSettingsUpdate>
+    export type UpdateAppSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update application settings (admin)
+ */
+export const useUpdateAppSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAppSettings>>, TError,{data: BodyType<AppSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAppSettings>>,
+        TError,
+        {data: BodyType<AppSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAppSettingsMutationOptions(options));
     }
 
 export const getGetUsageSummaryUrl = () => {

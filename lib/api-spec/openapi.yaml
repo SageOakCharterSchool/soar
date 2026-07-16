@@ -15,6 +15,7 @@ tags:
   - name: rostering
   - name: raci
   - name: feedback
+  - name: settings
   - name: usage
   - name: uploads
 paths:
@@ -565,6 +566,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /settings:
+    get:
+      operationId: getAppSettings
+      tags: [settings]
+      summary: Admin-configurable application settings
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    put:
+      operationId: updateAppSettings
+      tags: [settings]
+      summary: Update application settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
   /usage/summary:
     get:
       operationId: getUsageSummary
@@ -1090,6 +1120,22 @@ paths:
                 $ref: "#/components/schemas/RaciCategoryRenameConflict"
 components:
   schemas:
+    AppSettings:
+      type: object
+      required: [staleOpenDays]
+      properties:
+        staleOpenDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+    AppSettingsUpdate:
+      type: object
+      required: [staleOpenDays]
+      properties:
+        staleOpenDays:
+          type: integer
+          minimum: 1
+          maximum: 365
     HealthStatus:
       type: object
       properties:

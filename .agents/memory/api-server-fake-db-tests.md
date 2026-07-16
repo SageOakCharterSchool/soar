@@ -11,3 +11,4 @@ The api-server integration tests mock `@workspace/db` with a shared in-memory fa
 - `lib/db` is a composite TS project; if `tsc` claims a table "has no exported member", its `dist/` declarations are stale — rebuild with `npx tsc -b lib/db`.
 - The fake only implements the drizzle operators it has needed so far (`eq/ne/gte/lte/lt/isNull`, `onConflictDoUpdate/DoNothing`); a route using a new operator silently mis-filters or crashes — add it to both the `Cond` union/`matches` and `drizzleOrmMock`.
 - `vi.hoisted` cannot import helpers; the workaround is async `vi.mock` factories with `await import(...)` of a real (unmocked) module.
+- fakeDb onConflictDoUpdate requires `target` as a column *array*; passing a single column crashes routes only under tests (HTML 500 instead of JSON). Real drizzle accepts both — use arrays.
