@@ -426,7 +426,7 @@ export const tables = {
   importLogTable: makeTable("importLog"),
   syncRunsTable: makeTable("syncRuns"),
   syncAlertsTable: makeTable("syncAlerts"),
-  feedbackTable: makeTable("feedback"),
+  sessionTable: makeTable("session"),
 };
 
 /** Reset all fake-db state between tests. */
