@@ -48,6 +48,16 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
   );
 }
 
+function HiddenColumnsNote({ hiddenCount }: { hiddenCount: number }) {
+  if (hiddenCount === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground mt-2" data-testid="hidden-columns-note">
+      {hiddenCount === 1 ? "1 column hidden" : `${hiddenCount} columns hidden`} — no data
+      in this snapshot.
+    </p>
+  );
+}
+
 const fmt = (n: number | null | undefined) =>
   n == null ? "—" : n.toLocaleString();
 const pct = (n: number | null | undefined) => (n == null ? "—" : `${n}%`);
@@ -112,6 +122,19 @@ export default function Overview() {
     }),
     [displayResources],
   );
+
+  const hiddenSchoolCols =
+    (bySchool?.length ?? 0) > 0
+      ? [schoolCols.uniqueUsers, schoolCols.scopedUsers, schoolCols.adoptionPct].filter(
+          (shown) => !shown,
+        ).length
+      : 0;
+
+  const hiddenResourceStats =
+    displayResources.length > 0
+      ? [resourceStats.uniqueUsers, resourceStats.totalAccesses].filter((shown) => !shown)
+          .length
+      : 0;
 
   const effectiveEngSort: EngagementSort =
     engSort === "activeTimePerUserMinutes" && !hasActiveTime
@@ -251,6 +274,7 @@ export default function Overview() {
                 ))}
               </TableBody>
             </Table>
+            <HiddenColumnsNote hiddenCount={hiddenSchoolCols} />
             {displayResources.length > 0 && (
               <div className="mt-6">
                 <h4 className="text-sm font-medium mb-2">Additional resources</h4>
@@ -286,6 +310,11 @@ export default function Overview() {
                     );
                   })}
                 </ul>
+                {hiddenResourceStats > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2" data-testid="hidden-resource-stats-note">
+                    Some stats hidden — no data in this snapshot.
+                  </p>
+                )}
                 {resourceHistory && resourceHistory.snapshotDates.length > 1 && (
                   <p className="text-xs text-muted-foreground mt-2">
                     Trend of unique users across the last {resourceHistory.snapshotDates.length} snapshots
@@ -413,6 +442,9 @@ export default function Overview() {
               )}
             </TableBody>
           </Table>
+          <HiddenColumnsNote
+            hiddenCount={sortedEngagement.length > 0 && !hasActiveTime ? 1 : 0}
+          />
         </CardContent>
       </Card>
     </div>
