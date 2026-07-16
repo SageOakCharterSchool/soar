@@ -8,6 +8,7 @@
     "staff-access-check": "tsx ./src/staff-access-check.ts",
     "staff-ui-check": "tsx ./src/staff-ui-check.ts",
     "theme-toggle-ui-check": "tsx ./src/theme-toggle-ui-check.ts",
+    "theme-os-preference-check": "tsx ./src/theme-os-preference-check.ts",
     "issues-new-marker-check": "tsx ./src/issues-new-marker-check.ts",
     "issue-open-age-check": "tsx ./src/issue-open-age-check.ts",
     "stale-threshold-ui-check": "tsx ./src/stale-threshold-ui-check.ts",

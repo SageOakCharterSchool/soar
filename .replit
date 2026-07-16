@@ -52,6 +52,10 @@ args = "issue-open-age"
 task = "workflow.run"
 args = "stale-threshold"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "theme-os"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -147,6 +151,17 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run stale-threshold-ui-check && pnpm --filter @workspace/scripts run stale-threshold-invalid-ui-check"
+
+[[workflows.workflow]]
+name = "theme-os"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run theme-os-preference-check"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"
