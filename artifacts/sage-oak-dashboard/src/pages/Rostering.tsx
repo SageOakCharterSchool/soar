@@ -254,7 +254,7 @@ function splitCsvRecords(text: string): string[] {
   return records;
 }
 
-function ArchiveDialog() {
+export function ArchiveDialog() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
