@@ -816,6 +816,10 @@ export const DeleteRaciRowParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const DeleteRaciRowQueryParams = zod.object({
+  "expectedName": zod.coerce.string().optional().describe('The row name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin\'s rename is not silently destroyed.')
+})
+
 export const DeleteRaciRowResponse = zod.object({
   "message": zod.string()
 })
@@ -870,6 +874,10 @@ export const UpdateRaciMemberResponse = zod.object({
  */
 export const DeleteRaciMemberParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const DeleteRaciMemberQueryParams = zod.object({
+  "expectedName": zod.coerce.string().optional().describe('The member name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin\'s rename is not silently destroyed.')
 })
 
 export const DeleteRaciMemberResponse = zod.object({

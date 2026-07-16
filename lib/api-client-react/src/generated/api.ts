@@ -30,6 +30,8 @@ import type {
   AuthConfig,
   BoardRow,
   DailyUsageRow,
+  DeleteRaciMemberParams,
+  DeleteRaciRowParams,
   GetAdditionalResourcesHistoryParams,
   GetDailyUsageParams,
   GetRosteringActivityArchiveParams,
@@ -3590,20 +3592,29 @@ export const useUpdateRaciRow = <TError = ErrorType<ApiMessage | RaciNameConflic
       return useMutation(getUpdateRaciRowMutationOptions(options));
     }
 
-export const getDeleteRaciRowUrl = (id: number,) => {
+export const getDeleteRaciRowUrl = (id: number,
+    params?: DeleteRaciRowParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/raci/rows/${id}`
+  return stringifiedParams.length > 0 ? `/api/raci/rows/${id}?${stringifiedParams}` : `/api/raci/rows/${id}`
 }
 
 /**
  * @summary Remove a RACI row (admin)
  */
-export const deleteRaciRow = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+export const deleteRaciRow = async (id: number,
+    params?: DeleteRaciRowParams, options?: RequestInit): Promise<ApiMessage> => {
 
-  return customFetch<ApiMessage>(getDeleteRaciRowUrl(id),
+  return customFetch<ApiMessage>(getDeleteRaciRowUrl(id,params),
   {
     ...options,
     method: 'DELETE'
@@ -3616,9 +3627,9 @@ export const deleteRaciRow = async (id: number, options?: RequestInit): Promise<
 
 
 
-export const getDeleteRaciRowMutationOptions = <TError = ErrorType<ApiMessage>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number}, TContext> => {
+export const getDeleteRaciRowMutationOptions = <TError = ErrorType<ApiMessage | RaciNameConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number;params?: DeleteRaciRowParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number;params?: DeleteRaciRowParams}, TContext> => {
 
 const mutationKey = ['deleteRaciRow'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -3630,10 +3641,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRaciRow>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRaciRow>>, {id: number;params?: DeleteRaciRowParams}> = (props) => {
+          const {id,params} = props ?? {};
 
-          return  deleteRaciRow(id,requestOptions)
+          return  deleteRaciRow(id,params,requestOptions)
         }
 
 
@@ -3645,17 +3656,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteRaciRowMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRaciRow>>>
 
-    export type DeleteRaciRowMutationError = ErrorType<ApiMessage>
+    export type DeleteRaciRowMutationError = ErrorType<ApiMessage | RaciNameConflict>
 
     /**
  * @summary Remove a RACI row (admin)
  */
-export const useDeleteRaciRow = <TError = ErrorType<ApiMessage>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useDeleteRaciRow = <TError = ErrorType<ApiMessage | RaciNameConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number;params?: DeleteRaciRowParams}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteRaciRow>>,
         TError,
-        {id: number},
+        {id: number;params?: DeleteRaciRowParams},
         TContext
       > => {
       return useMutation(getDeleteRaciRowMutationOptions(options));
@@ -3804,20 +3815,29 @@ export const useUpdateRaciMember = <TError = ErrorType<ApiMessage | RaciNameConf
       return useMutation(getUpdateRaciMemberMutationOptions(options));
     }
 
-export const getDeleteRaciMemberUrl = (id: number,) => {
+export const getDeleteRaciMemberUrl = (id: number,
+    params?: DeleteRaciMemberParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/raci/members/${id}`
+  return stringifiedParams.length > 0 ? `/api/raci/members/${id}?${stringifiedParams}` : `/api/raci/members/${id}`
 }
 
 /**
  * @summary Remove a team member column (admin)
  */
-export const deleteRaciMember = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+export const deleteRaciMember = async (id: number,
+    params?: DeleteRaciMemberParams, options?: RequestInit): Promise<ApiMessage> => {
 
-  return customFetch<ApiMessage>(getDeleteRaciMemberUrl(id),
+  return customFetch<ApiMessage>(getDeleteRaciMemberUrl(id,params),
   {
     ...options,
     method: 'DELETE'
@@ -3830,9 +3850,9 @@ export const deleteRaciMember = async (id: number, options?: RequestInit): Promi
 
 
 
-export const getDeleteRaciMemberMutationOptions = <TError = ErrorType<ApiMessage>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number}, TContext> => {
+export const getDeleteRaciMemberMutationOptions = <TError = ErrorType<ApiMessage | RaciNameConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number;params?: DeleteRaciMemberParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number;params?: DeleteRaciMemberParams}, TContext> => {
 
 const mutationKey = ['deleteRaciMember'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -3844,10 +3864,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRaciMember>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRaciMember>>, {id: number;params?: DeleteRaciMemberParams}> = (props) => {
+          const {id,params} = props ?? {};
 
-          return  deleteRaciMember(id,requestOptions)
+          return  deleteRaciMember(id,params,requestOptions)
         }
 
 
@@ -3859,17 +3879,17 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DeleteRaciMemberMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRaciMember>>>
 
-    export type DeleteRaciMemberMutationError = ErrorType<ApiMessage>
+    export type DeleteRaciMemberMutationError = ErrorType<ApiMessage | RaciNameConflict>
 
     /**
  * @summary Remove a team member column (admin)
  */
-export const useDeleteRaciMember = <TError = ErrorType<ApiMessage>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useDeleteRaciMember = <TError = ErrorType<ApiMessage | RaciNameConflict>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number;params?: DeleteRaciMemberParams}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteRaciMember>>,
         TError,
-        {id: number},
+        {id: number;params?: DeleteRaciMemberParams},
         TContext
       > => {
       return useMutation(getDeleteRaciMemberMutationOptions(options));

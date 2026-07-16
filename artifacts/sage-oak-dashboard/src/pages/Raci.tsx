@@ -197,6 +197,20 @@ function TeamMatrix({
     }
     onError(err);
   };
+  // Shared 409 handling for delete conflicts: another admin renamed this item
+  // since we loaded it, so refresh instead of destroying their change blindly.
+  const onDeleteConflict = (err: any) => {
+    if (err?.status === 409) {
+      toast({
+        title: "Changed by another admin",
+        description:
+          "This was just renamed by someone else. The matrix has been refreshed — check the new name and delete again if you still want to.",
+      });
+      invalidate();
+      return;
+    }
+    onError(err);
+  };
 
   const [editRow, setEditRow] = useState<RaciRow | null>(null);
   const [editMember, setEditMember] = useState<RaciMember | null>(null);
@@ -372,8 +386,14 @@ function TeamMatrix({
                               )
                             ) {
                               deleteMember.mutate(
-                                { id: m.id },
-                                { onSuccess: invalidate, onError },
+                                // expectedName lets the server reject the
+                                // delete (409) if another admin renamed this
+                                // member since we loaded the matrix.
+                                { id: m.id, params: { expectedName: m.name } },
+                                {
+                                  onSuccess: invalidate,
+                                  onError: onDeleteConflict,
+                                },
                               );
                             }
                           }}
@@ -413,7 +433,12 @@ function TeamMatrix({
                   onEditRow={setEditRow}
                   onDeleteRow={(row) => {
                     if (window.confirm(`Remove "${row.name}" from the matrix?`)) {
-                      deleteRow.mutate({ id: row.id }, { onSuccess: invalidate, onError });
+                      deleteRow.mutate(
+                        // expectedName lets the server reject the delete (409)
+                        // if another admin renamed this task since we loaded it.
+                        { id: row.id, params: { expectedName: row.name } },
+                        { onSuccess: invalidate, onError: onDeleteConflict },
+                      );
                     }
                   }}
                   onRenameCategory={setEditCategory}

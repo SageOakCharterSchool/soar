@@ -304,6 +304,17 @@ router.delete("/raci/rows/:id", requireAdmin, async (req, res): Promise<void> =>
     res.status(404).json({ message: "Row not found" });
     return;
   }
+  // Optimistic concurrency: if the client told us which name it last saw and
+  // the stored name has since changed, reject instead of destroying another
+  // admin's concurrent rename without warning.
+  const expectedName = req.query.expectedName;
+  if (typeof expectedName === "string" && expectedName !== row.name) {
+    res.status(409).json({
+      message: "This task was just renamed by another admin",
+      currentName: row.name,
+    });
+    return;
+  }
   await db.delete(raciAssignmentsTable).where(eq(raciAssignmentsTable.rowId, id));
   await db.delete(raciRowsTable).where(eq(raciRowsTable.id, id));
   await logRaciChange(user.id, `RACI: removed "${row.name}"`, row.applicationId ?? null);
@@ -411,6 +422,17 @@ router.delete("/raci/members/:id", requireAdmin, async (req, res): Promise<void>
     .where(eq(raciMembersTable.id, id));
   if (!member) {
     res.status(404).json({ message: "Member not found" });
+    return;
+  }
+  // Optimistic concurrency: if the client told us which name it last saw and
+  // the stored name has since changed, reject instead of destroying another
+  // admin's concurrent rename without warning.
+  const expectedName = req.query.expectedName;
+  if (typeof expectedName === "string" && expectedName !== member.name) {
+    res.status(409).json({
+      message: "This member was just renamed by another admin",
+      currentName: member.name,
+    });
     return;
   }
   await db.delete(raciAssignmentsTable).where(eq(raciAssignmentsTable.memberId, id));

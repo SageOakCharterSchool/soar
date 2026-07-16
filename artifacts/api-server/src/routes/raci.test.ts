@@ -275,6 +275,32 @@ describe("row management", () => {
       fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.rowId === 30),
     ).toHaveLength(0);
   });
+
+  it("deletes a row when expectedName matches the stored name", async () => {
+    const c = await loginAdmin();
+    const del = await c.delete(
+      "/raci/rows/30?expectedName=" + encodeURIComponent("Approve purchases"),
+    );
+    expect(del.status).toBe(200);
+    expect(fakeDb.rows(tables.raciRowsTable).map((r) => r.id)).toEqual([31]);
+    expect(
+      fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.rowId === 30),
+    ).toHaveLength(0);
+  });
+
+  it("409s without deleting when another admin renamed the row first", async () => {
+    const c = await loginAdmin();
+    const del = await c.delete(
+      "/raci/rows/30?expectedName=" + encodeURIComponent("Old stale name"),
+    );
+    expect(del.status).toBe(409);
+    expect(del.body.currentName).toBe("Approve purchases");
+    expect(fakeDb.rows(tables.raciRowsTable).map((r) => r.id)).toEqual([30, 31]);
+    expect(
+      fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.rowId === 30),
+    ).toHaveLength(2);
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
 });
 
 describe("member management", () => {
@@ -325,6 +351,33 @@ describe("member management", () => {
     expect(
       fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.memberId === 21),
     ).toHaveLength(0);
+  });
+
+  it("deletes a member when expectedName matches the stored name", async () => {
+    const c = await loginAdmin();
+    const res = await c.delete(
+      "/raci/members/21?expectedName=" + encodeURIComponent("Ash"),
+    );
+    expect(res.status).toBe(200);
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 21),
+    ).toBeUndefined();
+  });
+
+  it("409s without deleting when another admin renamed the member first", async () => {
+    const c = await loginAdmin();
+    const res = await c.delete(
+      "/raci/members/21?expectedName=" + encodeURIComponent("Ashley"),
+    );
+    expect(res.status).toBe(409);
+    expect(res.body.currentName).toBe("Ash");
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 21),
+    ).toBeDefined();
+    expect(
+      fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.memberId === 21),
+    ).toHaveLength(2);
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
   });
 });
 

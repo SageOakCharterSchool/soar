@@ -84,7 +84,10 @@ async function main() {
       else fail(`${from}: expected 1 highlighted row, got ${count}`);
       const inView = await row.first().evaluate((el) => {
         const r = el.getBoundingClientRect();
-        return r.top >= 0 && r.bottom <= window.innerHeight;
+        // `window` isn't declared in this Node tsconfig (no DOM lib); the
+        // callback runs in the browser where globalThis is the window.
+        const win = globalThis as unknown as { innerHeight: number };
+        return r.top >= 0 && r.bottom <= win.innerHeight;
       });
       if (inView) pass(`${from}: highlighted row is scrolled into view`);
       else fail(`${from}: highlighted row not in viewport`);

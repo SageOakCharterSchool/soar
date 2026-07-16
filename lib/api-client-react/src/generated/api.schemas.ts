@@ -725,3 +725,17 @@ export type GetAdditionalResourcesHistoryParams = {
 limit?: number;
 };
 
+export type DeleteRaciRowParams = {
+/**
+ * The row name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin's rename is not silently destroyed.
+ */
+expectedName?: string;
+};
+
+export type DeleteRaciMemberParams = {
+/**
+ * The member name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin's rename is not silently destroyed.
+ */
+expectedName?: string;
+};
+

@@ -24,6 +24,8 @@ export * from './boardRow';
 export * from './boardRowStaffSharingStatus';
 export * from './boardRowStudentSharingStatus';
 export * from './dailyUsageRow';
+export * from './deleteRaciMemberParams';
+export * from './deleteRaciRowParams';
 export * from './getAdditionalResourcesHistoryParams';
 export * from './getDailyUsageParams';
 export * from './getRosteringActivityArchiveFormat';

@@ -864,6 +864,15 @@ paths:
           required: true
           schema:
             type: integer
+        - name: expectedName
+          in: query
+          required: false
+          description: >-
+            The row name the client last saw. When provided and it no longer
+            matches the stored name, the delete is rejected with 409 so a
+            concurrent admin's rename is not silently destroyed.
+          schema:
+            type: string
       responses:
         "200":
           description: Row removed
@@ -877,6 +886,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The row name was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
   /raci/members:
     post:
       operationId: createRaciMember
@@ -947,6 +962,15 @@ paths:
           required: true
           schema:
             type: integer
+        - name: expectedName
+          in: query
+          required: false
+          description: >-
+            The member name the client last saw. When provided and it no
+            longer matches the stored name, the delete is rejected with 409 so
+            a concurrent admin's rename is not silently destroyed.
+          schema:
+            type: string
       responses:
         "200":
           description: Member removed
@@ -960,6 +984,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The member name was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
   /raci/cells:
     put:
       operationId: setRaciCell
