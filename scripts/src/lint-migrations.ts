@@ -148,6 +148,46 @@ export function hasDynamicExecute(cleanedSql: string): boolean {
   return false;
 }
 
+/**
+ * Extract the SQL contents of constant EXECUTE string literals inside
+ * dollar-quoted procedural bodies (DO blocks, CREATE FUNCTION bodies) from the
+ * RAW (unstripped) SQL. hasDynamicExecute treats constant strings as safe from
+ * a "hidden dynamic SQL" perspective, but their contents can still be
+ * destructive (e.g. EXECUTE 'DROP TABLE users';) — so the extracted contents
+ * are run through the same destructive rules as top-level SQL.
+ *
+ * Handles both single-quoted literals (with '' escapes) and dollar-quoted
+ * literals. Skips EXECUTE FUNCTION/PROCEDURE and GRANT/REVOKE ... EXECUTE,
+ * matching hasDynamicExecute.
+ */
+export function extractConstantExecuteSql(rawSql: string): string[] {
+  const contents: string[] = [];
+  const bodyRe = /\$([A-Za-z_0-9]*)\$([\s\S]*?)\$\1\$/g;
+  let bodyMatch: RegExpExecArray | null;
+  while ((bodyMatch = bodyRe.exec(rawSql)) !== null) {
+    const body = bodyMatch[2];
+    const execRe = /\bEXECUTE\b/gi;
+    let m: RegExpExecArray | null;
+    while ((m = execRe.exec(body)) !== null) {
+      const before = body.slice(0, m.index);
+      if (/\b(GRANT|REVOKE)\b[^;]*$/i.test(before)) continue;
+      const rest = body.slice(m.index + m[0].length).trimStart();
+      if (/^(FUNCTION|PROCEDURE)\b/i.test(rest)) continue;
+      // Only a lone literal (followed by end of statement, INTO, or USING) is
+      // constant; a literal followed by || etc. is part of dynamic SQL, which
+      // hasDynamicExecute already flags.
+      const single = /^'((?:[^']|'')*)'\s*(?:;|INTO\b|USING\b|$)/i.exec(rest);
+      if (single) {
+        contents.push(single[1].replace(/''/g, "'"));
+        continue;
+      }
+      const dollar = /^\$([A-Za-z_0-9]*)\$([\s\S]*?)\$\1\$\s*(?:;|INTO\b|USING\b|$)/i.exec(rest);
+      if (dollar) contents.push(dollar[2]);
+    }
+  }
+  return contents;
+}
+
 const RULES: Rule[] = [
   {
     name: "DROP TABLE",
@@ -227,8 +267,15 @@ export function lintMigrationsDir(migrationsDir = defaultMigrationsDir): LintFin
       if (!stmt) return;
       const allowed = ALLOW_MARKER.test(rawStmt);
       const cleaned = stripCommentsAndStrings(stmt);
+      // Constant EXECUTE string literals are stripped to '' above, but their
+      // contents can still be destructive — scan them with the same rules.
+      const executeSql = extractConstantExecuteSql(stmt)
+        .map((s) => stripCommentsAndStrings(s).trim())
+        .filter(Boolean)
+        .join(";\n");
+      const scanned = executeSql ? `${cleaned}\n;${executeSql};` : cleaned;
       for (const rule of RULES) {
-        const matched = rule.check ? rule.check(cleaned) : rule.pattern!.test(cleaned);
+        const matched = rule.check ? rule.check(scanned) : rule.pattern!.test(scanned);
         if (matched) {
           if (allowed) continue;
           findings.push({

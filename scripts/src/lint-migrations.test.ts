@@ -463,6 +463,102 @@ describe("dynamic EXECUTE inside DO blocks", () => {
   });
 });
 
+describe("destructive SQL inside constant EXECUTE strings", () => {
+  it("flags EXECUTE 'DROP TABLE ...' inside a DO block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN EXECUTE 'DROP TABLE users'; END $$;",
+      }),
+    ).toEqual(["DROP TABLE"]);
+  });
+
+  it("flags EXECUTE 'TRUNCATE ...' inside a DO block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN EXECUTE 'TRUNCATE sync_history'; END $$;",
+      }),
+    ).toEqual(["TRUNCATE"]);
+  });
+
+  it("flags EXECUTE with a constant DELETE without WHERE", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN EXECUTE 'DELETE FROM sessions'; END $$;",
+      }),
+    ).toEqual(["DELETE without WHERE"]);
+  });
+
+  it("does not flag EXECUTE with a constant DELETE with WHERE", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE 'DELETE FROM sessions WHERE expires_at < now()'; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags destructive SQL inside a constant dollar-quoted EXECUTE literal", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN EXECUTE $q$ DROP TABLE users $q$; END $$;",
+      }),
+    ).toEqual(["DROP TABLE"]);
+  });
+
+  it("handles escaped quotes inside the constant literal", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE 'DELETE FROM sessions WHERE note = ''keep''; DROP TABLE users'; END $$;",
+      }),
+    ).toEqual(["DROP TABLE"]);
+  });
+
+  it("flags UPDATE without WHERE inside a constant EXECUTE string", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN EXECUTE 'UPDATE users SET active = false'; END $$;",
+      }),
+    ).toEqual(["UPDATE without WHERE"]);
+  });
+
+  it("flags destructive constant EXECUTE inside a CREATE FUNCTION body", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "CREATE FUNCTION nuke() RETURNS void AS $$ BEGIN EXECUTE 'TRUNCATE users'; END $$ LANGUAGE plpgsql;",
+      }),
+    ).toEqual(["TRUNCATE"]);
+  });
+
+  it("allows a destructive constant EXECUTE carrying a -- destructive: marker", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "-- destructive: legacy table removal, data archived\nDO $$ BEGIN EXECUTE 'DROP TABLE legacy_users'; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag safe constant EXECUTE strings (CREATE INDEX)", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE 'CREATE INDEX IF NOT EXISTS idx_users_name ON users (name)'; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag destructive keywords in a constant EXECUTE string's own literals", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE 'INSERT INTO audit_log (note) VALUES (''ran DROP TABLE manually'')'; END $$;",
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("multi-file behavior", () => {
   it("only scans .sql files and reports the file name", () => {
     const findings = lintMigrationsDir(
