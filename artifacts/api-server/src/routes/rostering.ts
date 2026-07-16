@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   applicationsTable,
@@ -73,7 +73,55 @@ router.get(
   async (req, res): Promise<void> => {
     const limitRaw = parseInt(String(req.query.limit ?? "100"), 10);
     const limit = Number.isNaN(limitRaw) ? 100 : Math.min(Math.max(limitRaw, 1), 1000);
+    const offsetRaw = parseInt(String(req.query.offset ?? "0"), 10);
+    const offset = Number.isNaN(offsetRaw) ? 0 : Math.max(offsetRaw, 0);
     const format = String(req.query.format ?? "json");
+
+    const conditions = [];
+
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    if (search) {
+      const pattern = `%${search.replace(/[%_\\]/g, "\\$&")}%`;
+      conditions.push(
+        or(
+          ilike(appActivityArchiveTable.appName, pattern),
+          ilike(appActivityArchiveTable.actorName, pattern),
+          ilike(appActivityArchiveTable.detail, pattern),
+        ),
+      );
+    }
+
+    const appName = typeof req.query.appName === "string" ? req.query.appName.trim() : "";
+    if (appName) {
+      // Escaped pattern with no wildcards = case-insensitive exact match.
+      conditions.push(
+        ilike(appActivityArchiveTable.appName, appName.replace(/[%_\\]/g, "\\$&")),
+      );
+    }
+
+    const fromRaw = typeof req.query.from === "string" ? req.query.from.trim() : "";
+    if (fromRaw) {
+      const from = new Date(fromRaw);
+      if (Number.isNaN(from.getTime())) {
+        res.status(400).json({ message: "from must be a valid ISO 8601 date" });
+        return;
+      }
+      conditions.push(gte(appActivityArchiveTable.createdAt, from));
+    }
+
+    const toRaw = typeof req.query.to === "string" ? req.query.to.trim() : "";
+    if (toRaw) {
+      const to = new Date(toRaw);
+      if (Number.isNaN(to.getTime())) {
+        res.status(400).json({ message: "to must be a valid ISO 8601 date" });
+        return;
+      }
+      // A bare date like 2026-01-31 should include the whole day.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(toRaw)) {
+        to.setUTCHours(23, 59, 59, 999);
+      }
+      conditions.push(lte(appActivityArchiveTable.createdAt, to));
+    }
 
     const rows = await db
       .select({
@@ -88,8 +136,10 @@ router.get(
         archivedAt: appActivityArchiveTable.archivedAt,
       })
       .from(appActivityArchiveTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(appActivityArchiveTable.createdAt), desc(appActivityArchiveTable.id))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
 
     const mapped = rows.map((r) => ({
       ...r,

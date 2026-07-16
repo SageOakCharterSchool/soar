@@ -510,6 +510,23 @@ limit?: number;
 
 export type GetRosteringActivityArchiveParams = {
 limit?: number;
+offset?: number;
+/**
+ * Case-insensitive match against app name, actor, or detail
+ */
+search?: string;
+/**
+ * Case-insensitive exact app name filter
+ */
+appName?: string;
+/**
+ * Only events occurring on/after this date (ISO 8601)
+ */
+from?: string;
+/**
+ * Only events occurring on/before this date (ISO 8601)
+ */
+to?: string;
 format?: GetRosteringActivityArchiveFormat;
 };
 

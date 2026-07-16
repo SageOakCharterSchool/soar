@@ -334,6 +334,30 @@ paths:
           in: query
           required: false
           schema: { type: integer }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: search
+          in: query
+          required: false
+          description: Case-insensitive match against app name, actor, or detail
+          schema: { type: string }
+        - name: appName
+          in: query
+          required: false
+          description: Case-insensitive exact app name filter
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          description: Only events occurring on/after this date (ISO 8601)
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          description: Only events occurring on/before this date (ISO 8601)
+          schema: { type: string }
         - name: format
           in: query
           required: false

@@ -224,11 +224,27 @@ function csvCell(value: string | null | undefined): string {
 
 function ArchiveDialog() {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const params: Record<string, string | number> = { limit: 500 };
+  if (debouncedSearch) params.search = debouncedSearch;
+  if (fromDate) params.from = fromDate;
+  if (toDate) params.to = toDate;
+
   const { data: archived, isLoading } = useGetRosteringActivityArchive(
-    { limit: 500 },
+    params,
     { query: { enabled: open } as any },
   );
   const rows = (archived ?? []) as ArchivedActivityEvent[];
+  const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
 
   const downloadCsv = () => {
     const header = "app,event_type,detail,actor,occurred_at,archived_at";
@@ -264,11 +280,59 @@ function ArchiveDialog() {
           Changes older than 12 months are moved here so the recent feed stays fast
           while the full audit trail is preserved.
         </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <Input
+              placeholder="Search by app, actor, or detail…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground" htmlFor="archive-from">
+                From
+              </label>
+              <Input
+                id="archive-from"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground" htmlFor="archive-to">
+                To
+              </label>
+              <Input
+                id="archive-to"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            {hasFilters && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSearch("");
+                  setFromDate("");
+                  setToDate("");
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
-            Nothing archived yet. Events appear here once they age past 12 months.
+            {hasFilters
+              ? "No archived events match your filters."
+              : "Nothing archived yet. Events appear here once they age past 12 months."}
           </p>
         ) : (
           <>

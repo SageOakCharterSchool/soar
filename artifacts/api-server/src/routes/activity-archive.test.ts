@@ -230,6 +230,72 @@ describe("GET /api/rostering/activity/archive", () => {
     expect(res.body).toHaveLength(2);
   });
 
+  it("filters by search across app name, actor, and detail", async () => {
+    const byApp = seedArchive({ appName: "Zoom", detail: "Enabled" });
+    const byActor = seedArchive({ actorName: "Zoomer Admin", detail: "Other" });
+    const byDetail = seedArchive({ detail: "Set up zoom rooms" });
+    seedArchive({ appName: "Canva", actorName: "Jane", detail: "Nothing here" });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson("/rostering/activity/archive?search=zoom");
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: any) => r.id).sort()).toEqual(
+      [byApp.id, byActor.id, byDetail.id].sort(),
+    );
+  });
+
+  it("filters by appName case-insensitively (exact match)", async () => {
+    const zoom = seedArchive({ appName: "Zoom" });
+    seedArchive({ appName: "Zoom Phone" });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson("/rostering/activity/archive?appName=zoom");
+    expect(res.body.map((r: any) => r.id)).toEqual([zoom.id]);
+  });
+
+  it("filters by from/to date range", async () => {
+    seedArchive({ createdAt: new Date("2022-01-01T12:00:00Z") });
+    const mid = seedArchive({ createdAt: new Date("2023-06-15T12:00:00Z") });
+    seedArchive({ createdAt: new Date("2024-12-01T12:00:00Z") });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson(
+      "/rostering/activity/archive?from=2023-01-01&to=2023-12-31",
+    );
+    expect(res.body.map((r: any) => r.id)).toEqual([mid.id]);
+  });
+
+  it("to as a bare date includes the whole day", async () => {
+    const lateInDay = seedArchive({ createdAt: new Date("2023-06-15T23:30:00Z") });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson("/rostering/activity/archive?to=2023-06-15");
+    expect(res.body.map((r: any) => r.id)).toEqual([lateInDay.id]);
+  });
+
+  it("rejects invalid dates", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson("/rostering/activity/archive?from=not-a-date");
+    expect(res.status).toBe(400);
+  });
+
+  it("supports offset pagination", async () => {
+    const a = seedArchive({ createdAt: yearsAgo(4) });
+    const b = seedArchive({ createdAt: yearsAgo(3) });
+    const c = seedArchive({ createdAt: yearsAgo(2) });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson("/rostering/activity/archive?limit=2&offset=1");
+    expect(res.body.map((r: any) => r.id)).toEqual([b.id, a.id]);
+    void c;
+  });
+
+  it("applies filters to CSV export too", async () => {
+    seedArchive({ appName: "Zoom", detail: "Match me" });
+    seedArchive({ appName: "Canva", detail: "Not me" });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getRaw("/rostering/activity/archive?format=csv&search=zoom");
+    expect(res.status).toBe(200);
+    const lines = res.text.trim().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain("Zoom");
+  });
+
   it("exports CSV with format=csv", async () => {
     seedArchive({ detail: 'Has "quotes", and commas' });
     const admin = await loginAs(ADMIN);

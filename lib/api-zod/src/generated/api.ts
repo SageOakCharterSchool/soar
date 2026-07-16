@@ -313,6 +313,11 @@ export const GetRosteringActivityResponse = zod.array(GetRosteringActivityRespon
  */
 export const GetRosteringActivityArchiveQueryParams = zod.object({
   "limit": zod.coerce.number().optional(),
+  "offset": zod.coerce.number().optional(),
+  "search": zod.coerce.string().optional().describe('Case-insensitive match against app name, actor, or detail'),
+  "appName": zod.coerce.string().optional().describe('Case-insensitive exact app name filter'),
+  "from": zod.coerce.string().optional().describe('Only events occurring on\/after this date (ISO 8601)'),
+  "to": zod.coerce.string().optional().describe('Only events occurring on\/before this date (ISO 8601)'),
   "format": zod.enum(['json', 'csv']).optional()
 })
 

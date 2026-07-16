@@ -25,6 +25,7 @@ export type Cond =
   | { type: "lte"; col: Col; val: unknown }
   | { type: "lt"; col: Col; val: unknown }
   | { type: "isNull"; col: Col }
+  | { type: "ilike"; col: Col; val: string }
   | { type: "and"; conds: Cond[] }
   | { type: "or"; conds: Cond[] };
 
@@ -65,6 +66,22 @@ function matches(ctx: RowCtx, cond: Cond | undefined): boolean {
   if (cond.type === "and") return cond.conds.every((c) => matches(ctx, c));
   if (cond.type === "or") return cond.conds.some((c) => matches(ctx, c));
   if (cond.type === "isNull") return resolve(ctx, cond.col) == null;
+  if (cond.type === "ilike") {
+    const target = resolve(ctx, cond.col);
+    if (target == null) return false;
+    // Convert a SQL LIKE pattern (with \ escapes) to a regex.
+    let re = "";
+    const p = cond.val;
+    for (let i = 0; i < p.length; i++) {
+      const ch = p[i]!;
+      if (ch === "\\" && i + 1 < p.length) {
+        re += p[++i]!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      } else if (ch === "%") re += "[\\s\\S]*";
+      else if (ch === "_") re += "[\\s\\S]";
+      else re += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    return new RegExp(`^${re}$`, "i").test(String(target));
+  }
   const v = resolve(ctx, cond.col) as string | number;
   const val = cond.val as string | number;
   if (cond.type === "eq") return v === val;
@@ -94,6 +111,7 @@ class Query implements PromiseLike<Row[]> {
   private cond?: Cond;
   private order: OrderSpec[] = [];
   private max?: number;
+  private skip = 0;
   private joins: JoinSpec[] = [];
   private groupCol?: Col;
 
@@ -107,6 +125,10 @@ class Query implements PromiseLike<Row[]> {
   }
   limit(n: number) {
     this.max = n;
+    return this;
+  }
+  offset(n: number) {
+    this.skip = n;
     return this;
   }
   innerJoin(table: object, cond: { type: "eq"; col: Col; val: Col }) {
@@ -191,6 +213,7 @@ class Query implements PromiseLike<Row[]> {
         return spec.dir === "desc" ? -cmp : cmp;
       });
     }
+    if (this.skip > 0) groups = groups.slice(this.skip);
     if (this.max != null) groups = groups.slice(0, this.max);
 
     return groups.map((group) => {
@@ -427,6 +450,7 @@ export const drizzleOrmMock = {
   lt: (col: Col, val: unknown) => ({ type: "lt", col, val }),
   lte: (col: Col, val: unknown) => ({ type: "lte", col, val }),
   isNull: (col: Col) => ({ type: "isNull", col }),
+  ilike: (col: Col, val: string) => ({ type: "ilike", col, val }),
   and: (...conds: unknown[]) => ({ type: "and", conds }),
   or: (...conds: unknown[]) => ({ type: "or", conds }),
   asc: (col: Col) => ({ col, dir: "asc" }),
