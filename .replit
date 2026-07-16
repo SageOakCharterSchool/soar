@@ -40,6 +40,10 @@ args = "raci-conflict"
 task = "workflow.run"
 args = "staff-access"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "issues-legacy-date"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -99,6 +103,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run staff-access-check && pnpm --filter @workspace/scripts run staff-ui-check && pnpm --filter @workspace/scripts run issues-new-marker-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "issues-legacy-date"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run issues-legacy-date-check"
 
 [workflows.workflow.metadata]
 isValidation = true
