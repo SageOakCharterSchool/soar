@@ -547,4 +547,33 @@ describe("GET /api/rostering/activity/archive", () => {
     expect(lines[0]).toBe("app,event_type,detail,actor,occurred_at,archived_at");
     expect(lines[1]).toContain('"Has ""quotes"", and commas"');
   });
+
+  it("escapes formula-leading cell values so spreadsheets render them as text", async () => {
+    seedArchive({
+      appName: '=HYPERLINK("http://evil.example","click")',
+      detail: "+cmd|' /C calc'!A0",
+      actorName: "@SUM(A1:A9)",
+    });
+    seedArchive({ appName: "-Negative App", detail: "Regular detail" });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getRaw("/rostering/activity/archive?format=csv");
+    expect(res.status).toBe(200);
+    const records = splitCsvRecords(res.text.trim());
+    expect(records).toHaveLength(3);
+    const all = records.slice(1).join("\n");
+    // Malicious values must be prefixed with a single quote...
+    expect(all).toContain('"\'=HYPERLINK(""http://evil.example"",""click"")"');
+    expect(all).toContain("'+cmd|' /C calc'!A0");
+    expect(all).toContain("'@SUM(A1:A9)");
+    expect(all).toContain("'-Negative App");
+    // ...and no field may still begin with a raw formula trigger.
+    for (const record of records.slice(1)) {
+      const fields = record
+        .split(",")
+        .map((f) => (f.startsWith('"') ? f.slice(1) : f));
+      for (const field of fields) {
+        expect(field).not.toMatch(/^[=+\-@]/);
+      }
+    }
+  });
 });

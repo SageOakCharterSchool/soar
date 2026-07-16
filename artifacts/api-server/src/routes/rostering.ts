@@ -71,7 +71,13 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
 });
 
 function csvEscape(value: unknown): string {
-  const s = value == null ? "" : String(value);
+  let s = value == null ? "" : String(value);
+  // Prevent CSV/formula injection: Excel and Google Sheets treat cells
+  // starting with =, +, -, @ (or tab/CR) as formulas. Prefix with a single
+  // quote so spreadsheets render the value as plain text.
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+  }
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

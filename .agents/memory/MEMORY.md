@@ -9,4 +9,5 @@
 - [Google SSO UI check gotchas](google-sso-ui-check.md) — fulfilled 302s can't be intercepted downstream; Radix toasts double-match getByText (use .first()).
 - [Simulating stale sessions in Playwright](two-session-staleness-playwright.md) — hold refetches in-flight via route queue, not abort; aborted queries never converge after unrouting.
 - [Toasts lost before Toaster mounts](toast-before-toaster-mount.md) — useToast must sync from memoryState on subscribe or mount-effect toasts are silently dropped.
+- [Validation dist rebuild race](validation-dist-rebuild-race.md) — google-sso check flakes when verify-migrations rebuilds api-server dist concurrently; rerun in isolation, and start dev workflows first.
 - [RACI empty-state UI checks](raci-empty-state-check.md) — in-table empty-state messages are tbody rows, so "no rows" guards based on tr counts never fire; exclude them first.
