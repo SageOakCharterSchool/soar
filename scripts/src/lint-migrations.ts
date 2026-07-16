@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultMigrationsDir = path.resolve(here, "../../lib/db/migrations");
 
-const ALLOW_MARKER = /--\s*destructive:\s*\S+/i;
+const ALLOW_MARKER = /--[ \t]*destructive:[ \t]*\S+/i;
 
 interface Rule {
   name: string;

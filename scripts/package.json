@@ -16,7 +16,8 @@
     "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
     "playwright-core": "^1.61.1",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "pg": "^8.22.0"
