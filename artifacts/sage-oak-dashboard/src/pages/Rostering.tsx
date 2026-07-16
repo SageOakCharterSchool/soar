@@ -11,7 +11,7 @@ import {
   useUpdateTerm,
   useCopyTermStatuses,
   useGetRosteringActivity,
-  useGetRosteringActivityArchive,
+  getRosteringActivityArchive,
   useMarkRosteringSeen,
   getGetRosteringUnseenCountQueryKey,
   type ActivityEvent,
@@ -259,16 +259,64 @@ function ArchiveDialog() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const params: Record<string, string | number> = { limit: 500 };
-  if (debouncedSearch) params.search = debouncedSearch;
-  if (fromDate) params.from = fromDate;
-  if (toDate) params.to = toDate;
+  const PAGE_SIZE = 500;
+  const [rows, setRows] = useState<ArchivedActivityEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const listAbortRef = useRef<AbortController | null>(null);
 
-  const { data: archived, isLoading } = useGetRosteringActivityArchive(
-    params,
-    { query: { enabled: open } as any },
-  );
-  const rows = (archived ?? []) as ArchivedActivityEvent[];
+  const fetchPage = async (offset: number, append: boolean) => {
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
+    if (append) setLoadingMore(true);
+    else setIsLoading(true);
+    try {
+      const params: Record<string, string | number> = {
+        limit: PAGE_SIZE,
+        offset,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (fromDate) params.from = fromDate;
+      if (toDate) params.to = toDate;
+      const page = (await getRosteringActivityArchive(params as any, {
+        signal: controller.signal,
+      })) as ArchivedActivityEvent[];
+      if (controller.signal.aborted) return;
+      setRows((prev) => (append ? [...prev, ...page] : page));
+      setHasMore(page.length === PAGE_SIZE);
+    } catch (err) {
+      if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      toast({
+        variant: "destructive",
+        title: "Could not load archived history",
+        description:
+          err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      if (listAbortRef.current === controller) listAbortRef.current = null;
+      if (append) setLoadingMore(false);
+      else setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setRows([]);
+    setHasMore(false);
+    void fetchPage(0, false);
+    return () => listAbortRef.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, debouncedSearch, fromDate, toDate]);
+
+  const loadMore = () => {
+    if (loadingMore || isLoading) return;
+    void fetchPage(rows.length, true);
+  };
+
   const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
 
   const cancelDownload = () => {
@@ -435,6 +483,23 @@ function ArchiveDialog() {
                   </li>
                 ))}
               </ul>
+              {hasMore && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
+              {hasMore && !loadingMore && (
+                <p className="text-center text-xs text-muted-foreground pb-1">
+                  Showing {rows.length.toLocaleString()} events — more available
+                </p>
+              )}
             </div>
             <DialogFooter className="items-center gap-2 sm:gap-2">
               {downloading && (
