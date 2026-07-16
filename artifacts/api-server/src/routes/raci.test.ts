@@ -438,6 +438,73 @@ describe("member management", () => {
     ).toHaveLength(2);
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
   });
+
+  it("deletes a member when expectedAssignments matches the stored column", async () => {
+    const c = await loginAdmin();
+    const res = await c.delete(
+      "/raci/members/21?expectedName=" +
+        encodeURIComponent("Ash") +
+        "&expectedAssignments=" +
+        encodeURIComponent("30=C,31=R"),
+    );
+    expect(res.status).toBe(200);
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 21),
+    ).toBeUndefined();
+    expect(
+      fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.memberId === 21),
+    ).toHaveLength(0);
+  });
+
+  it("409s without deleting when another admin changed the member's assignments first", async () => {
+    const c = await loginAdmin();
+    // Client last saw only row 30=C; row 31=R was added concurrently.
+    const res = await c.delete(
+      "/raci/members/21?expectedName=" +
+        encodeURIComponent("Ash") +
+        "&expectedAssignments=" +
+        encodeURIComponent("30=C"),
+    );
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("assignments");
+    expect(res.body.currentName).toBe("Ash");
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 21),
+    ).toBeDefined();
+    expect(
+      fakeDb.rows(tables.raciAssignmentsTable).filter((a) => a.memberId === 21),
+    ).toHaveLength(2);
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
+
+  it("409s when a member's column was cleared concurrently", async () => {
+    const c = await loginAdmin();
+    // Simulate another admin clearing the member's cells after the client loaded.
+    const assignments = fakeDb.rows(tables.raciAssignmentsTable);
+    for (let i = assignments.length - 1; i >= 0; i--) {
+      if (assignments[i]!.memberId === 21) assignments.splice(i, 1);
+    }
+    const res = await c.delete(
+      "/raci/members/21?expectedAssignments=" + encodeURIComponent("30=C,31=R"),
+    );
+    expect(res.status).toBe(409);
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 21),
+    ).toBeDefined();
+  });
+
+  it("deletes a member with no assignments when expectedAssignments is empty", async () => {
+    const c = await loginAdmin();
+    const assignments = fakeDb.rows(tables.raciAssignmentsTable);
+    for (let i = assignments.length - 1; i >= 0; i--) {
+      if (assignments[i]!.memberId === 21) assignments.splice(i, 1);
+    }
+    const res = await c.delete("/raci/members/21?expectedAssignments=");
+    expect(res.status).toBe(200);
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 21),
+    ).toBeUndefined();
+  });
 });
 
 describe("PUT /raci/cells", () => {

@@ -461,6 +461,32 @@ router.delete("/raci/members/:id", requireAdmin, async (req, res): Promise<void>
     });
     return;
   }
+  // Same idea for the member's column assignments: if the client told us the
+  // assignment set it last saw (canonical "rowId=value" fingerprint) and it
+  // has since changed, reject instead of silently wiping another admin's
+  // concurrent R/A/C/I edits along with the member.
+  const expectedAssignments = req.query.expectedAssignments;
+  if (typeof expectedAssignments === "string") {
+    const current = await db
+      .select({
+        rowId: raciAssignmentsTable.rowId,
+        value: raciAssignmentsTable.value,
+      })
+      .from(raciAssignmentsTable)
+      .where(eq(raciAssignmentsTable.memberId, id));
+    const fingerprint = current
+      .map((a) => ({ rowId: a.rowId, value: a.value }))
+      .sort((a, b) => a.rowId - b.rowId)
+      .map((a) => `${a.rowId}=${a.value}`)
+      .join(",");
+    if (expectedAssignments !== fingerprint) {
+      res.status(409).json({
+        message: "This member's assignments were just changed by another admin",
+        currentName: member.name,
+      });
+      return;
+    }
+  }
   await db.delete(raciAssignmentsTable).where(eq(raciAssignmentsTable.memberId, id));
   await db.delete(raciMembersTable).where(eq(raciMembersTable.id, id));
   await logRaciChange(user.id, `RACI: removed member ${member.name}`);

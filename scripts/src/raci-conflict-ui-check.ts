@@ -754,7 +754,7 @@ async function runChecks(fixture: Fixture) {
     // they auto-dismiss, so wait for this flow's unique description text
     // (started before the click) instead of counting generic toast titles.
     const assignmentsToastPromise = pageB
-      .getByText("This task's assignments were just changed by someone else", {
+      .getByText("Its assignments were just changed by someone else", {
         exact: false,
       })
       .first()

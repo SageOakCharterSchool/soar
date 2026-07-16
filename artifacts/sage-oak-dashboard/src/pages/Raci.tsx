@@ -105,6 +105,25 @@ function assignmentFingerprint(
     .join(",");
 }
 
+// Canonical fingerprint of a member's column assignments across all rows,
+// matching the server's expectedAssignments format for member deletes:
+// "rowId=value" sorted by rowId, joined with commas (empty string for no
+// assignments).
+function memberAssignmentFingerprint(
+  rows: RaciRow[],
+  memberId: number,
+): string {
+  return rows
+    .flatMap((row) =>
+      row.assignments
+        .filter((a) => a.memberId === memberId)
+        .map((a) => ({ rowId: row.id, value: a.value })),
+    )
+    .sort((a, b) => a.rowId - b.rowId)
+    .map((a) => `${a.rowId}=${a.value}`)
+    .join(",");
+}
+
 function rowWarnings(row: RaciRow): { multiA: boolean; noA: boolean } {
   const aCount = row.assignments.filter((a) => a.value === "A").length;
   return { multiA: aCount > 1, noA: aCount === 0 };
@@ -225,7 +244,7 @@ function TeamMatrix({
       toast({
         title: "Changed by another admin",
         description: changedAssignments
-          ? "This task's assignments were just changed by someone else. The matrix has been refreshed — review the changes and delete again if you still want to."
+          ? "Its assignments were just changed by someone else. The matrix has been refreshed — review the changes and delete again if you still want to."
           : "This was just renamed by someone else. The matrix has been refreshed — check the new name and delete again if you still want to.",
       });
       invalidate();
@@ -413,10 +432,22 @@ function TeamMatrix({
                               )
                             ) {
                               deleteMember.mutate(
-                                // expectedName lets the server reject the
-                                // delete (409) if another admin renamed this
-                                // member since we loaded the matrix.
-                                { id: m.id, params: { expectedName: m.name } },
+                                // expectedName / expectedAssignments let the
+                                // server reject the delete (409) if another
+                                // admin renamed this member or changed their
+                                // column assignments since we loaded the
+                                // matrix.
+                                {
+                                  id: m.id,
+                                  params: {
+                                    expectedName: m.name,
+                                    expectedAssignments:
+                                      memberAssignmentFingerprint(
+                                        team.rows,
+                                        m.id,
+                                      ),
+                                  },
+                                },
                                 {
                                   onSuccess: invalidate,
                                   onError: onDeleteConflict,

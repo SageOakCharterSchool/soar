@@ -11,4 +11,8 @@ export type DeleteRaciMemberParams = {
  * The member name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin's rename is not silently destroyed.
  */
 expectedName?: string;
+/**
+ * Canonical fingerprint of the member's column assignments the client last saw: "rowId=value" pairs sorted by rowId and joined with commas (empty string when the member had no assignments). When provided and it no longer matches the stored assignments, the delete is rejected with 409 so a concurrent admin's assignment changes are not silently destroyed.
+ */
+expectedAssignments?: string;
 };

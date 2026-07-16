@@ -1031,6 +1031,18 @@ paths:
             a concurrent admin's rename is not silently destroyed.
           schema:
             type: string
+        - name: expectedAssignments
+          in: query
+          required: false
+          description: >-
+            Canonical fingerprint of the member's column assignments the
+            client last saw: "rowId=value" pairs sorted by rowId and joined
+            with commas (empty string when the member had no assignments).
+            When provided and it no longer matches the stored assignments, the
+            delete is rejected with 409 so a concurrent admin's assignment
+            changes are not silently destroyed.
+          schema:
+            type: string
       responses:
         "200":
           description: Member removed
@@ -1045,7 +1057,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
         "409":
-          description: The member name was changed by another admin since it was loaded
+          description: >-
+            The member's name or assignments were changed by another admin
+            since it was loaded
           content:
             application/json:
               schema:
