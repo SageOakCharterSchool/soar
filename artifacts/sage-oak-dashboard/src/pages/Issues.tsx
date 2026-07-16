@@ -15,6 +15,20 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { RaciChips } from "@/components/RaciChips";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function turnaroundDays(createdAt: string, resolvedAt: string): number | null {
+  const ms = new Date(resolvedAt).getTime() - new Date(createdAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return ms / DAY_MS;
+}
+
+function formatTurnaround(days: number): string {
+  if (days < 1) return "less than a day";
+  const rounded = Math.round(days);
+  return rounded === 1 ? "1 day" : `${rounded} days`;
+}
+
 const FILTERS: { label: string; value: ListIssuesStatus | undefined }[] = [
   { label: "Open", value: "open" },
   { label: "Resolved", value: "resolved" },
@@ -61,6 +75,15 @@ export default function Issues() {
   const dividerBeforeId =
     newCount > 0 && firstOldIdx > 0 ? (issues ?? [])[firstOldIdx]?.id : null;
 
+  const resolvedDurations = (issues ?? [])
+    .filter((i) => i.status === "resolved" && i.resolvedAt)
+    .map((i) => turnaroundDays(i.createdAt, i.resolvedAt!))
+    .filter((d): d is number => d !== null);
+  const avgTurnaround =
+    resolvedDurations.length > 0
+      ? resolvedDurations.reduce((a, b) => a + b, 0) / resolvedDurations.length
+      : null;
+
   const setIssueStatus = (id: number, next: "open" | "resolved") => {
     updateIssue.mutate(
       { id, data: { status: next } },
@@ -83,6 +106,11 @@ export default function Issues() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <h2 className="text-2xl font-bold tracking-tight">Issues</h2>
+          {avgTurnaround !== null && (
+            <Badge variant="outline" className="text-muted-foreground">
+              Avg turnaround: {formatTurnaround(avgTurnaround)}
+            </Badge>
+          )}
           {newCount > 0 && (
             <Badge className="border-transparent bg-sky-600 text-white hover:bg-sky-600 dark:bg-sky-500 dark:text-sky-950">
               {newCount} new since your last visit
@@ -151,6 +179,10 @@ export default function Issues() {
                       <>
                         {" · Resolved on "}
                         {new Date(issue.resolvedAt).toLocaleDateString()}
+                        {(() => {
+                          const d = turnaroundDays(issue.createdAt, issue.resolvedAt);
+                          return d !== null ? ` · Resolved in ${formatTurnaround(d)}` : null;
+                        })()}
                       </>
                     )}
                   </p>
