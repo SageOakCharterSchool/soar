@@ -51,6 +51,7 @@ import type {
   RaciMember,
   RaciMemberInput,
   RaciMemberUpdate,
+  RaciNameConflict,
   RaciRow,
   RaciRowInput,
   RaciRowUpdate,
@@ -3458,7 +3459,7 @@ export const updateRaciRow = async (id: number,
 
 
 
-export const getUpdateRaciRowMutationOptions = <TError = ErrorType<ApiMessage>,
+export const getUpdateRaciRowMutationOptions = <TError = ErrorType<ApiMessage | RaciNameConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciRow>>, TError,{id: number;data: BodyType<RaciRowUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateRaciRow>>, TError,{id: number;data: BodyType<RaciRowUpdate>}, TContext> => {
 
@@ -3487,12 +3488,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateRaciRowMutationResult = NonNullable<Awaited<ReturnType<typeof updateRaciRow>>>
     export type UpdateRaciRowMutationBody = BodyType<RaciRowUpdate>
-    export type UpdateRaciRowMutationError = ErrorType<ApiMessage>
+    export type UpdateRaciRowMutationError = ErrorType<ApiMessage | RaciNameConflict>
 
     /**
  * @summary Rename, recategorize, or (un)link a RACI row (admin)
  */
-export const useUpdateRaciRow = <TError = ErrorType<ApiMessage>,
+export const useUpdateRaciRow = <TError = ErrorType<ApiMessage | RaciNameConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciRow>>, TError,{id: number;data: BodyType<RaciRowUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateRaciRow>>,
@@ -3672,7 +3673,7 @@ export const updateRaciMember = async (id: number,
 
 
 
-export const getUpdateRaciMemberMutationOptions = <TError = ErrorType<ApiMessage>,
+export const getUpdateRaciMemberMutationOptions = <TError = ErrorType<ApiMessage | RaciNameConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciMember>>, TError,{id: number;data: BodyType<RaciMemberUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateRaciMember>>, TError,{id: number;data: BodyType<RaciMemberUpdate>}, TContext> => {
 
@@ -3701,12 +3702,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateRaciMemberMutationResult = NonNullable<Awaited<ReturnType<typeof updateRaciMember>>>
     export type UpdateRaciMemberMutationBody = BodyType<RaciMemberUpdate>
-    export type UpdateRaciMemberMutationError = ErrorType<ApiMessage>
+    export type UpdateRaciMemberMutationError = ErrorType<ApiMessage | RaciNameConflict>
 
     /**
  * @summary Rename a team member column (admin)
  */
-export const useUpdateRaciMember = <TError = ErrorType<ApiMessage>,
+export const useUpdateRaciMember = <TError = ErrorType<ApiMessage | RaciNameConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciMember>>, TError,{id: number;data: BodyType<RaciMemberUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateRaciMember>>,

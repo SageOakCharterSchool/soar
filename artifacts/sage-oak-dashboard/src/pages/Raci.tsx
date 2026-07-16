@@ -174,6 +174,21 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
       description: err?.data?.message ?? "Try again.",
       variant: "destructive",
     });
+  // Shared 409 handling for rename conflicts: another admin changed the same
+  // name since we loaded it, so refresh instead of overwriting their edit.
+  const onRenameError = (close: () => void) => (err: any) => {
+    if (err?.status === 409) {
+      toast({
+        title: "Changed by another admin",
+        description:
+          "This was just renamed by someone else. The matrix has been refreshed — try again if you still want to change it.",
+      });
+      invalidate();
+      close();
+      return;
+    }
+    onError(err);
+  };
 
   const [editRow, setEditRow] = useState<RaciRow | null>(null);
   const [editMember, setEditMember] = useState<RaciMember | null>(null);
@@ -417,13 +432,15 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
           pending={updateRow.isPending}
           onSave={(name) =>
             updateRow.mutate(
-              { id: editRow.id, data: { name } },
+              // expectedName lets the server reject the rename (409) if
+              // another admin renamed this task since we loaded it.
+              { id: editRow.id, data: { name, expectedName: editRow.name } },
               {
                 onSuccess: () => {
                   invalidate();
                   setEditRow(null);
                 },
-                onError,
+                onError: onRenameError(() => setEditRow(null)),
               },
             )
           }
@@ -438,13 +455,18 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
           pending={updateMember.isPending}
           onSave={(name) =>
             updateMember.mutate(
-              { id: editMember.id, data: { name } },
+              // expectedName lets the server reject the rename (409) if
+              // another admin renamed this member since we loaded it.
+              {
+                id: editMember.id,
+                data: { name, expectedName: editMember.name },
+              },
               {
                 onSuccess: () => {
                   invalidate();
                   setEditMember(null);
                 },
-                onError,
+                onError: onRenameError(() => setEditMember(null)),
               },
             )
           }
@@ -459,13 +481,15 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
           pending={renameCategory.isPending}
           onSave={(to) =>
             renameCategory.mutate(
+              // "from" doubles as the expected value: the server returns 409
+              // if the category was renamed or removed by another admin.
               { id: team.id, data: { from: editCategory, to } },
               {
                 onSuccess: () => {
                   invalidate();
                   setEditCategory(null);
                 },
-                onError,
+                onError: onRenameError(() => setEditCategory(null)),
               },
             )
           }

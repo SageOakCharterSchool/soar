@@ -9,4 +9,6 @@
 export interface RaciMemberUpdate {
   /** @minLength 1 */
   name: string;
+  /** The member name the client last saw. When provided and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin's rename is not silently overwritten. */
+  expectedName?: string;
 }

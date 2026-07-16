@@ -207,6 +207,20 @@ router.patch("/raci/rows/:id", requireAdmin, async (req, res): Promise<void> => 
     res.status(404).json({ message: "Row not found" });
     return;
   }
+  // Optimistic concurrency: if the client told us which name it last saw and
+  // the stored name has since changed, reject instead of silently overwriting
+  // another admin's concurrent rename.
+  if (
+    parsed.data.name !== undefined &&
+    parsed.data.expectedName !== undefined &&
+    parsed.data.expectedName !== before.name
+  ) {
+    res.status(409).json({
+      message: "This task was just renamed by another admin",
+      currentName: before.name,
+    });
+    return;
+  }
   const updates: Partial<typeof before> = {};
   if (parsed.data.name !== undefined) updates.name = parsed.data.name.trim();
   if (parsed.data.category !== undefined) updates.category = parsed.data.category;
@@ -352,6 +366,18 @@ router.patch("/raci/members/:id", requireAdmin, async (req, res): Promise<void> 
     res.status(404).json({ message: "Member not found" });
     return;
   }
+  // Optimistic concurrency: reject if the member was renamed by another admin
+  // since the client loaded it, instead of silently overwriting that rename.
+  if (
+    parsed.data.expectedName !== undefined &&
+    parsed.data.expectedName !== before.name
+  ) {
+    res.status(409).json({
+      message: "This member was just renamed by another admin",
+      currentName: before.name,
+    });
+    return;
+  }
   const [member] = await db
     .update(raciMembersTable)
     .set({ name: parsed.data.name.trim() })
@@ -475,7 +501,13 @@ router.post(
       )
       .returning();
     if (updated.length === 0) {
-      res.status(404).json({ message: "Category not found on this team" });
+      // The "from" name doubles as an expected-previous-value check: if no
+      // rows carry it anymore, another admin renamed or removed the category
+      // after this client loaded the matrix.
+      res.status(409).json({
+        message:
+          "This category was just renamed or removed by another admin",
+      });
       return;
     }
     await logRaciChange(

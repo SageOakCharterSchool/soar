@@ -9,6 +9,8 @@
 export interface RaciRowUpdate {
   /** @minLength 1 */
   name?: string;
+  /** The row name the client last saw. When provided with a rename and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin's rename is not silently overwritten. */
+  expectedName?: string;
   /** @nullable */
   category?: string | null;
   /** @nullable */

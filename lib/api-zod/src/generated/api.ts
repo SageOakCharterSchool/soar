@@ -753,6 +753,7 @@ export const UpdateRaciRowParams = zod.object({
 
 export const UpdateRaciRowBody = zod.object({
   "name": zod.string().min(1).optional(),
+  "expectedName": zod.string().optional().describe('The row name the client last saw. When provided with a rename and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin\'s rename is not silently overwritten.'),
   "category": zod.string().nullish(),
   "applicationId": zod.number().nullish()
 })
@@ -815,7 +816,8 @@ export const UpdateRaciMemberParams = zod.object({
 
 
 export const UpdateRaciMemberBody = zod.object({
-  "name": zod.string().min(1)
+  "name": zod.string().min(1),
+  "expectedName": zod.string().optional().describe('The member name the client last saw. When provided and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin\'s rename is not silently overwritten.')
 })
 
 export const UpdateRaciMemberResponse = zod.object({

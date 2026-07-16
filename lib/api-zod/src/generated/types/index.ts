@@ -53,6 +53,7 @@ export * from './raciMatrix';
 export * from './raciMember';
 export * from './raciMemberInput';
 export * from './raciMemberUpdate';
+export * from './raciNameConflict';
 export * from './raciRow';
 export * from './raciRowInput';
 export * from './raciRowUpdate';

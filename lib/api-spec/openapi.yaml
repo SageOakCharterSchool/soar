@@ -830,6 +830,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The row name was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
     delete:
       operationId: deleteRaciRow
       tags: [raci]
@@ -907,6 +913,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The member name was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
     delete:
       operationId: deleteRaciMember
       tags: [raci]
@@ -985,7 +997,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
         "404":
-          description: Team or category not found
+          description: Team not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: >-
+            The category no longer exists on this team — it was likely renamed
+            or removed by another admin since it was loaded
           content:
             application/json:
               schema:
@@ -1248,6 +1268,12 @@ components:
         name:
           type: string
           minLength: 1
+        expectedName:
+          description: >-
+            The row name the client last saw. When provided with a rename and
+            it no longer matches the stored name, the update is rejected with
+            409 so a concurrent admin's rename is not silently overwritten.
+          type: string
         category:
           type: ["string", "null"]
         applicationId:
@@ -1267,6 +1293,18 @@ components:
         name:
           type: string
           minLength: 1
+        expectedName:
+          description: >-
+            The member name the client last saw. When provided and it no
+            longer matches the stored name, the update is rejected with 409 so
+            a concurrent admin's rename is not silently overwritten.
+          type: string
+    RaciNameConflict:
+      type: object
+      required: [message, currentName]
+      properties:
+        message: { type: string }
+        currentName: { type: string }
     RaciCellInput:
       type: object
       required: [rowId, memberId, value]

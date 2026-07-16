@@ -221,6 +221,42 @@ describe("row management", () => {
     expect(res.body.assignments).toHaveLength(2);
   });
 
+  it("renames a row when expectedName matches the stored name", async () => {
+    const c = await loginAdmin();
+    const res = await c.patch("/raci/rows/30", {
+      name: "Approve all purchases",
+      expectedName: "Approve purchases",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe("Approve all purchases");
+  });
+
+  it("409s without overwriting when another admin renamed the row first", async () => {
+    const c = await loginAdmin();
+    // Stored name is "Approve purchases", but this client last saw another.
+    const res = await c.patch("/raci/rows/30", {
+      name: "My rename",
+      expectedName: "Approve invoices",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.currentName).toBe("Approve purchases");
+    // Stored name untouched, no activity logged.
+    expect(
+      fakeDb.rows(tables.raciRowsTable).find((r) => r.id === 30)!.name,
+    ).toBe("Approve purchases");
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
+
+  it("ignores expectedName when the name is not being changed", async () => {
+    const c = await loginAdmin();
+    const res = await c.patch("/raci/rows/30", {
+      category: "FINANCE",
+      expectedName: "Stale name",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBe("FINANCE");
+  });
+
   it("unlinks an application", async () => {
     const c = await loginAdmin();
     const res = await c.patch("/raci/rows/31", { applicationId: null });
@@ -256,6 +292,30 @@ describe("member management", () => {
     const res = await c.patch("/raci/members/20", { name: "Bradley" });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe("Bradley");
+  });
+
+  it("renames a member when expectedName matches the stored name", async () => {
+    const c = await loginAdmin();
+    const res = await c.patch("/raci/members/20", {
+      name: "Bradley",
+      expectedName: "Brad",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe("Bradley");
+  });
+
+  it("409s without overwriting when another admin renamed the member first", async () => {
+    const c = await loginAdmin();
+    const res = await c.patch("/raci/members/20", {
+      name: "My rename",
+      expectedName: "Bradley",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.currentName).toBe("Brad");
+    expect(
+      fakeDb.rows(tables.raciMembersTable).find((m) => m.id === 20)!.name,
+    ).toBe("Brad");
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
   });
 
   it("deletes a member along with their assignments", async () => {
@@ -378,13 +438,19 @@ describe("POST /raci/teams/:id/rename-category", () => {
     ).toBe("FINANCE");
   });
 
-  it("404s for unknown categories", async () => {
+  it("409s when the category no longer exists (renamed by another admin)", async () => {
     const c = await loginAdmin();
     const res = await c.post("/raci/teams/10/rename-category", {
       from: "NOPE",
       to: "X",
     });
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("another admin");
+    // No rows were touched and nothing was logged.
+    expect(
+      fakeDb.rows(tables.raciRowsTable).find((r) => r.id === 30)!.category,
+    ).toBe("BUDGET");
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
   });
 });
 

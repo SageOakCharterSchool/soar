@@ -338,6 +338,8 @@ export interface RaciRowInput {
 export interface RaciRowUpdate {
   /** @minLength 1 */
   name?: string;
+  /** The row name the client last saw. When provided with a rename and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin's rename is not silently overwritten. */
+  expectedName?: string;
   /** @nullable */
   category?: string | null;
   /** @nullable */
@@ -353,6 +355,13 @@ export interface RaciMemberInput {
 export interface RaciMemberUpdate {
   /** @minLength 1 */
   name: string;
+  /** The member name the client last saw. When provided and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin's rename is not silently overwritten. */
+  expectedName?: string;
+}
+
+export interface RaciNameConflict {
+  message: string;
+  currentName: string;
 }
 
 export interface RaciCellInput {
