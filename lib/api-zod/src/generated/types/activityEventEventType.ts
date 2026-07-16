@@ -14,4 +14,5 @@ export const ActivityEventEventType = {
   app_added: 'app_added',
   issue_reported: 'issue_reported',
   issue_resolved: 'issue_resolved',
+  raci_change: 'raci_change',
 } as const;

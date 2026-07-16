@@ -245,6 +245,22 @@ export const BoardRowStaffSharingStatus = {
   needs_review: 'needs_review',
 } as const;
 
+export type RaciValue = typeof RaciValue[keyof typeof RaciValue];
+
+
+export const RaciValue = {
+  R: 'R',
+  A: 'A',
+  C: 'C',
+  I: 'I',
+  'N/A': 'N/A',
+} as const;
+
+export interface RaciBoardPerson {
+  name: string;
+  value: RaciValue;
+}
+
 export interface BoardRow {
   applicationId: number;
   appName: string;
@@ -268,6 +284,94 @@ export interface BoardRow {
   upvoteCount: number;
   upvotedByMe: boolean;
   openIssueCount: number;
+  raci: RaciBoardPerson[];
+}
+
+export interface RaciAssignment {
+  memberId: number;
+  value: RaciValue;
+}
+
+export interface RaciMember {
+  id: number;
+  teamId: number;
+  name: string;
+  /** @nullable */
+  userId?: number | null;
+  sortOrder: number;
+}
+
+export interface RaciRow {
+  id: number;
+  teamId: number;
+  /** @nullable */
+  category?: string | null;
+  name: string;
+  sortOrder: number;
+  /** @nullable */
+  applicationId?: number | null;
+  /** @nullable */
+  appName?: string | null;
+  assignments: RaciAssignment[];
+}
+
+export interface RaciTeamData {
+  id: number;
+  name: string;
+  sortOrder: number;
+  members: RaciMember[];
+  rows: RaciRow[];
+}
+
+export interface RaciMatrix {
+  teams: RaciTeamData[];
+}
+
+export interface RaciRowInput {
+  teamId: number;
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  category?: string | null;
+}
+
+export interface RaciRowUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  applicationId?: number | null;
+}
+
+export interface RaciMemberInput {
+  teamId: number;
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface RaciMemberUpdate {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface RaciCellInput {
+  rowId: number;
+  memberId: number;
+  value: RaciValue | null;
+}
+
+export interface RaciCellState {
+  rowId: number;
+  memberId: number;
+  value: RaciValue | null;
+}
+
+export interface RaciCategoryRename {
+  /** @minLength 1 */
+  from: string;
+  /** @minLength 1 */
+  to: string;
 }
 
 export interface RosteringSummary {
@@ -286,11 +390,13 @@ export const ActivityEventEventType = {
   app_added: 'app_added',
   issue_reported: 'issue_reported',
   issue_resolved: 'issue_resolved',
+  raci_change: 'raci_change',
 } as const;
 
 export interface ActivityEvent {
   id: number;
-  applicationId: number;
+  /** @nullable */
+  applicationId: number | null;
   appName: string;
   /** @nullable */
   termId?: number | null;
@@ -303,7 +409,8 @@ export interface ActivityEvent {
 
 export interface ArchivedActivityEvent {
   id: number;
-  applicationId: number;
+  /** @nullable */
+  applicationId: number | null;
   appName: string;
   /** @nullable */
   termId?: number | null;

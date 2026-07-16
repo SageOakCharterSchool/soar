@@ -15,6 +15,7 @@ import { Login } from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import Overview from "@/pages/Overview";
 import Rostering from "@/pages/Rostering";
+import Raci from "@/pages/Raci";
 import Issues from "@/pages/Issues";
 import Upload from "@/pages/Upload";
 import Users from "@/pages/Users";
@@ -130,6 +131,12 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <RosteringNavBadge active={location === "/rostering"} />
               </button>
               <button 
+                className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/raci" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                onClick={() => setLocation("/raci")}
+              >
+                RACI
+              </button>
+              <button 
                 className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center ${location === "/issues" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                 onClick={() => setLocation("/issues")}
               >
@@ -185,6 +192,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Overview} />
         <Route path="/rostering" component={Rostering} />
+        <Route path="/raci" component={Raci} />
         <Route path="/issues" component={Issues} />
         <Route path="/upload">{() => <AdminRoute component={Upload} />}</Route>
         <Route path="/users">{() => <AdminRoute component={Users} />}</Route>

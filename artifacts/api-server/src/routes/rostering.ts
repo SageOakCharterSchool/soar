@@ -10,6 +10,9 @@ import {
   appActivityArchiveTable,
   pageLastSeenTable,
   usersTable,
+  raciRowsTable,
+  raciMembersTable,
+  raciAssignmentsTable,
   type User,
 } from "@workspace/db";
 import { UpdateAppTermStatusBody } from "@workspace/api-zod";
@@ -47,7 +50,8 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
       createdAt: appActivityTable.createdAt,
     })
     .from(appActivityTable)
-    .innerJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
+    // Left join: RACI change events may not be tied to an application.
+    .leftJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
     .leftJoin(usersTable, eq(appActivityTable.actorId, usersTable.id))
     .orderBy(desc(appActivityTable.createdAt), desc(appActivityTable.id))
     .limit(limit);
@@ -59,7 +63,13 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
         )
       : await base;
 
-  res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      appName: r.appName ?? "RACI",
+      createdAt: r.createdAt.toISOString(),
+    })),
+  );
 });
 
 function csvEscape(value: unknown): string {
@@ -300,6 +310,34 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
     .groupBy(appIssuesTable.applicationId);
   const issueMap = new Map(issues.map((i) => [i.applicationId, i.count]));
 
+  // RACI people for each linked application (from the RACI matrix page).
+  const raciCells = await db
+    .select({
+      applicationId: raciRowsTable.applicationId,
+      memberName: raciMembersTable.name,
+      value: raciAssignmentsTable.value,
+    })
+    .from(raciAssignmentsTable)
+    .innerJoin(raciRowsTable, eq(raciAssignmentsTable.rowId, raciRowsTable.id))
+    .innerJoin(raciMembersTable, eq(raciAssignmentsTable.memberId, raciMembersTable.id));
+  const RACI_ORDER: Record<string, number> = { A: 0, R: 1, C: 2, I: 3, "N/A": 4 };
+  const raciMap = new Map<number, { name: string; value: string }[]>();
+  for (const cell of raciCells) {
+    if (cell.applicationId == null || cell.value === "N/A") continue;
+    if (!raciMap.has(cell.applicationId)) raciMap.set(cell.applicationId, []);
+    const list = raciMap.get(cell.applicationId)!;
+    if (!list.some((p) => p.name === cell.memberName && p.value === cell.value)) {
+      list.push({ name: cell.memberName, value: cell.value });
+    }
+  }
+  for (const list of raciMap.values()) {
+    list.sort(
+      (a, b) =>
+        (RACI_ORDER[a.value] ?? 9) - (RACI_ORDER[b.value] ?? 9) ||
+        a.name.localeCompare(b.name),
+    );
+  }
+
   res.json(
     rows.map((row) => ({
       ...row,
@@ -308,6 +346,7 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
       upvoteCount: upvoteMap.get(row.applicationId)?.count ?? 0,
       upvotedByMe: (upvoteMap.get(row.applicationId)?.mine ?? 0) > 0,
       openIssueCount: issueMap.get(row.applicationId) ?? 0,
+      raci: raciMap.get(row.applicationId) ?? [],
     })),
   );
 });

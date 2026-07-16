@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seed } from "./lib/auth";
+import { seedRaciIfEmpty } from "./lib/raciSeed";
 import { runMigrations } from "./lib/migrate";
 import { startActivityRetentionJob } from "./lib/activityRetention";
 import { startSftpSyncJob } from "./lib/sftpSync";
@@ -38,6 +39,7 @@ runMigrations()
     }
   })
   .then(() => seed())
+  .then(() => seedRaciIfEmpty())
   .catch((err) => {
     logger.error({ err }, `Seeding failed: ${describeError(err)}`);
     if (process.env.NODE_ENV === "production") {

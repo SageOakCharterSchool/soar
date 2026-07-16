@@ -43,6 +43,16 @@ import type {
   IssueUpdate,
   ListIssuesParams,
   LoginInput,
+  RaciCategoryRename,
+  RaciCellInput,
+  RaciCellState,
+  RaciMatrix,
+  RaciMember,
+  RaciMemberInput,
+  RaciMemberUpdate,
+  RaciRow,
+  RaciRowInput,
+  RaciRowUpdate,
   ResourceUsageRow,
   RosteringLastSeen,
   RosteringSummary,
@@ -3270,5 +3280,653 @@ export const useDismissSyncAlert = <TError = ErrorType<ApiMessage>,
         TContext
       > => {
       return useMutation(getDismissSyncAlertMutationOptions(options));
+    }
+
+export const getGetRaciMatrixUrl = () => {
+
+
+
+
+  return `/api/raci`
+}
+
+/**
+ * @summary Full RACI matrix (all teams, members, rows, and assignments)
+ */
+export const getRaciMatrix = async ( options?: RequestInit): Promise<RaciMatrix> => {
+
+  return customFetch<RaciMatrix>(getGetRaciMatrixUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRaciMatrixQueryKey = () => {
+    return [
+    `/api/raci`
+    ] as const;
+    }
+
+
+export const getGetRaciMatrixQueryOptions = <TData = Awaited<ReturnType<typeof getRaciMatrix>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRaciMatrix>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRaciMatrixQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRaciMatrix>>> = ({ signal }) => getRaciMatrix({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRaciMatrix>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRaciMatrixQueryResult = NonNullable<Awaited<ReturnType<typeof getRaciMatrix>>>
+export type GetRaciMatrixQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Full RACI matrix (all teams, members, rows, and assignments)
+ */
+
+export function useGetRaciMatrix<TData = Awaited<ReturnType<typeof getRaciMatrix>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRaciMatrix>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRaciMatrixQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRaciRowUrl = () => {
+
+
+
+
+  return `/api/raci/rows`
+}
+
+/**
+ * @summary Add a RACI row (admin)
+ */
+export const createRaciRow = async (raciRowInput: RaciRowInput, options?: RequestInit): Promise<RaciRow> => {
+
+  return customFetch<RaciRow>(getCreateRaciRowUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(raciRowInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRaciRowMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRaciRow>>, TError,{data: BodyType<RaciRowInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRaciRow>>, TError,{data: BodyType<RaciRowInput>}, TContext> => {
+
+const mutationKey = ['createRaciRow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRaciRow>>, {data: BodyType<RaciRowInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRaciRow(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRaciRowMutationResult = NonNullable<Awaited<ReturnType<typeof createRaciRow>>>
+    export type CreateRaciRowMutationBody = BodyType<RaciRowInput>
+    export type CreateRaciRowMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Add a RACI row (admin)
+ */
+export const useCreateRaciRow = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRaciRow>>, TError,{data: BodyType<RaciRowInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRaciRow>>,
+        TError,
+        {data: BodyType<RaciRowInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRaciRowMutationOptions(options));
+    }
+
+export const getUpdateRaciRowUrl = (id: number,) => {
+
+
+
+
+  return `/api/raci/rows/${id}`
+}
+
+/**
+ * @summary Rename, recategorize, or (un)link a RACI row (admin)
+ */
+export const updateRaciRow = async (id: number,
+    raciRowUpdate: RaciRowUpdate, options?: RequestInit): Promise<RaciRow> => {
+
+  return customFetch<RaciRow>(getUpdateRaciRowUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(raciRowUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRaciRowMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciRow>>, TError,{id: number;data: BodyType<RaciRowUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRaciRow>>, TError,{id: number;data: BodyType<RaciRowUpdate>}, TContext> => {
+
+const mutationKey = ['updateRaciRow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRaciRow>>, {id: number;data: BodyType<RaciRowUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRaciRow(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRaciRowMutationResult = NonNullable<Awaited<ReturnType<typeof updateRaciRow>>>
+    export type UpdateRaciRowMutationBody = BodyType<RaciRowUpdate>
+    export type UpdateRaciRowMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Rename, recategorize, or (un)link a RACI row (admin)
+ */
+export const useUpdateRaciRow = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciRow>>, TError,{id: number;data: BodyType<RaciRowUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRaciRow>>,
+        TError,
+        {id: number;data: BodyType<RaciRowUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRaciRowMutationOptions(options));
+    }
+
+export const getDeleteRaciRowUrl = (id: number,) => {
+
+
+
+
+  return `/api/raci/rows/${id}`
+}
+
+/**
+ * @summary Remove a RACI row (admin)
+ */
+export const deleteRaciRow = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDeleteRaciRowUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRaciRowMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteRaciRow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRaciRow>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRaciRow(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRaciRowMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRaciRow>>>
+
+    export type DeleteRaciRowMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Remove a RACI row (admin)
+ */
+export const useDeleteRaciRow = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciRow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRaciRow>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteRaciRowMutationOptions(options));
+    }
+
+export const getCreateRaciMemberUrl = () => {
+
+
+
+
+  return `/api/raci/members`
+}
+
+/**
+ * @summary Add a team member column (admin)
+ */
+export const createRaciMember = async (raciMemberInput: RaciMemberInput, options?: RequestInit): Promise<RaciMember> => {
+
+  return customFetch<RaciMember>(getCreateRaciMemberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(raciMemberInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRaciMemberMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRaciMember>>, TError,{data: BodyType<RaciMemberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRaciMember>>, TError,{data: BodyType<RaciMemberInput>}, TContext> => {
+
+const mutationKey = ['createRaciMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRaciMember>>, {data: BodyType<RaciMemberInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRaciMember(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRaciMemberMutationResult = NonNullable<Awaited<ReturnType<typeof createRaciMember>>>
+    export type CreateRaciMemberMutationBody = BodyType<RaciMemberInput>
+    export type CreateRaciMemberMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Add a team member column (admin)
+ */
+export const useCreateRaciMember = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRaciMember>>, TError,{data: BodyType<RaciMemberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRaciMember>>,
+        TError,
+        {data: BodyType<RaciMemberInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRaciMemberMutationOptions(options));
+    }
+
+export const getUpdateRaciMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/raci/members/${id}`
+}
+
+/**
+ * @summary Rename a team member column (admin)
+ */
+export const updateRaciMember = async (id: number,
+    raciMemberUpdate: RaciMemberUpdate, options?: RequestInit): Promise<RaciMember> => {
+
+  return customFetch<RaciMember>(getUpdateRaciMemberUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(raciMemberUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRaciMemberMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciMember>>, TError,{id: number;data: BodyType<RaciMemberUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRaciMember>>, TError,{id: number;data: BodyType<RaciMemberUpdate>}, TContext> => {
+
+const mutationKey = ['updateRaciMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRaciMember>>, {id: number;data: BodyType<RaciMemberUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRaciMember(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRaciMemberMutationResult = NonNullable<Awaited<ReturnType<typeof updateRaciMember>>>
+    export type UpdateRaciMemberMutationBody = BodyType<RaciMemberUpdate>
+    export type UpdateRaciMemberMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Rename a team member column (admin)
+ */
+export const useUpdateRaciMember = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRaciMember>>, TError,{id: number;data: BodyType<RaciMemberUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRaciMember>>,
+        TError,
+        {id: number;data: BodyType<RaciMemberUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRaciMemberMutationOptions(options));
+    }
+
+export const getDeleteRaciMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/raci/members/${id}`
+}
+
+/**
+ * @summary Remove a team member column (admin)
+ */
+export const deleteRaciMember = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDeleteRaciMemberUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRaciMemberMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteRaciMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRaciMember>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRaciMember(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRaciMemberMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRaciMember>>>
+
+    export type DeleteRaciMemberMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Remove a team member column (admin)
+ */
+export const useDeleteRaciMember = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRaciMember>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRaciMember>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteRaciMemberMutationOptions(options));
+    }
+
+export const getSetRaciCellUrl = () => {
+
+
+
+
+  return `/api/raci/cells`
+}
+
+/**
+ * @summary Set or clear a RACI cell (admin)
+ */
+export const setRaciCell = async (raciCellInput: RaciCellInput, options?: RequestInit): Promise<RaciCellState> => {
+
+  return customFetch<RaciCellState>(getSetRaciCellUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(raciCellInput)
+  }
+);}
+
+
+
+
+
+export const getSetRaciCellMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setRaciCell>>, TError,{data: BodyType<RaciCellInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setRaciCell>>, TError,{data: BodyType<RaciCellInput>}, TContext> => {
+
+const mutationKey = ['setRaciCell'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setRaciCell>>, {data: BodyType<RaciCellInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setRaciCell(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetRaciCellMutationResult = NonNullable<Awaited<ReturnType<typeof setRaciCell>>>
+    export type SetRaciCellMutationBody = BodyType<RaciCellInput>
+    export type SetRaciCellMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Set or clear a RACI cell (admin)
+ */
+export const useSetRaciCell = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setRaciCell>>, TError,{data: BodyType<RaciCellInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setRaciCell>>,
+        TError,
+        {data: BodyType<RaciCellInput>},
+        TContext
+      > => {
+      return useMutation(getSetRaciCellMutationOptions(options));
+    }
+
+export const getRenameRaciCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/raci/teams/${id}/rename-category`
+}
+
+/**
+ * @summary Rename a category within a team (admin)
+ */
+export const renameRaciCategory = async (id: number,
+    raciCategoryRename: RaciCategoryRename, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getRenameRaciCategoryUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(raciCategoryRename)
+  }
+);}
+
+
+
+
+
+export const getRenameRaciCategoryMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameRaciCategory>>, TError,{id: number;data: BodyType<RaciCategoryRename>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renameRaciCategory>>, TError,{id: number;data: BodyType<RaciCategoryRename>}, TContext> => {
+
+const mutationKey = ['renameRaciCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameRaciCategory>>, {id: number;data: BodyType<RaciCategoryRename>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renameRaciCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameRaciCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof renameRaciCategory>>>
+    export type RenameRaciCategoryMutationBody = BodyType<RaciCategoryRename>
+    export type RenameRaciCategoryMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Rename a category within a team (admin)
+ */
+export const useRenameRaciCategory = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameRaciCategory>>, TError,{id: number;data: BodyType<RaciCategoryRename>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renameRaciCategory>>,
+        TError,
+        {id: number;data: BodyType<RaciCategoryRename>},
+        TContext
+      > => {
+      return useMutation(getRenameRaciCategoryMutationOptions(options));
     }
 

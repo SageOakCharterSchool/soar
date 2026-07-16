@@ -7,6 +7,7 @@
  */
 import type { BoardRowStaffSharingStatus } from './boardRowStaffSharingStatus';
 import type { BoardRowStudentSharingStatus } from './boardRowStudentSharingStatus';
+import type { RaciBoardPerson } from './raciBoardPerson';
 
 export interface BoardRow {
   applicationId: number;
@@ -31,4 +32,5 @@ export interface BoardRow {
   upvoteCount: number;
   upvotedByMe: boolean;
   openIssueCount: number;
+  raci: RaciBoardPerson[];
 }

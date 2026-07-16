@@ -13,6 +13,7 @@ tags:
   - name: users
   - name: terms
   - name: rostering
+  - name: raci
   - name: feedback
   - name: usage
   - name: uploads
@@ -754,6 +755,226 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /raci:
+    get:
+      operationId: getRaciMatrix
+      tags: [raci]
+      summary: Full RACI matrix (all teams, members, rows, and assignments)
+      responses:
+        "200":
+          description: RACI matrix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciMatrix"
+  /raci/rows:
+    post:
+      operationId: createRaciRow
+      tags: [raci]
+      summary: Add a RACI row (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciRowInput"
+      responses:
+        "200":
+          description: Created row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciRow"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/rows/{id}:
+    patch:
+      operationId: updateRaciRow
+      tags: [raci]
+      summary: Rename, recategorize, or (un)link a RACI row (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciRowUpdate"
+      responses:
+        "200":
+          description: Updated row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciRow"
+        "404":
+          description: Row not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+    delete:
+      operationId: deleteRaciRow
+      tags: [raci]
+      summary: Remove a RACI row (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Row removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Row not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/members:
+    post:
+      operationId: createRaciMember
+      tags: [raci]
+      summary: Add a team member column (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciMemberInput"
+      responses:
+        "200":
+          description: Created member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciMember"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/members/{id}:
+    patch:
+      operationId: updateRaciMember
+      tags: [raci]
+      summary: Rename a team member column (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciMemberUpdate"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciMember"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+    delete:
+      operationId: deleteRaciMember
+      tags: [raci]
+      summary: Remove a team member column (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/cells:
+    put:
+      operationId: setRaciCell
+      tags: [raci]
+      summary: Set or clear a RACI cell (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciCellInput"
+      responses:
+        "200":
+          description: Cell state after the update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciCellState"
+        "404":
+          description: Row or member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/teams/{id}/rename-category:
+    post:
+      operationId: renameRaciCategory
+      tags: [raci]
+      summary: Rename a category within a team (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciCategoryRename"
+      responses:
+        "200":
+          description: Category renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Team or category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
 components:
   schemas:
     HealthStatus:
@@ -903,7 +1124,7 @@ components:
           type: ["string", "null"]
     BoardRow:
       type: object
-      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, upvoteCount, upvotedByMe, openIssueCount]
+      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, upvoteCount, upvotedByMe, openIssueCount, raci]
       properties:
         applicationId: { type: integer }
         appName: { type: string }
@@ -931,6 +1152,143 @@ components:
         upvoteCount: { type: integer }
         upvotedByMe: { type: boolean }
         openIssueCount: { type: integer }
+        raci:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciBoardPerson"
+    RaciValue:
+      type: string
+      enum: [R, A, C, I, "N/A"]
+    RaciAssignment:
+      type: object
+      required: [memberId, value]
+      properties:
+        memberId: { type: integer }
+        value:
+          $ref: "#/components/schemas/RaciValue"
+    RaciMember:
+      type: object
+      required: [id, teamId, name, sortOrder]
+      properties:
+        id: { type: integer }
+        teamId: { type: integer }
+        name: { type: string }
+        userId:
+          type: ["integer", "null"]
+        sortOrder: { type: integer }
+    RaciRow:
+      type: object
+      required: [id, teamId, name, sortOrder, assignments]
+      properties:
+        id: { type: integer }
+        teamId: { type: integer }
+        category:
+          type: ["string", "null"]
+        name: { type: string }
+        sortOrder: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
+        appName:
+          type: ["string", "null"]
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciAssignment"
+    RaciTeamData:
+      type: object
+      required: [id, name, sortOrder, members, rows]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        sortOrder: { type: integer }
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciMember"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciRow"
+    RaciMatrix:
+      type: object
+      required: [teams]
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciTeamData"
+    RaciRowInput:
+      type: object
+      required: [teamId, name]
+      properties:
+        teamId: { type: integer }
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: ["string", "null"]
+    RaciRowUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: ["string", "null"]
+        applicationId:
+          type: ["integer", "null"]
+    RaciMemberInput:
+      type: object
+      required: [teamId, name]
+      properties:
+        teamId: { type: integer }
+        name:
+          type: string
+          minLength: 1
+    RaciMemberUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+    RaciCellInput:
+      type: object
+      required: [rowId, memberId, value]
+      properties:
+        rowId: { type: integer }
+        memberId: { type: integer }
+        value:
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+    RaciCellState:
+      type: object
+      required: [rowId, memberId, value]
+      properties:
+        rowId: { type: integer }
+        memberId: { type: integer }
+        value:
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+    RaciCategoryRename:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          minLength: 1
+        to:
+          type: string
+          minLength: 1
+    RaciBoardPerson:
+      type: object
+      required: [name, value]
+      properties:
+        name: { type: string }
+        value:
+          $ref: "#/components/schemas/RaciValue"
     RosteringSummary:
       type: object
       required: [notStarted, inProgress, complete, needsReview, total]
@@ -945,13 +1303,14 @@ components:
       required: [id, applicationId, appName, eventType, detail, createdAt]
       properties:
         id: { type: integer }
-        applicationId: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
         appName: { type: string }
         termId:
           type: ["integer", "null"]
         eventType:
           type: string
-          enum: [status_change, app_added, issue_reported, issue_resolved]
+          enum: [status_change, app_added, issue_reported, issue_resolved, raci_change]
         detail: { type: string }
         actorName:
           type: ["string", "null"]
@@ -961,7 +1320,8 @@ components:
       required: [id, applicationId, appName, eventType, detail, createdAt, archivedAt]
       properties:
         id: { type: integer }
-        applicationId: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
         appName: { type: string }
         termId:
           type: ["integer", "null"]

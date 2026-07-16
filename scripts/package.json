@@ -10,6 +10,7 @@
     "google-sso-ui-check": "tsx ./src/google-sso-ui-check.ts",
     "prod-login-check": "tsx ./src/prod-login-check.ts",
     "sse-stream-check": "tsx ./src/sse-stream-check.ts",
+    "generate-raci-seed": "tsx ./src/generate-raci-seed.ts",
     "verify-migrations": "tsx ./src/verify-migrations.ts",
     "lint-migrations": "tsx ./src/lint-migrations.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -22,6 +23,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "xlsx": "^0.18.5"
   }
 }

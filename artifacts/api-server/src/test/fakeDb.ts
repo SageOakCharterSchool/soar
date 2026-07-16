@@ -249,6 +249,10 @@ const DEFAULTS: Record<string, () => Row> = {
   appUpvotes: () => ({ createdAt: new Date() }),
   appIssues: () => ({ status: "open", createdAt: new Date() }),
   appActivity: () => ({ createdAt: new Date() }),
+  raciTeams: () => ({ sortOrder: 0 }),
+  raciMembers: () => ({ userId: null, sortOrder: 0 }),
+  raciRows: () => ({ category: null, applicationId: null, sortOrder: 0 }),
+  raciAssignments: () => ({}),
   appActivityArchive: () => ({ archivedAt: new Date() }),
   pageLastSeen: () => ({ lastSeenAt: new Date() }),
   syncRuns: () => ({
@@ -429,6 +433,10 @@ export const tables = {
   syncRunsTable: makeTable("syncRuns"),
   syncAlertsTable: makeTable("syncAlerts"),
   sessionTable: makeTable("session"),
+  raciTeamsTable: makeTable("raciTeams"),
+  raciMembersTable: makeTable("raciMembers"),
+  raciRowsTable: makeTable("raciRows"),
+  raciAssignmentsTable: makeTable("raciAssignments"),
 };
 
 /** Reset all fake-db state between tests. */
@@ -485,6 +493,7 @@ export const drizzleOrmMock = new Proxy(drizzleOrmImpl, {
 /** Factory for `vi.mock("@workspace/db", ...)`. */
 export const dbModuleMock = {
   db: fakeDb,
+  RACI_VALUES: ["R", "A", "C", "I", "N/A"] as const,
   ...tables,
 };
 

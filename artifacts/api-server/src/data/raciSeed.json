@@ -1,0 +1,2521 @@
+[
+  {
+    "name": "Shared Systems",
+    "members": [
+      "Brad",
+      "Jose",
+      "Ash",
+      "Stephen",
+      "Val",
+      "Akin",
+      "Marquis",
+      "Esmeralda",
+      "Bobby",
+      "JJ"
+    ],
+    "rows": [
+      {
+        "name": "Staff Account Administration",
+        "category": "Adobe",
+        "assignments": [
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Student License Administration",
+        "category": "Adobe",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "C"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Domain DNS",
+        "category": "AWS",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          },
+          {
+            "member": "Jose",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "EC2 Administration",
+        "category": "AWS",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          },
+          {
+            "member": "Jose",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Identification Management (IDM)",
+        "category": "Clever",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "IDM OU Structure",
+        "category": "Clever",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Review and Approve New Apps",
+        "category": "Clever",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "R"
+          },
+          {
+            "member": "Val",
+            "value": "I"
+          },
+          {
+            "member": "Akin",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Data Flow and Sync Errors",
+        "category": "Clever",
+        "assignments": [
+          {
+            "member": "Jose",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "App Sync Rules",
+        "category": "Clever",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Password Resets",
+        "category": "Clever",
+        "assignments": [
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Admin",
+        "category": "ClickUp",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Rules and Automation Configurations",
+        "category": "ClickUp",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Configuration Adjustments",
+        "category": "ClickUp",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Collaborate with CP Over New Features or Improvement Requests",
+        "category": "ClickUp",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "New Feature Training",
+        "category": "ClickUp",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Add Procurement Data to Apps",
+        "category": "Digital Insights",
+        "assignments": [
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "App Approval Review",
+        "category": "Digital Insights",
+        "assignments": []
+      },
+      {
+        "name": "Admin Role Management",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Google Admin Suite Tools",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Email/Chat Investigations",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          },
+          {
+            "member": "Jose",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Drive Investigations",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Drive Transfers (Offboarding Accounts)",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Workspace Domain App Approvals and Deployment",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "SAML Configuration",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Staff Account Creation",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "OU Structure",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Third-Party App API Review",
+        "category": "Google Workspace",
+        "assignments": []
+      },
+      {
+        "name": "Third-Party App Deployment",
+        "category": "Google Workspace",
+        "assignments": []
+      },
+      {
+        "name": "Chrome App Deployment",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Environment Configuration Management",
+        "category": "Google Workspace",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "I"
+          },
+          {
+            "member": "Akin",
+            "value": "I"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "I"
+          },
+          {
+            "member": "Bobby",
+            "value": "I"
+          },
+          {
+            "member": "JJ",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Rules and Automation Configurations",
+        "category": "Incident IQ",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Configuration Adjustments",
+        "category": "Incident IQ",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Collaborate with CP Over New Features or Improvement Requests",
+        "category": "Incident IQ",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "New Feature Training",
+        "category": "Incident IQ",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Account and Group Management",
+        "category": "Microsoft",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "License Management",
+        "category": "Microsoft",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "App Deployment and Configuration",
+        "category": "Microsoft",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Entra/Azure Management",
+        "category": "Microsoft",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Security Management",
+        "category": "Microsoft",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Environment Configuration Management",
+        "category": "Microsoft",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Software Squad",
+    "members": [
+      "Brad",
+      "Jose",
+      "Ash",
+      "Val",
+      "Akin",
+      "JJ",
+      "OakSchool(Katie)"
+    ],
+    "rows": [
+      {
+        "name": "ROSTERING",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "A"
+          }
+        ]
+      },
+      {
+        "name": "HMH",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Jose",
+            "value": "C"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Learning A-Z",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "BrightThinker",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "C"
+          },
+          {
+            "member": "Akin",
+            "value": "I"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "SEIS - Enrollments",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "I"
+          },
+          {
+            "member": "Akin",
+            "value": "I"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "SEIS - Sections",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "Akin",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Zearn",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Val",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Mastery Connect",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Canvas",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "I"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Hapara",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Tutor.com",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "iTopia",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "C"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "iXL",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Adobe",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "C"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Minecraft",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "C"
+          },
+          {
+            "member": "Akin",
+            "value": "I"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Microsoft 365",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "C"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "VLA Sections & Enrollments",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "R"
+          },
+          {
+            "member": "Val",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "OakSchool Sections",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "OakSchool(Katie)",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "OakSchool Enrollments",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "I"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "OakSchool(Katie)",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "BrainPop—Deprecated 25-26 School Year",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Education.com",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Kami",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "McGraw-Hill",
+        "category": "ROSTERING",
+        "assignments": []
+      },
+      {
+        "name": "Moby Max",
+        "category": "ROSTERING",
+        "assignments": []
+      },
+      {
+        "name": "Nearpod",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "NWEA",
+        "category": "ROSTERING",
+        "assignments": []
+      },
+      {
+        "name": "YellowFolder",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "I"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Clever",
+        "category": "ROSTERING",
+        "assignments": []
+      },
+      {
+        "name": "Renaissance (STAR)",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          },
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Gimkit",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Typing.com",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "TCI",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Math Pathways",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Amplify",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Lexia",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Zaner-Bloser",
+        "category": "ROSTERING",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Custom Development",
+        "category": "Custom Development",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Ash",
+            "value": "A"
+          }
+        ]
+      },
+      {
+        "name": "Website (sageoak.education)",
+        "category": "Custom Development",
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "DNS for custom sites",
+        "category": "Custom Development",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "HS Chrome Extension",
+        "category": "Custom Development",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "A"
+          }
+        ]
+      },
+      {
+        "name": "School Admin -> Pathways Bridge",
+        "category": "Custom Development",
+        "assignments": []
+      },
+      {
+        "name": "GitHub",
+        "category": "Custom Development",
+        "assignments": [
+          {
+            "member": "Ash",
+            "value": "R"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IT Ops",
+    "members": [
+      "Brad",
+      "Jose",
+      "Esmeralda",
+      "Bobby",
+      "Marquis",
+      "Stephen"
+    ],
+    "rows": [
+      {
+        "name": "Configuration and Assignment for students (IF, regular Chromebooks) and staff devices",
+        "category": "Hardware",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Hardware inventory and reporting",
+        "category": "Hardware",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Recycling",
+        "category": "Hardware",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "N/A"
+          }
+        ]
+      },
+      {
+        "name": "Device repair/replacement coordination",
+        "category": "Hardware",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "New staff device setup",
+        "category": "Hardware",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Warehouse IT organization",
+        "category": "Hardware",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Create annual and interrum budgets",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Maintain a Current Budget Tracker in ClickUp",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Place and follow up on POs",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Request POs to be placed",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Negotiate pricing and service term agreements",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Request for Proposal",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "CITE NDPA Inventory",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Request for Contract Agreements",
+        "category": "Budget/ Orders",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Email/Chat Investigation",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "R"
+          },
+          {
+            "member": "Jose",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Reported phishing investigation",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Cloud storage investigation",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Conduct Bi-Annual System Audit and Implement Recommended Settings",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Endpoint Security",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Account MFA",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Incident Reporting",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "I"
+          },
+          {
+            "member": "Bobby",
+            "value": "I"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Cloud Security Monitoring",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Web Filter Administration",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Phishing Campaigns",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Cybersecurity Training",
+        "category": "Cybersecurity",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Policy and Process",
+        "category": "Documentation",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Process Documentation",
+        "category": "Documentation",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "I"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Documentation Catalog and Organization",
+        "category": "Documentation",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Weekly Communications/Updates",
+        "category": "Documentation",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Event AV Setup",
+        "category": "Events",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Equipment Preperation/Testing",
+        "category": "Events",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Event AV Support",
+        "category": "Events",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Initial Ticket Respose/Delegation",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Ticket Follow Ups",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Hardware-Related Ticket Follow Up",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "I"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Advanced Issue Ticket Follow Up/Resolution",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Parent/Student Troubleshooting Communication",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Staff Troubleshooting Communication",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Ticket Reporting",
+        "category": "Helpdesk Tickets",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          },
+          {
+            "member": "Bobby",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Configuration and Setup",
+        "category": "Network",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Systems Design",
+        "category": "Network",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Troubleshooting",
+        "category": "Network",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "Printers",
+        "category": "Office Systems",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Software Install/ Configuration",
+        "category": "Office Systems",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "TV/Monitor/Display and Peripherals Configuration and Troubleshooting",
+        "category": "Office Systems",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "ClickUp Project System Design and Automation",
+        "category": "Project Management",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "New staff account set up and termination",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Mobile Device Management (MDM) Jamf School - Apple School Manager Connectivity",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "MDM Jamf School - Policy Configuration",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "MDM Jamf School - App Deployment",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Esmeralda",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Zoom - Staff Account Creation",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Zoom - Meeting Transfers (Offboarding & LOA)",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Zoom - Incident Investigation",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          }
+        ]
+      },
+      {
+        "name": "MDM Intune - App Deployment",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "I"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "I"
+          }
+        ]
+      },
+      {
+        "name": "WiseStamp Account Setup and Maintanence",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Marquis",
+            "value": "R"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Apple App Procurement",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Reporting and Analysis",
+        "category": "System Settings/ Administration",
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "C"
+          },
+          {
+            "member": "Jose",
+            "value": "A"
+          },
+          {
+            "member": "Stephen",
+            "value": "R"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Projects",
+    "members": [
+      "Brad",
+      "Jose",
+      "Ash",
+      "Val",
+      "Akin",
+      "JJ"
+    ],
+    "rows": [
+      {
+        "name": "SPED AMS",
+        "category": null,
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "Ash",
+            "value": "C"
+          },
+          {
+            "member": "Val",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Sage Central",
+        "category": null,
+        "assignments": [
+          {
+            "member": "Brad",
+            "value": "A"
+          },
+          {
+            "member": "JJ",
+            "value": "R"
+          }
+        ]
+      },
+      {
+        "name": "Sage Stride",
+        "category": null,
+        "assignments": []
+      },
+      {
+        "name": "Data Lake",
+        "category": null,
+        "assignments": []
+      },
+      {
+        "name": "Community Provider (CP) Tool",
+        "category": null,
+        "assignments": [
+          {
+            "member": "Akin",
+            "value": "R"
+          }
+        ]
+      }
+    ]
+  }
+]

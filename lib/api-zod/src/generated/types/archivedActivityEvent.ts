@@ -8,7 +8,8 @@
 
 export interface ArchivedActivityEvent {
   id: number;
-  applicationId: number;
+  /** @nullable */
+  applicationId: number | null;
   appName: string;
   /** @nullable */
   termId?: number | null;

@@ -39,7 +39,8 @@ export async function pruneOldActivity(): Promise<number> {
       createdAt: appActivityTable.createdAt,
     })
     .from(appActivityTable)
-    .innerJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
+    // Left join: RACI change events may not be tied to an application.
+    .leftJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
     .leftJoin(usersTable, eq(appActivityTable.actorId, usersTable.id))
     .where(lt(appActivityTable.createdAt, cutoff));
 
@@ -51,7 +52,7 @@ export async function pruneOldActivity(): Promise<number> {
       .values({
         originalId: row.id,
         applicationId: row.applicationId,
-        appName: row.appName,
+        appName: row.appName ?? "RACI",
         termId: row.termId,
         eventType: row.eventType,
         detail: row.detail,

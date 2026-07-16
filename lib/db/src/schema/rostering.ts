@@ -89,12 +89,13 @@ export const appActivityTable = pgTable(
   "app_activity",
   {
     id: serial("id").primaryKey(),
-    applicationId: integer("application_id")
-      .notNull()
-      .references(() => applicationsTable.id, { onDelete: "cascade" }),
+    // Null for events not tied to a specific application (e.g. RACI changes).
+    applicationId: integer("application_id").references(() => applicationsTable.id, {
+      onDelete: "cascade",
+    }),
     termId: integer("term_id").references(() => termsTable.id, { onDelete: "cascade" }),
     eventType: text("event_type", {
-      enum: ["status_change", "app_added", "issue_reported", "issue_resolved"],
+      enum: ["status_change", "app_added", "issue_reported", "issue_resolved", "raci_change"],
     }).notNull(),
     detail: text("detail").notNull(),
     actorId: integer("actor_id").references(() => usersTable.id, { onDelete: "set null" }),
@@ -114,7 +115,7 @@ export const appActivityArchiveTable = pgTable(
   {
     id: serial("id").primaryKey(),
     originalId: integer("original_id").notNull(),
-    applicationId: integer("application_id").notNull(),
+    applicationId: integer("application_id"),
     appName: text("app_name").notNull(),
     termId: integer("term_id"),
     eventType: text("event_type").notNull(),

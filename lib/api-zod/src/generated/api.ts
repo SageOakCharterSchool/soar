@@ -246,7 +246,11 @@ export const GetRosteringBoardResponseItem = zod.object({
   "updatedByName": zod.string().nullish(),
   "upvoteCount": zod.number(),
   "upvotedByMe": zod.boolean(),
-  "openIssueCount": zod.number()
+  "openIssueCount": zod.number(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
 })
 export const GetRosteringBoardResponse = zod.array(GetRosteringBoardResponseItem)
 
@@ -308,10 +312,10 @@ export const GetRosteringActivityQueryParams = zod.object({
 
 export const GetRosteringActivityResponseItem = zod.object({
   "id": zod.number(),
-  "applicationId": zod.number(),
+  "applicationId": zod.number().nullable(),
   "appName": zod.string(),
   "termId": zod.number().nullish(),
-  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved']),
+  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved', 'raci_change']),
   "detail": zod.string(),
   "actorName": zod.string().nullish(),
   "createdAt": zod.string()
@@ -334,7 +338,7 @@ export const GetRosteringActivityArchiveQueryParams = zod.object({
 
 export const GetRosteringActivityArchiveResponseItem = zod.object({
   "id": zod.number(),
-  "applicationId": zod.number(),
+  "applicationId": zod.number().nullable(),
   "appName": zod.string(),
   "termId": zod.number().nullish(),
   "eventType": zod.string(),
@@ -670,6 +674,200 @@ export const DismissSyncAlertParams = zod.object({
 })
 
 export const DismissSyncAlertResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Full RACI matrix (all teams, members, rows, and assignments)
+ */
+export const GetRaciMatrixResponse = zod.object({
+  "teams": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "members": zod.array(zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "name": zod.string(),
+  "userId": zod.number().nullish(),
+  "sortOrder": zod.number()
+})),
+  "rows": zod.array(zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "category": zod.string().nullish(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "applicationId": zod.number().nullish(),
+  "appName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "memberId": zod.number(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
+}))
+}))
+})
+
+
+/**
+ * @summary Add a RACI row (admin)
+ */
+
+
+
+export const CreateRaciRowBody = zod.object({
+  "teamId": zod.number(),
+  "name": zod.string().min(1),
+  "category": zod.string().nullish()
+})
+
+export const CreateRaciRowResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "category": zod.string().nullish(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "applicationId": zod.number().nullish(),
+  "appName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "memberId": zod.number(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
+})
+
+
+/**
+ * @summary Rename, recategorize, or (un)link a RACI row (admin)
+ */
+export const UpdateRaciRowParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateRaciRowBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "category": zod.string().nullish(),
+  "applicationId": zod.number().nullish()
+})
+
+export const UpdateRaciRowResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "category": zod.string().nullish(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "applicationId": zod.number().nullish(),
+  "appName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "memberId": zod.number(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
+})
+
+
+/**
+ * @summary Remove a RACI row (admin)
+ */
+export const DeleteRaciRowParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRaciRowResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Add a team member column (admin)
+ */
+
+
+
+export const CreateRaciMemberBody = zod.object({
+  "teamId": zod.number(),
+  "name": zod.string().min(1)
+})
+
+export const CreateRaciMemberResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "name": zod.string(),
+  "userId": zod.number().nullish(),
+  "sortOrder": zod.number()
+})
+
+
+/**
+ * @summary Rename a team member column (admin)
+ */
+export const UpdateRaciMemberParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateRaciMemberBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const UpdateRaciMemberResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "name": zod.string(),
+  "userId": zod.number().nullish(),
+  "sortOrder": zod.number()
+})
+
+
+/**
+ * @summary Remove a team member column (admin)
+ */
+export const DeleteRaciMemberParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRaciMemberResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Set or clear a RACI cell (admin)
+ */
+export const SetRaciCellBody = zod.object({
+  "rowId": zod.number(),
+  "memberId": zod.number(),
+  "value": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()])
+})
+
+export const SetRaciCellResponse = zod.object({
+  "rowId": zod.number(),
+  "memberId": zod.number(),
+  "value": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()])
+})
+
+
+/**
+ * @summary Rename a category within a team (admin)
+ */
+export const RenameRaciCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+export const RenameRaciCategoryBody = zod.object({
+  "from": zod.string().min(1),
+  "to": zod.string().min(1)
+})
+
+export const RenameRaciCategoryResponse = zod.object({
   "message": zod.string()
 })
 
