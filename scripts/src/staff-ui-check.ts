@@ -212,23 +212,44 @@ async function runChecks() {
     console.log("\nRACI page (must be read-only for staff):");
     await page.goto(`${appBase}/raci`, { waitUntil: "load" });
     await page.getByText("RACI Matrix").first().waitFor({ timeout: 15000 });
+    // Optionally focus a specific team tab (used to exercise the empty-team
+    // branch against a seeded empty team): RACI_TEAM_NAME=<team name>.
+    const raciTeamName = process.env.RACI_TEAM_NAME;
+    if (raciTeamName) {
+      const tab = page.getByRole("button", { name: raciTeamName, exact: true });
+      await tab.first().waitFor({ timeout: 15000 });
+      await tab.first().click();
+      console.log(`  (focused RACI team tab "${raciTeamName}" via RACI_TEAM_NAME)`);
+    }
     // Guard against a vacuous pass: only assert cells aren't clickable if the
     // matrix actually rendered rows. On a fresh/empty environment, require the
     // explicit empty state instead and log a skip.
-    // Data loads async after the title renders — wait for either a matrix row
-    // or the empty-state message before counting.
+    //
+    // Empty-state texts must stay in sync with
+    // artifacts/sage-oak-dashboard/src/pages/Raci.tsx:
+    //   - "No RACI data yet."           — no teams exist at all (truly fresh DB)
+    //   - "No tasks yet for this team." — team exists but has no task rows;
+    //     NOTE: this one renders as a <tr> inside the table body, so it must be
+    //     excluded from the data-row count below.
+    const EMPTY_TEAM_TEXT = "No tasks yet for this team.";
+    const NO_DATA_TEXT = "No RACI data yet.";
+    // Data loads async after the title renders — wait for a matrix table or
+    // one of the empty-state messages before counting.
     await Promise.any([
       page.locator("table tbody tr").first().waitFor({ timeout: 15000 }),
-      page
-        .getByText("No tasks yet for this team.")
-        .first()
-        .waitFor({ timeout: 15000 }),
+      page.getByText(NO_DATA_TEXT).first().waitFor({ timeout: 15000 }),
     ]).catch(() => {});
-    const matrixRowCount = await page.locator("table tbody tr").count();
-    if (matrixRowCount === 0) {
-      const emptyStateShown =
-        (await page.getByText("No tasks yet for this team.").count()) > 0;
-      if (emptyStateShown) {
+    const noDataShown = (await page.getByText(NO_DATA_TEXT).count()) > 0;
+    const emptyTeamShown = (await page.getByText(EMPTY_TEAM_TEXT).count()) > 0;
+    // The empty-team message is itself a tbody row — don't count it as data.
+    const matrixRowCount =
+      (await page.locator("table tbody tr").count()) - (emptyTeamShown ? 1 : 0);
+    if (noDataShown) {
+      console.log(
+        `  SKIP: no RACI teams exist ("${NO_DATA_TEXT}" rendered) — matrix checks skipped on fresh environment`,
+      );
+    } else if (matrixRowCount === 0) {
+      if (emptyTeamShown) {
         console.log(
           "  SKIP: RACI matrix is empty (no rows) — cell clickability check skipped; empty state rendered correctly",
         );

@@ -388,6 +388,7 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
                     colSpan={team.members.length + (isAdmin ? 2 : 1)}
                     className="py-8 text-center text-muted-foreground"
                   >
+                    {/* Empty-state text is asserted by scripts/src/staff-ui-check.ts — keep in sync. */}
                     {search
                       ? "No tasks match your search."
                       : "No tasks yet for this team."}
@@ -717,6 +718,7 @@ export default function Raci() {
       ) : teams.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
+            {/* Empty-state text is asserted by scripts/src/staff-ui-check.ts — keep in sync. */}
             No RACI data yet.
           </CardContent>
         </Card>
