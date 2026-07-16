@@ -3,13 +3,21 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { CreateUserBody, UpdateUserBody } from "@workspace/api-zod";
-import { requireAdmin, toUserDto } from "../lib/auth";
+import { requireAdmin, requireAuth, toUserDto } from "../lib/auth";
 
 const router: IRouter = Router();
 
 router.get("/users", requireAdmin, async (_req, res): Promise<void> => {
   const users = await db.select().from(usersTable).orderBy(usersTable.email);
   res.json(users.map(toUserDto));
+});
+
+router.get("/users/options", requireAuth, async (_req, res): Promise<void> => {
+  const users = await db
+    .select({ id: usersTable.id, displayName: usersTable.displayName, role: usersTable.role })
+    .from(usersTable)
+    .orderBy(usersTable.displayName);
+  res.json(users);
 });
 
 router.post("/users", requireAdmin, async (req, res): Promise<void> => {

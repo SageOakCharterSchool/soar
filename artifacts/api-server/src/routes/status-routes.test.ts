@@ -273,6 +273,25 @@ describe("GET /api/users", () => {
   });
 });
 
+describe("GET /api/users/options", () => {
+  it("requires a signed-in user", async () => {
+    expect((await new Client().get("/users/options")).status).toBe(401);
+  });
+
+  it("lets staff list user options sorted by display name, without emails or hashes", async () => {
+    const staff = await loginAs(STAFF);
+    const res = await staff.get("/users/options");
+    expect(res.status).toBe(200);
+    expect(res.body.map((u: { displayName: string }) => u.displayName)).toEqual([
+      "Administrator",
+      "Staff Member",
+    ]);
+    for (const u of res.body) {
+      expect(Object.keys(u).sort()).toEqual(["displayName", "id", "role"]);
+    }
+  });
+});
+
 describe("POST /api/users", () => {
   const NEW_USER = {
     email: "New.Person@sageoak.org",

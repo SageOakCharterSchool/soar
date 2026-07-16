@@ -94,6 +94,17 @@ export const CreateUserResponse = zod.object({
 
 
 /**
+ * @summary List users as owner-picker options (any signed-in user)
+ */
+export const ListUserOptionsResponseItem = zod.object({
+  "id": zod.number(),
+  "displayName": zod.string(),
+  "role": zod.enum(['admin', 'staff'])
+})
+export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem)
+
+
+/**
  * @summary Update a user (admin)
  */
 export const UpdateUserParams = zod.object({

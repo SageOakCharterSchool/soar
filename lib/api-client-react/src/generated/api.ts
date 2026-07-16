@@ -61,6 +61,7 @@ import type {
   UsageSummary,
   User,
   UserInput,
+  UserOption,
   UserUpdate
 } from './api.schemas';
 
@@ -611,6 +612,83 @@ export const useCreateUser = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateUserMutationOptions(options));
     }
+
+export const getListUserOptionsUrl = () => {
+
+
+
+
+  return `/api/users/options`
+}
+
+/**
+ * @summary List users as owner-picker options (any signed-in user)
+ */
+export const listUserOptions = async ( options?: RequestInit): Promise<UserOption[]> => {
+
+  return customFetch<UserOption[]>(getListUserOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUserOptionsQueryKey = () => {
+    return [
+    `/api/users/options`
+    ] as const;
+    }
+
+
+export const getListUserOptionsQueryOptions = <TData = Awaited<ReturnType<typeof listUserOptions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUserOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUserOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserOptions>>> = ({ signal }) => listUserOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUserOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUserOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof listUserOptions>>>
+export type ListUserOptionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List users as owner-picker options (any signed-in user)
+ */
+
+export function useListUserOptions<TData = Awaited<ReturnType<typeof listUserOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUserOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUserOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateUserUrl = (id: number,) => {
 

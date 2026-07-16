@@ -6,6 +6,7 @@ import {
   useToggleUpvote,
   useReportIssue,
   useUpdateAppTermStatus,
+  useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
   useCopyTermStatuses,
@@ -465,12 +466,15 @@ function ArchiveDialog() {
   );
 }
 
+const NO_OWNER = "__none__";
+
 function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<AppTermStatusUpdate>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
+  const { data: userOptions = [] } = useListUserOptions();
 
   const openWith = () =>
     setForm({
@@ -553,11 +557,25 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label>Owner</Label>
-            <Input
-              value={form.owner ?? ""}
-              placeholder="Who is responsible?"
-              onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value || null }))}
-            />
+            <Select
+              value={form.owner ?? NO_OWNER}
+              onValueChange={(v) => setForm((f) => ({ ...f, owner: v === NO_OWNER ? null : v }))}
+            >
+              <SelectTrigger><SelectValue placeholder="Who is responsible?" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_OWNER}>
+                  <span className="text-muted-foreground">No owner</span>
+                </SelectItem>
+                {form.owner && !userOptions.some((u) => u.displayName === form.owner) && (
+                  <SelectItem value={form.owner}>{form.owner} (not a dashboard user)</SelectItem>
+                )}
+                {userOptions.map((u) => (
+                  <SelectItem key={u.id} value={u.displayName}>
+                    {u.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label>Notes</Label>

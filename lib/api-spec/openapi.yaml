@@ -126,6 +126,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+  /users/options:
+    get:
+      operationId: listUserOptions
+      tags: [users]
+      summary: List users as owner-picker options (any signed-in user)
+      responses:
+        "200":
+          description: User options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserOption"
   /users/{id}:
     patch:
       operationId: updateUser
@@ -739,6 +753,15 @@ components:
           type: string
           enum: [admin, staff]
         createdAt: { type: string }
+    UserOption:
+      type: object
+      required: [id, displayName, role]
+      properties:
+        id: { type: integer }
+        displayName: { type: string }
+        role:
+          type: string
+          enum: [admin, staff]
     UserInput:
       type: object
       required: [email, password, displayName, role]

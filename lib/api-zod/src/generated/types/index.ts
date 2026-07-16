@@ -67,6 +67,8 @@ export * from './usageSummary';
 export * from './user';
 export * from './userInput';
 export * from './userInputRole';
+export * from './userOption';
+export * from './userOptionRole';
 export * from './userRole';
 export * from './userUpdate';
 export * from './userUpdateRole';

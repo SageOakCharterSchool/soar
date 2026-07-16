@@ -38,6 +38,20 @@ export interface User {
   createdAt: string;
 }
 
+export type UserOptionRole = typeof UserOptionRole[keyof typeof UserOptionRole];
+
+
+export const UserOptionRole = {
+  admin: 'admin',
+  staff: 'staff',
+} as const;
+
+export interface UserOption {
+  id: number;
+  displayName: string;
+  role: UserOptionRole;
+}
+
 export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
 
 
