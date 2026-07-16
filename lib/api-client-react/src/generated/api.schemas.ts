@@ -5,12 +5,58 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+export interface DropdownOption {
+  value: string;
+  label: string;
+  active: boolean;
+}
+
+export interface SyncScheduleSettings {
+  enabled: boolean;
+  /** Time of day (server time) in HH:MM 24-hour format. */
+  time: string;
+}
+
+export interface BrandingSettings {
+  appName: string;
+  /** @nullable */
+  logoDataUrl: string | null;
+  /**
+     * Hex color like "#4a7c67", or null for the default theme.
+     * @nullable
+     */
+  accentColor: string | null;
+}
+
+export interface NotificationSettings {
+  syncFailureBannerEnabled: boolean;
+  alertOnSyncWarnings: boolean;
+  recipients: string[];
+}
+
 export interface AppSettings {
   /**
      * @minimum 1
      * @maximum 365
      */
   staleOpenDays: number;
+  sharingStatusOptions: DropdownOption[];
+  raciValueOptions: DropdownOption[];
+  syncSchedule: SyncScheduleSettings;
+  branding: BrandingSettings;
+  notifications: NotificationSettings;
+}
+
+export interface PublicAppSettings {
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  staleOpenDays: number;
+  sharingStatusOptions: DropdownOption[];
+  raciValueOptions: DropdownOption[];
+  branding: BrandingSettings;
+  syncFailureBannerEnabled: boolean;
 }
 
 export interface AppSettingsUpdate {
@@ -18,7 +64,12 @@ export interface AppSettingsUpdate {
      * @minimum 1
      * @maximum 365
      */
-  staleOpenDays: number;
+  staleOpenDays?: number;
+  sharingStatusOptions?: DropdownOption[];
+  raciValueOptions?: DropdownOption[];
+  syncSchedule?: SyncScheduleSettings;
+  branding?: BrandingSettings;
+  notifications?: NotificationSettings;
 }
 
 export interface HealthStatus {
@@ -160,32 +211,12 @@ export interface TermCopyInput {
   sourceTermId: number;
 }
 
-export type AppTermStatusStudentSharingStatus = typeof AppTermStatusStudentSharingStatus[keyof typeof AppTermStatusStudentSharingStatus];
-
-
-export const AppTermStatusStudentSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type AppTermStatusStaffSharingStatus = typeof AppTermStatusStaffSharingStatus[keyof typeof AppTermStatusStaffSharingStatus];
-
-
-export const AppTermStatusStaffSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
 export interface AppTermStatus {
   id: number;
   applicationId: number;
   termId: number;
-  studentSharingStatus: AppTermStatusStudentSharingStatus;
-  staffSharingStatus: AppTermStatusStaffSharingStatus;
+  studentSharingStatus: string;
+  staffSharingStatus: string;
   /** @nullable */
   syncMethod?: string | null;
   /** @nullable */
@@ -198,26 +229,6 @@ export interface AppTermStatus {
   /** @nullable */
   updatedByName?: string | null;
 }
-
-export type AppTermStatusUpdateStudentSharingStatus = typeof AppTermStatusUpdateStudentSharingStatus[keyof typeof AppTermStatusUpdateStudentSharingStatus];
-
-
-export const AppTermStatusUpdateStudentSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type AppTermStatusUpdateStaffSharingStatus = typeof AppTermStatusUpdateStaffSharingStatus[keyof typeof AppTermStatusUpdateStaffSharingStatus];
-
-
-export const AppTermStatusUpdateStaffSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
 
 /**
  * @nullable
@@ -233,8 +244,8 @@ export const AppTermStatusUpdateSyncMethod = {
 } as const;
 
 export interface AppTermStatusUpdate {
-  studentSharingStatus?: AppTermStatusUpdateStudentSharingStatus;
-  staffSharingStatus?: AppTermStatusUpdateStaffSharingStatus;
+  studentSharingStatus?: string;
+  staffSharingStatus?: string;
   /** @nullable */
   syncMethod?: AppTermStatusUpdateSyncMethod;
   /** @nullable */
@@ -245,36 +256,7 @@ export interface AppTermStatusUpdate {
   notes?: string | null;
 }
 
-export type BoardRowStudentSharingStatus = typeof BoardRowStudentSharingStatus[keyof typeof BoardRowStudentSharingStatus];
-
-
-export const BoardRowStudentSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type BoardRowStaffSharingStatus = typeof BoardRowStaffSharingStatus[keyof typeof BoardRowStaffSharingStatus];
-
-
-export const BoardRowStaffSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type RaciValue = typeof RaciValue[keyof typeof RaciValue];
-
-
-export const RaciValue = {
-  R: 'R',
-  A: 'A',
-  C: 'C',
-  I: 'I',
-  'N/A': 'N/A',
-} as const;
+export type RaciValue = string;
 
 export interface RaciBoardPerson {
   name: string;
@@ -287,8 +269,8 @@ export interface BoardRow {
   /** @nullable */
   category?: string | null;
   statusId: number;
-  studentSharingStatus: BoardRowStudentSharingStatus;
-  staffSharingStatus: BoardRowStaffSharingStatus;
+  studentSharingStatus: string;
+  staffSharingStatus: string;
   /** @nullable */
   syncMethod?: string | null;
   /** @nullable */
@@ -663,6 +645,10 @@ export interface SftpSyncRun {
 export interface SftpSyncStatus {
   configured: boolean;
   running: boolean;
+  scheduleEnabled: boolean;
+  scheduleTime: string;
+  /** @nullable */
+  nextRunAt: string | null;
   /** @nullable */
   lastRunAt: string | null;
   lastResult: SftpSyncSummary | null;

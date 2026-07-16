@@ -101,11 +101,41 @@ describe("GET /settings", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns the default stale-open threshold when nothing is stored", async () => {
+  it("rejects staff users", async () => {
     const client = await loginAs(STAFF);
     const res = await client.get("/settings");
+    expect(res.status).toBe(403);
+  });
+
+  it("returns full defaults when nothing is stored", async () => {
+    const client = await loginAs(ADMIN);
+    const res = await client.get("/settings");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ staleOpenDays: 7 });
+    expect(res.body.staleOpenDays).toBe(7);
+    expect(res.body.sharingStatusOptions.map((o: any) => o.value)).toEqual([
+      "not_started",
+      "in_progress",
+      "complete",
+      "needs_review",
+    ]);
+    expect(res.body.raciValueOptions.map((o: any) => o.value)).toEqual([
+      "R",
+      "A",
+      "C",
+      "I",
+      "N/A",
+    ]);
+    expect(res.body.syncSchedule).toEqual({ enabled: true, time: "02:00" });
+    expect(res.body.branding).toEqual({
+      appName: "Sage Oak",
+      logoDataUrl: null,
+      accentColor: null,
+    });
+    expect(res.body.notifications).toEqual({
+      syncFailureBannerEnabled: true,
+      alertOnSyncWarnings: false,
+      recipients: [],
+    });
   });
 
   it("returns the stored threshold", async () => {
@@ -114,20 +144,58 @@ describe("GET /settings", () => {
       value: "14",
       updatedAt: new Date(),
     });
-    const client = await loginAs(STAFF);
+    const client = await loginAs(ADMIN);
     const res = await client.get("/settings");
-    expect(res.body).toEqual({ staleOpenDays: 14 });
+    expect(res.body.staleOpenDays).toBe(14);
   });
 
   it("falls back to the default when the stored value is invalid", async () => {
+    fakeDb.rows(tables.appSettingsTable).push(
+      { key: "staleOpenDays", value: "not-a-number", updatedAt: new Date() },
+      { key: "syncSchedule", value: "{broken json", updatedAt: new Date() },
+      { key: "branding", value: JSON.stringify({ accentColor: "purple" }), updatedAt: new Date() },
+    );
+    const client = await loginAs(ADMIN);
+    const res = await client.get("/settings");
+    expect(res.body.staleOpenDays).toBe(7);
+    expect(res.body.syncSchedule).toEqual({ enabled: true, time: "02:00" });
+    expect(res.body.branding.accentColor).toBeNull();
+  });
+});
+
+describe("GET /settings/public", () => {
+  it("requires authentication", async () => {
+    const res = await new Client().get("/settings/public");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns only the safe subset to staff users", async () => {
     fakeDb.rows(tables.appSettingsTable).push({
-      key: "staleOpenDays",
-      value: "not-a-number",
+      key: "notifications",
+      value: JSON.stringify({
+        syncFailureBannerEnabled: false,
+        alertOnSyncWarnings: true,
+        recipients: ["admin@sageoak.org"],
+      }),
       updatedAt: new Date(),
     });
     const client = await loginAs(STAFF);
-    const res = await client.get("/settings");
-    expect(res.body).toEqual({ staleOpenDays: 7 });
+    const res = await client.get("/settings/public");
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body).sort()).toEqual([
+      "branding",
+      "raciValueOptions",
+      "sharingStatusOptions",
+      "staleOpenDays",
+      "syncFailureBannerEnabled",
+    ]);
+    expect(res.body.syncFailureBannerEnabled).toBe(false);
+    expect(res.body.staleOpenDays).toBe(7);
+    expect(res.body.branding.appName).toBe("Sage Oak");
+    // Admin-only data must never leak here.
+    expect(res.body.notifications).toBeUndefined();
+    expect(res.body.syncSchedule).toBeUndefined();
+    expect(JSON.stringify(res.body)).not.toContain("admin@sageoak.org");
   });
 });
 
@@ -143,13 +211,14 @@ describe("PUT /settings", () => {
     expect(res.status).toBe(401);
   });
 
-  it("lets admins persist a new threshold", async () => {
+  it("lets admins persist a new threshold and returns the full settings object", async () => {
     const client = await loginAs(ADMIN);
     const res = await client.put("/settings", { staleOpenDays: 21 });
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ staleOpenDays: 21 });
+    expect(res.body.staleOpenDays).toBe(21);
+    expect(res.body.branding.appName).toBe("Sage Oak");
     const read = await client.get("/settings");
-    expect(read.body).toEqual({ staleOpenDays: 21 });
+    expect(read.body.staleOpenDays).toBe(21);
   });
 
   it("updates an existing stored threshold instead of duplicating it", async () => {
@@ -158,7 +227,7 @@ describe("PUT /settings", () => {
     await client.put("/settings", { staleOpenDays: 30 });
     expect(fakeDb.rows(tables.appSettingsTable)).toHaveLength(1);
     const read = await client.get("/settings");
-    expect(read.body).toEqual({ staleOpenDays: 30 });
+    expect(read.body.staleOpenDays).toBe(30);
   });
 
   it.each([0, -5, 366, 1.5, "abc", null])(
@@ -169,4 +238,151 @@ describe("PUT /settings", () => {
       expect(res.status).toBe(400);
     },
   );
+
+  it("persists edited sharing status options", async () => {
+    const client = await loginAs(ADMIN);
+    const options = [
+      { value: "not_started", label: "Not begun", active: true },
+      { value: "done", label: "Done", active: true },
+      { value: "in_progress", label: "In progress", active: false },
+    ];
+    const res = await client.put("/settings", { sharingStatusOptions: options });
+    expect(res.status).toBe(200);
+    expect(res.body.sharingStatusOptions).toEqual(options);
+    const read = await client.get("/settings");
+    expect(read.body.sharingStatusOptions).toEqual(options);
+  });
+
+  it.each<[unknown[], string]>([
+    [[], "empty list"],
+    [[{ value: "a", label: "A" }], "missing active flag"],
+    [
+      [
+        { value: "a", label: "A", active: true },
+        { value: "A", label: "Dup", active: true },
+      ],
+      "duplicate values",
+    ],
+    [[{ value: "a", label: "A", active: false }], "no active options"],
+    [[{ value: "", label: "A", active: true }], "blank value"],
+  ])("rejects invalid option lists (%#: %s)", async (options) => {
+    const client = await loginAs(ADMIN);
+    const res = await client.put("/settings", { sharingStatusOptions: options });
+    expect(res.status).toBe(400);
+    const raci = await client.put("/settings", { raciValueOptions: options });
+    expect(raci.status).toBe(400);
+  });
+
+  it("persists a sync schedule and rejects bad times", async () => {
+    const client = await loginAs(ADMIN);
+    const ok = await client.put("/settings", {
+      syncSchedule: { enabled: false, time: "23:45" },
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.syncSchedule).toEqual({ enabled: false, time: "23:45" });
+    for (const time of ["24:00", "9:5", "abc", ""]) {
+      const bad = await client.put("/settings", {
+        syncSchedule: { enabled: true, time },
+      });
+      expect(bad.status).toBe(400);
+    }
+  });
+
+  it("persists branding and validates its fields", async () => {
+    const client = await loginAs(ADMIN);
+    const logo = `data:image/png;base64,${"A".repeat(100)}`;
+    const ok = await client.put("/settings", {
+      branding: { appName: "  Oak Portal  ", logoDataUrl: logo, accentColor: "#4a7c67" },
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.branding).toEqual({
+      appName: "Oak Portal",
+      logoDataUrl: logo,
+      accentColor: "#4a7c67",
+    });
+
+    expect(
+      (
+        await client.put("/settings", {
+          branding: { appName: "", logoDataUrl: null, accentColor: null },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await client.put("/settings", {
+          branding: { appName: "X", logoDataUrl: null, accentColor: "purple" },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await client.put("/settings", {
+          branding: { appName: "X", logoDataUrl: "not-a-data-url", accentColor: null },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await client.put("/settings", {
+          branding: {
+            appName: "X",
+            logoDataUrl: `data:image/png;base64,${"A".repeat(400_001)}`,
+            accentColor: null,
+          },
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it("persists notification settings and validates recipients", async () => {
+    const client = await loginAs(ADMIN);
+    const ok = await client.put("/settings", {
+      notifications: {
+        syncFailureBannerEnabled: false,
+        alertOnSyncWarnings: true,
+        recipients: ["ops@sageoak.org", " admin@sageoak.org "],
+      },
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.notifications).toEqual({
+      syncFailureBannerEnabled: false,
+      alertOnSyncWarnings: true,
+      recipients: ["ops@sageoak.org", "admin@sageoak.org"],
+    });
+
+    const badEmail = await client.put("/settings", {
+      notifications: {
+        syncFailureBannerEnabled: true,
+        alertOnSyncWarnings: false,
+        recipients: ["not-an-email"],
+      },
+    });
+    expect(badEmail.status).toBe(400);
+
+    const malformed = await client.put("/settings", {
+      notifications: { syncFailureBannerEnabled: "yes" },
+    });
+    expect(malformed.status).toBe(400);
+  });
+
+  it("applies multiple sections in one request and leaves others untouched", async () => {
+    const client = await loginAs(ADMIN);
+    const res = await client.put("/settings", {
+      staleOpenDays: 10,
+      syncSchedule: { enabled: true, time: "04:30" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.staleOpenDays).toBe(10);
+    expect(res.body.syncSchedule).toEqual({ enabled: true, time: "04:30" });
+    expect(res.body.branding.appName).toBe("Sage Oak");
+    // A 400 on one section must not partially apply another.
+    const bad = await client.put("/settings", {
+      staleOpenDays: 20,
+      syncSchedule: { enabled: true, time: "bad" },
+    });
+    expect(bad.status).toBe(400);
+    const read = await client.get("/settings");
+    expect(read.body.staleOpenDays).toBe(10);
+  });
 });

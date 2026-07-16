@@ -15,9 +15,11 @@ import {
   getGetRosteringUnseenCountQueryKey,
   type ActivityEvent,
   type ArchivedActivityEvent,
+  useGetPublicAppSettings,
   type BoardRow,
   type Term,
   type AppTermStatusUpdate,
+  type DropdownOption,
 } from "@workspace/api-client-react";
 import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -57,16 +59,60 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2 } from "lucide-react";
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  not_started: { label: "Not started", className: "bg-muted text-muted-foreground" },
-  in_progress: { label: "In progress", className: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200" },
-  complete: { label: "Complete", className: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200" },
-  needs_review: { label: "Needs review", className: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200" },
+// Fallback options used until the settings-driven list loads. Colors for the
+// well-known status values stay stable; custom values get palette colors.
+const DEFAULT_STATUS_OPTIONS: DropdownOption[] = [
+  { value: "not_started", label: "Not started", active: true },
+  { value: "in_progress", label: "In progress", active: true },
+  { value: "complete", label: "Complete", active: true },
+  { value: "needs_review", label: "Needs review", active: true },
+];
+
+const STATUS_CLASSNAMES: Record<string, string> = {
+  not_started: "bg-muted text-muted-foreground",
+  in_progress: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
+  complete: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
+  needs_review: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200",
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] ?? STATUS_META.not_started;
-  return <Badge variant="outline" className={`border-transparent ${meta.className}`}>{meta.label}</Badge>;
+const STATUS_PALETTE = [
+  "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200",
+  "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200",
+  "bg-teal-100 text-teal-900 dark:bg-teal-900/40 dark:text-teal-200",
+  "bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200",
+  "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200",
+];
+
+type StatusMeta = Record<string, { label: string; className: string }>;
+
+function buildStatusMeta(options: DropdownOption[]): StatusMeta {
+  const meta: StatusMeta = {};
+  options.forEach((o, i) => {
+    meta[o.value] = {
+      label: o.label,
+      className:
+        STATUS_CLASSNAMES[o.value] ?? STATUS_PALETTE[i % STATUS_PALETTE.length]!,
+    };
+  });
+  return meta;
+}
+
+/** Settings-driven sharing status options with color metadata. */
+function useStatusOptions() {
+  const { data: settings } = useGetPublicAppSettings();
+  return useMemo(() => {
+    const options = settings?.sharingStatusOptions ?? DEFAULT_STATUS_OPTIONS;
+    return {
+      options,
+      activeOptions: options.filter((o) => o.active),
+      meta: buildStatusMeta(options),
+    };
+  }, [settings]);
+}
+
+function StatusBadge({ status, meta }: { status: string; meta: StatusMeta }) {
+  const m = meta[status] ?? { label: status, className: "bg-muted text-muted-foreground" };
+  return <Badge variant="outline" className={`border-transparent ${m.className}`}>{m.label}</Badge>;
 }
 
 function termRelativeLabel(term: Term, terms: Term[]): string | null {
@@ -605,6 +651,7 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
   const { data: userOptions = [] } = useListUserOptions();
+  const { options: statusOptions, activeOptions } = useStatusOptions();
 
   const openWith = () =>
     setForm({
@@ -632,22 +679,32 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const statusSelect = (
     field: "studentSharingStatus" | "staffSharingStatus",
     label: string,
-  ) => (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Select
-        value={form[field] ?? "not_started"}
-        onValueChange={(v) => setForm((f) => ({ ...f, [field]: v as any }))}
-      >
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {Object.entries(STATUS_META).map(([value, meta]) => (
-            <SelectItem key={value} value={value}>{meta.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  ) => {
+    const current = form[field];
+    // Show active options, plus the row's current value if it was deactivated
+    // so the picker still displays it (the server allows keeping it).
+    const choices = [...activeOptions];
+    if (current && !choices.some((o) => o.value === current)) {
+      const existing = statusOptions.find((o) => o.value === current);
+      choices.push(existing ?? { value: current, label: current, active: false });
+    }
+    return (
+      <div className="space-y-1.5">
+        <Label>{label}</Label>
+        <Select
+          value={current ?? activeOptions[0]?.value ?? "not_started"}
+          onValueChange={(v) => setForm((f) => ({ ...f, [field]: v as any }))}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {choices.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) openWith(); }}>
@@ -921,6 +978,7 @@ export default function Rostering() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { options: statusOptions, meta: statusMeta } = useStatusOptions();
 
   const { data: terms } = useListTerms();
   const sortedTerms = useMemo(
@@ -1037,11 +1095,11 @@ export default function Rostering() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-40" data-testid="select-status-filter"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            {Object.entries(STATUS_META).map(([value, meta]) => (
-              <SelectItem key={value} value={value}>{meta.label}</SelectItem>
+            {statusOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1109,8 +1167,8 @@ export default function Rostering() {
                       )}
                       <RaciChips people={row.raci} applicationId={row.applicationId} />
                     </TableCell>
-                    <TableCell><StatusBadge status={row.studentSharingStatus} /></TableCell>
-                    <TableCell><StatusBadge status={row.staffSharingStatus} /></TableCell>
+                    <TableCell><StatusBadge status={row.studentSharingStatus} meta={statusMeta} /></TableCell>
+                    <TableCell><StatusBadge status={row.staffSharingStatus} meta={statusMeta} /></TableCell>
                     <TableCell className="text-sm">
                       {row.syncMethod ?? <span className="text-muted-foreground">—</span>}
                       {row.lastSyncedAt && (

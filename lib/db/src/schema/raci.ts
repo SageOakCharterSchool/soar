@@ -65,7 +65,9 @@ export const raciAssignmentsTable = pgTable(
     memberId: integer("member_id")
       .notNull()
       .references(() => raciMembersTable.id, { onDelete: "cascade" }),
-    value: text("value", { enum: RACI_VALUES }).notNull(),
+    // Values are validated at the API layer against the admin-configurable
+    // RACI value options in app_settings, so the column is plain text.
+    value: text("value").notNull(),
   },
   (t) => [uniqueIndex("raci_assignments_row_member_idx").on(t.rowId, t.memberId)],
 );

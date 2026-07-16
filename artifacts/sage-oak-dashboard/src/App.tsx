@@ -1,10 +1,12 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   useGetRosteringUnseenCount,
   getGetRosteringUnseenCountQueryKey,
   useGetIssuesUnseenCount,
   getGetIssuesUnseenCountQueryKey,
+  useGetPublicAppSettings,
 } from "@workspace/api-client-react";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,6 +21,57 @@ import Raci from "@/pages/Raci";
 import Issues from "@/pages/Issues";
 import Upload from "@/pages/Upload";
 import Users from "@/pages/Users";
+import SettingsPage from "@/pages/SettingsPage";
+
+/** Convert "#rrggbb" to the "H S% L%" triple used by the theme variables. */
+function hexToHslTriple(hex: string): string | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1]!, 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  const H = Math.round(h * 360);
+  const S = Math.round(s * 100);
+  const L = Math.round(l * 100);
+  return `${H} ${S}% ${L}%`;
+}
+
+/** Apply the admin-configured accent color to the theme CSS variables. */
+function useAccentColor(accentColor: string | null | undefined) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const vars = ["--primary", "--ring", "--sidebar-primary"];
+    const triple = accentColor ? hexToHslTriple(accentColor) : null;
+    if (triple) {
+      for (const v of vars) root.style.setProperty(v, triple);
+      // Slightly darker border variant.
+      const darker = accentColor ? hexToHslTriple(accentColor) : null;
+      if (darker) {
+        const [h, s, l] = darker.split(" ");
+        const lNum = Math.max(0, parseInt(l ?? "0", 10) - 7);
+        root.style.setProperty("--primary-border", `${h} ${s} ${lNum}%`);
+      }
+    } else {
+      for (const v of [...vars, "--primary-border"]) root.style.removeProperty(v);
+    }
+    return () => {
+      for (const v of [...vars, "--primary-border"]) root.style.removeProperty(v);
+    };
+  }, [accentColor]);
+}
 
 const queryClient = new QueryClient();
 
@@ -82,18 +135,38 @@ function IssuesNavBadge({ active }: { active: boolean }) {
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
   const [location, setLocation] = useLocation();
+  const { data: settings } = useGetPublicAppSettings({
+    query: { enabled: !!user } as any,
+  });
+  useAccentColor(settings?.branding.accentColor);
 
   if (!user) {
     return <Login />;
   }
+
+  const appName = settings?.branding.appName ?? "Sage Oak";
+  const logoDataUrl = settings?.branding.logoDataUrl ?? null;
+  const bannerEnabled = settings?.syncFailureBannerEnabled !== false;
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="font-bold text-lg text-primary cursor-pointer" onClick={() => setLocation("/")}>
-              Sage Oak
+            <h1
+              className="font-bold text-lg text-primary cursor-pointer inline-flex items-center gap-2"
+              onClick={() => setLocation("/")}
+              data-testid="text-app-name"
+            >
+              {logoDataUrl && (
+                <img
+                  src={logoDataUrl}
+                  alt=""
+                  className="h-7 w-7 rounded object-contain"
+                  data-testid="img-app-logo"
+                />
+              )}
+              {appName}
             </h1>
             <nav className="flex items-center space-x-1">
               <button 
@@ -136,6 +209,13 @@ function Layout({ children }: { children: React.ReactNode }) {
                   >
                     Users
                   </button>
+                  <button
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/settings" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                    onClick={() => setLocation("/settings")}
+                    data-testid="link-settings"
+                  >
+                    Settings
+                  </button>
                 </>
               )}
             </nav>
@@ -151,7 +231,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      {isAdmin && <SyncAlertBanner />}
+      {isAdmin && bannerEnabled && <SyncAlertBanner />}
       <main className="flex-1 p-4 container mx-auto">
         {children}
       </main>
@@ -175,6 +255,7 @@ function Router() {
         <Route path="/issues" component={Issues} />
         <Route path="/upload">{() => <AdminRoute component={Upload} />}</Route>
         <Route path="/users">{() => <AdminRoute component={Users} />}</Route>
+        <Route path="/settings">{() => <AdminRoute component={SettingsPage} />}</Route>
         <Route component={NotFound} />
       </Switch>
     </Layout>

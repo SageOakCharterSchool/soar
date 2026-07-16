@@ -32,14 +32,12 @@ export const appTermStatusTable = pgTable(
     termId: integer("term_id")
       .notNull()
       .references(() => termsTable.id, { onDelete: "cascade" }),
-    studentSharingStatus: text("student_sharing_status", {
-      enum: ["not_started", "in_progress", "complete", "needs_review"],
-    })
+    // Values are validated at the API layer against the admin-configurable
+    // sharing status options in app_settings, so the column is plain text.
+    studentSharingStatus: text("student_sharing_status")
       .notNull()
       .default("not_started"),
-    staffSharingStatus: text("staff_sharing_status", {
-      enum: ["not_started", "in_progress", "complete", "needs_review"],
-    })
+    staffSharingStatus: text("staff_sharing_status")
       .notNull()
       .default("not_started"),
     syncMethod: text("sync_method"),

@@ -570,7 +570,7 @@ paths:
     get:
       operationId: getAppSettings
       tags: [settings]
-      summary: Admin-configurable application settings
+      summary: Full application settings (admin only)
       responses:
         "200":
           description: Current settings
@@ -595,6 +595,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AppSettings"
+  /settings/public:
+    get:
+      operationId: getPublicAppSettings
+      tags: [settings]
+      summary: Settings subset needed by all signed-in users
+      responses:
+        "200":
+          description: Public settings subset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAppSettings"
   /usage/summary:
     get:
       operationId: getUsageSummary
@@ -1134,22 +1146,117 @@ paths:
                 $ref: "#/components/schemas/RaciCategoryRenameConflict"
 components:
   schemas:
+    DropdownOption:
+      type: object
+      required: [value, label, active]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        active: { type: boolean }
+    SyncScheduleSettings:
+      type: object
+      required: [enabled, time]
+      properties:
+        enabled: { type: boolean }
+        time:
+          type: string
+          description: Time of day (server time) in HH:MM 24-hour format.
+    BrandingSettings:
+      type: object
+      required: [appName, logoDataUrl, accentColor]
+      properties:
+        appName: { type: string }
+        logoDataUrl:
+          type: ["string", "null"]
+        accentColor:
+          type: ["string", "null"]
+          description: Hex color like "#4a7c67", or null for the default theme.
+    NotificationSettings:
+      type: object
+      required: [syncFailureBannerEnabled, alertOnSyncWarnings, recipients]
+      properties:
+        syncFailureBannerEnabled: { type: boolean }
+        alertOnSyncWarnings: { type: boolean }
+        recipients:
+          type: array
+          items: { type: string }
     AppSettings:
       type: object
-      required: [staleOpenDays]
+      required:
+        [
+          staleOpenDays,
+          sharingStatusOptions,
+          raciValueOptions,
+          syncSchedule,
+          branding,
+          notifications,
+        ]
       properties:
         staleOpenDays:
           type: integer
           minimum: 1
           maximum: 365
+        sharingStatusOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        raciValueOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        syncSchedule:
+          $ref: "#/components/schemas/SyncScheduleSettings"
+        branding:
+          $ref: "#/components/schemas/BrandingSettings"
+        notifications:
+          $ref: "#/components/schemas/NotificationSettings"
+    PublicAppSettings:
+      type: object
+      required:
+        [
+          staleOpenDays,
+          sharingStatusOptions,
+          raciValueOptions,
+          branding,
+          syncFailureBannerEnabled,
+        ]
+      properties:
+        staleOpenDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        sharingStatusOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        raciValueOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        branding:
+          $ref: "#/components/schemas/BrandingSettings"
+        syncFailureBannerEnabled: { type: boolean }
     AppSettingsUpdate:
       type: object
-      required: [staleOpenDays]
       properties:
         staleOpenDays:
           type: integer
           minimum: 1
           maximum: 365
+        sharingStatusOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        raciValueOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        syncSchedule:
+          $ref: "#/components/schemas/SyncScheduleSettings"
+        branding:
+          $ref: "#/components/schemas/BrandingSettings"
+        notifications:
+          $ref: "#/components/schemas/NotificationSettings"
     HealthStatus:
       type: object
       properties:
@@ -1274,10 +1381,8 @@ components:
         termId: { type: integer }
         studentSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         staffSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         syncMethod:
           type: ["string", "null"]
         lastSyncedAt:
@@ -1294,10 +1399,8 @@ components:
       properties:
         studentSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         staffSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         syncMethod:
           type: ["string", "null"]
           enum: [SSO, SAML, manual, other, null]
@@ -1318,10 +1421,8 @@ components:
         statusId: { type: integer }
         studentSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         staffSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         syncMethod:
           type: ["string", "null"]
         lastSyncedAt:
@@ -1343,7 +1444,6 @@ components:
             $ref: "#/components/schemas/RaciBoardPerson"
     RaciValue:
       type: string
-      enum: [R, A, C, I, "N/A"]
     RaciAssignment:
       type: object
       required: [memberId, value]
@@ -1801,10 +1901,25 @@ components:
           type: [string, "null"]
     SftpSyncStatus:
       type: object
-      required: [configured, running, lastRunAt, lastResult, lastError, recentRuns]
+      required:
+        [
+          configured,
+          running,
+          lastRunAt,
+          lastResult,
+          lastError,
+          recentRuns,
+          scheduleEnabled,
+          scheduleTime,
+          nextRunAt,
+        ]
       properties:
         configured: { type: boolean }
         running: { type: boolean }
+        scheduleEnabled: { type: boolean }
+        scheduleTime: { type: string }
+        nextRunAt:
+          type: [string, "null"]
         lastRunAt:
           type: [string, "null"]
         lastResult:

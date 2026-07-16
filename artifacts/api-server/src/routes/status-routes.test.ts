@@ -780,8 +780,11 @@ describe("PATCH /api/rostering/status/:id", () => {
   });
 
   it("rejects an invalid body with 400", async () => {
+    const term = seedTerm();
+    const app1 = seedApp("IXL");
+    const status = seedStatus(app1.id, term.id);
     const admin = await loginAs(ADMIN);
-    const res = await admin.patch("/rostering/status/1", {
+    const res = await admin.patch(`/rostering/status/${status.id}`, {
       studentSharingStatus: "bogus",
     });
     expect(res.status).toBe(400);
@@ -834,6 +837,45 @@ describe("PATCH /api/rostering/status/:id", () => {
     });
     expect(res.status).toBe(200);
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
+
+  it("accepts a custom status defined in settings", async () => {
+    fakeDb.rows(tables.appSettingsTable).push({
+      key: "sharingStatusOptions",
+      value: JSON.stringify([
+        { value: "not_started", label: "Not started", active: true },
+        { value: "waiting_on_vendor", label: "Waiting on vendor", active: true },
+      ]),
+      updatedAt: new Date(),
+    });
+    const term = seedTerm();
+    const app1 = seedApp("IXL");
+    const status = seedStatus(app1.id, term.id);
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch(`/rostering/status/${status.id}`, {
+      studentSharingStatus: "waiting_on_vendor",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.studentSharingStatus).toBe("waiting_on_vendor");
+  });
+
+  it("rejects a status that has been deactivated in settings", async () => {
+    fakeDb.rows(tables.appSettingsTable).push({
+      key: "sharingStatusOptions",
+      value: JSON.stringify([
+        { value: "not_started", label: "Not started", active: true },
+        { value: "complete", label: "Complete", active: false },
+      ]),
+      updatedAt: new Date(),
+    });
+    const term = seedTerm();
+    const app1 = seedApp("IXL");
+    const status = seedStatus(app1.id, term.id);
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch(`/rostering/status/${status.id}`, {
+      studentSharingStatus: "complete",
+    });
+    expect(res.status).toBe(400);
   });
 });
 

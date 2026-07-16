@@ -48,6 +48,7 @@ import type {
   IssueUpdate,
   ListIssuesParams,
   LoginInput,
+  PublicAppSettings,
   RaciCategoryRename,
   RaciCategoryRenameConflict,
   RaciCellConflict,
@@ -2381,7 +2382,7 @@ export const getGetAppSettingsUrl = () => {
 }
 
 /**
- * @summary Admin-configurable application settings
+ * @summary Full application settings (admin only)
  */
 export const getAppSettings = async ( options?: RequestInit): Promise<AppSettings> => {
 
@@ -2428,7 +2429,7 @@ export type GetAppSettingsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Admin-configurable application settings
+ * @summary Full application settings (admin only)
  */
 
 export function useGetAppSettings<TData = Awaited<ReturnType<typeof getAppSettings>>, TError = ErrorType<unknown>>(
@@ -2519,6 +2520,83 @@ export const useUpdateAppSettings = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateAppSettingsMutationOptions(options));
     }
+
+export const getGetPublicAppSettingsUrl = () => {
+
+
+
+
+  return `/api/settings/public`
+}
+
+/**
+ * @summary Settings subset needed by all signed-in users
+ */
+export const getPublicAppSettings = async ( options?: RequestInit): Promise<PublicAppSettings> => {
+
+  return customFetch<PublicAppSettings>(getGetPublicAppSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicAppSettingsQueryKey = () => {
+    return [
+    `/api/settings/public`
+    ] as const;
+    }
+
+
+export const getGetPublicAppSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getPublicAppSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicAppSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicAppSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicAppSettings>>> = ({ signal }) => getPublicAppSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicAppSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicAppSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicAppSettings>>>
+export type GetPublicAppSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Settings subset needed by all signed-in users
+ */
+
+export function useGetPublicAppSettings<TData = Awaited<ReturnType<typeof getPublicAppSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicAppSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicAppSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetUsageSummaryUrl = () => {
 

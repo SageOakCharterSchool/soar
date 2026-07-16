@@ -5,11 +5,20 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { BrandingSettings } from './brandingSettings';
+import type { DropdownOption } from './dropdownOption';
+import type { NotificationSettings } from './notificationSettings';
+import type { SyncScheduleSettings } from './syncScheduleSettings';
 
 export interface AppSettingsUpdate {
   /**
      * @minimum 1
      * @maximum 365
      */
-  staleOpenDays: number;
+  staleOpenDays?: number;
+  sharingStatusOptions?: DropdownOption[];
+  raciValueOptions?: DropdownOption[];
+  syncSchedule?: SyncScheduleSettings;
+  branding?: BrandingSettings;
+  notifications?: NotificationSettings;
 }

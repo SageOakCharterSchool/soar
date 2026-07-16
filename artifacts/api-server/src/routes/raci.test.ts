@@ -528,6 +528,30 @@ describe("PUT /raci/cells", () => {
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(3);
   });
 
+  it("rejects a value that is not an active option", async () => {
+    const c = await loginAdmin();
+    const res = await c.put("/raci/cells", { rowId: 31, memberId: 20, value: "X" });
+    expect(res.status).toBe(400);
+  });
+
+  it("respects settings-defined RACI options (custom accepted, deactivated rejected)", async () => {
+    fakeDb.rows(tables.appSettingsTable).push({
+      key: "raciValueOptions",
+      value: JSON.stringify([
+        { value: "R", label: "Responsible", active: true },
+        { value: "S", label: "Support", active: true },
+        { value: "I", label: "Informed", active: false },
+      ]),
+      updatedAt: new Date(),
+    });
+    const c = await loginAdmin();
+    const ok = await c.put("/raci/cells", { rowId: 31, memberId: 20, value: "S" });
+    expect(ok.status).toBe(200);
+    expect(ok.body.value).toBe("S");
+    const bad = await c.put("/raci/cells", { rowId: 31, memberId: 21, value: "I" });
+    expect(bad.status).toBe(400);
+  });
+
   it("accepts writes when expectedValue matches the stored value", async () => {
     const c = await loginAdmin();
     // Cell (30, 20) currently holds "A".

@@ -1,57 +1,44 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, appSettingsTable } from "@workspace/db";
 import { UpdateAppSettingsBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
+import {
+  readAppSettings,
+  validateSettingsUpdate,
+  applySettingsUpdate,
+} from "../lib/appSettings";
 
 const router: IRouter = Router();
 
-export const STALE_OPEN_DAYS_KEY = "staleOpenDays";
-export const DEFAULT_STALE_OPEN_DAYS = 7;
+router.get("/settings", requireAdmin, async (_req, res): Promise<void> => {
+  res.json(await readAppSettings());
+});
 
-async function readStaleOpenDays(): Promise<number> {
-  const [row] = await db
-    .select({ value: appSettingsTable.value })
-    .from(appSettingsTable)
-    .where(eq(appSettingsTable.key, STALE_OPEN_DAYS_KEY));
-  if (!row) return DEFAULT_STALE_OPEN_DAYS;
-  const parsed = parseInt(row.value, 10);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 365) {
-    return DEFAULT_STALE_OPEN_DAYS;
-  }
-  return parsed;
-}
-
-router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
-  res.json({ staleOpenDays: await readStaleOpenDays() });
+// Minimal subset needed by every signed-in user (branding, dropdown options,
+// banner toggle). Never exposes sync schedule or notification recipients.
+router.get("/settings/public", requireAuth, async (_req, res): Promise<void> => {
+  const settings = await readAppSettings();
+  res.json({
+    staleOpenDays: settings.staleOpenDays,
+    sharingStatusOptions: settings.sharingStatusOptions,
+    raciValueOptions: settings.raciValueOptions,
+    branding: settings.branding,
+    syncFailureBannerEnabled: settings.notifications.syncFailureBannerEnabled,
+  });
 });
 
 router.put("/settings", requireAdmin, async (req, res): Promise<void> => {
   const parsed = UpdateAppSettingsBody.safeParse(req.body);
   if (!parsed.success) {
-    res
-      .status(400)
-      .json({ message: "staleOpenDays must be a whole number between 1 and 365" });
+    res.status(400).json({ message: "Invalid settings payload" });
     return;
   }
-  if (!Number.isInteger(parsed.data.staleOpenDays)) {
-    res
-      .status(400)
-      .json({ message: "staleOpenDays must be a whole number between 1 and 365" });
+  const error = validateSettingsUpdate(parsed.data);
+  if (error) {
+    res.status(400).json({ message: error });
     return;
   }
-  await db
-    .insert(appSettingsTable)
-    .values({
-      key: STALE_OPEN_DAYS_KEY,
-      value: String(parsed.data.staleOpenDays),
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [appSettingsTable.key],
-      set: { value: String(parsed.data.staleOpenDays), updatedAt: new Date() },
-    });
-  res.json({ staleOpenDays: parsed.data.staleOpenDays });
+  await applySettingsUpdate(parsed.data);
+  res.json(await readAppSettings());
 });
 
 export default router;

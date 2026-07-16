@@ -7,10 +7,8 @@
  */
 import type { BrandingSettings } from './brandingSettings';
 import type { DropdownOption } from './dropdownOption';
-import type { NotificationSettings } from './notificationSettings';
-import type { SyncScheduleSettings } from './syncScheduleSettings';
 
-export interface AppSettings {
+export interface PublicAppSettings {
   /**
      * @minimum 1
      * @maximum 365
@@ -18,7 +16,6 @@ export interface AppSettings {
   staleOpenDays: number;
   sharingStatusOptions: DropdownOption[];
   raciValueOptions: DropdownOption[];
-  syncSchedule: SyncScheduleSettings;
   branding: BrandingSettings;
-  notifications: NotificationSettings;
+  syncFailureBannerEnabled: boolean;
 }

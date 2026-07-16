@@ -4,9 +4,9 @@ import {
   useUpdateIssue,
   useDeleteIssue,
   useMarkIssuesSeen,
-  useGetAppSettings,
+  useGetPublicAppSettings,
   useUpdateAppSettings,
-  getGetAppSettingsQueryKey,
+  getGetPublicAppSettingsQueryKey,
   getGetIssuesUnseenCountQueryKey,
   type ListIssuesStatus,
 } from "@workspace/api-client-react";
@@ -81,7 +81,7 @@ export default function Issues() {
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();
 
-  const { data: settings } = useGetAppSettings();
+  const { data: settings } = useGetPublicAppSettings();
   const staleOpenDays = settings?.staleOpenDays ?? DEFAULT_STALE_OPEN_DAYS;
   const updateSettings = useUpdateAppSettings();
   const [thresholdDraft, setThresholdDraft] = useState<string | null>(null);
@@ -104,7 +104,7 @@ export default function Issues() {
       { data: { staleOpenDays: parsed } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetAppSettingsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetPublicAppSettingsQueryKey() });
           toast({
             title: "Threshold updated",
             description: `Open issues are now flagged after ${parsed} ${parsed === 1 ? "day" : "days"}.`,

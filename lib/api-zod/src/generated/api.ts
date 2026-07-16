@@ -244,8 +244,8 @@ export const GetRosteringBoardResponseItem = zod.object({
   "appName": zod.string(),
   "category": zod.string().nullish(),
   "statusId": zod.number(),
-  "studentSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
-  "staffSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
+  "studentSharingStatus": zod.string(),
+  "staffSharingStatus": zod.string(),
   "syncMethod": zod.string().nullish(),
   "lastSyncedAt": zod.string().nullish(),
   "owner": zod.string().nullish(),
@@ -257,7 +257,7 @@ export const GetRosteringBoardResponseItem = zod.object({
   "openIssueCount": zod.number(),
   "raci": zod.array(zod.object({
   "name": zod.string(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 })
 export const GetRosteringBoardResponse = zod.array(GetRosteringBoardResponseItem)
@@ -287,8 +287,8 @@ export const UpdateAppTermStatusParams = zod.object({
 })
 
 export const UpdateAppTermStatusBody = zod.object({
-  "studentSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']).optional(),
-  "staffSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']).optional(),
+  "studentSharingStatus": zod.string().optional(),
+  "staffSharingStatus": zod.string().optional(),
   "syncMethod": zod.union([zod.literal('SSO'),zod.literal('SAML'),zod.literal('manual'),zod.literal('other'),zod.literal(null)]).nullish(),
   "lastSyncedAt": zod.string().nullish(),
   "owner": zod.string().nullish(),
@@ -299,8 +299,8 @@ export const UpdateAppTermStatusResponse = zod.object({
   "id": zod.number(),
   "applicationId": zod.number(),
   "termId": zod.number(),
-  "studentSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
-  "staffSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
+  "studentSharingStatus": zod.string(),
+  "staffSharingStatus": zod.string(),
   "syncMethod": zod.string().nullish(),
   "lastSyncedAt": zod.string().nullish(),
   "owner": zod.string().nullish(),
@@ -447,7 +447,7 @@ export const ReportIssueResponse = zod.object({
   "resolvedAt": zod.string().nullish(),
   "raci": zod.array(zod.object({
   "name": zod.string(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 })
 
@@ -471,7 +471,7 @@ export const ListIssuesResponseItem = zod.object({
   "resolvedAt": zod.string().nullish(),
   "raci": zod.array(zod.object({
   "name": zod.string(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 })
 export const ListIssuesResponse = zod.array(ListIssuesResponseItem)
@@ -500,7 +500,7 @@ export const UpdateIssueResponse = zod.object({
   "resolvedAt": zod.string().nullish(),
   "raci": zod.array(zod.object({
   "name": zod.string(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 })
 
@@ -518,14 +518,38 @@ export const DeleteIssueResponse = zod.object({
 
 
 /**
- * @summary Admin-configurable application settings
+ * @summary Full application settings (admin only)
  */
 export const getAppSettingsResponseStaleOpenDaysMax = 365;
 
 
 
 export const GetAppSettingsResponse = zod.object({
-  "staleOpenDays": zod.number().min(1).max(getAppSettingsResponseStaleOpenDaysMax)
+  "staleOpenDays": zod.number().min(1).max(getAppSettingsResponseStaleOpenDaysMax),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "syncSchedule": zod.object({
+  "enabled": zod.boolean(),
+  "time": zod.string().describe('Time of day (server time) in HH:MM 24-hour format.')
+}),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}),
+  "notifications": zod.object({
+  "syncFailureBannerEnabled": zod.boolean(),
+  "alertOnSyncWarnings": zod.boolean(),
+  "recipients": zod.array(zod.string())
+})
 })
 
 
@@ -537,7 +561,31 @@ export const updateAppSettingsBodyStaleOpenDaysMax = 365;
 
 
 export const UpdateAppSettingsBody = zod.object({
-  "staleOpenDays": zod.number().min(1).max(updateAppSettingsBodyStaleOpenDaysMax)
+  "staleOpenDays": zod.number().min(1).max(updateAppSettingsBodyStaleOpenDaysMax).optional(),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})).optional(),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})).optional(),
+  "syncSchedule": zod.object({
+  "enabled": zod.boolean(),
+  "time": zod.string().describe('Time of day (server time) in HH:MM 24-hour format.')
+}).optional(),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}).optional(),
+  "notifications": zod.object({
+  "syncFailureBannerEnabled": zod.boolean(),
+  "alertOnSyncWarnings": zod.boolean(),
+  "recipients": zod.array(zod.string())
+}).optional()
 })
 
 export const updateAppSettingsResponseStaleOpenDaysMax = 365;
@@ -545,7 +593,59 @@ export const updateAppSettingsResponseStaleOpenDaysMax = 365;
 
 
 export const UpdateAppSettingsResponse = zod.object({
-  "staleOpenDays": zod.number().min(1).max(updateAppSettingsResponseStaleOpenDaysMax)
+  "staleOpenDays": zod.number().min(1).max(updateAppSettingsResponseStaleOpenDaysMax),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "syncSchedule": zod.object({
+  "enabled": zod.boolean(),
+  "time": zod.string().describe('Time of day (server time) in HH:MM 24-hour format.')
+}),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}),
+  "notifications": zod.object({
+  "syncFailureBannerEnabled": zod.boolean(),
+  "alertOnSyncWarnings": zod.boolean(),
+  "recipients": zod.array(zod.string())
+})
+})
+
+
+/**
+ * @summary Settings subset needed by all signed-in users
+ */
+export const getPublicAppSettingsResponseStaleOpenDaysMax = 365;
+
+
+
+export const GetPublicAppSettingsResponse = zod.object({
+  "staleOpenDays": zod.number().min(1).max(getPublicAppSettingsResponseStaleOpenDaysMax),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}),
+  "syncFailureBannerEnabled": zod.boolean()
 })
 
 
@@ -716,6 +816,9 @@ export const GetImportLogResponse = zod.array(GetImportLogResponseItem)
 export const GetSftpSyncStatusResponse = zod.object({
   "configured": zod.boolean(),
   "running": zod.boolean(),
+  "scheduleEnabled": zod.boolean(),
+  "scheduleTime": zod.string(),
+  "nextRunAt": zod.string().nullable(),
   "lastRunAt": zod.string().nullable(),
   "lastResult": zod.union([zod.object({
   "importedSnapshots": zod.array(zod.string()),
@@ -795,7 +898,7 @@ export const GetRaciMatrixResponse = zod.object({
   "appName": zod.string().nullish(),
   "assignments": zod.array(zod.object({
   "memberId": zod.number(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 }))
 }))
@@ -824,7 +927,7 @@ export const CreateRaciRowResponse = zod.object({
   "appName": zod.string().nullish(),
   "assignments": zod.array(zod.object({
   "memberId": zod.number(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 })
 
@@ -856,7 +959,7 @@ export const UpdateRaciRowResponse = zod.object({
   "appName": zod.string().nullish(),
   "assignments": zod.array(zod.object({
   "memberId": zod.number(),
-  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+  "value": zod.string()
 }))
 })
 
@@ -945,14 +1048,14 @@ export const DeleteRaciMemberResponse = zod.object({
 export const SetRaciCellBody = zod.object({
   "rowId": zod.number(),
   "memberId": zod.number(),
-  "value": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()]),
-  "expectedValue": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()]).optional().describe('The cell value the client last saw. When provided and it no longer matches the stored value, the update is rejected with 409 so a concurrent admin\'s edit is not silently overwritten.')
+  "value": zod.union([zod.string(),zod.null()]),
+  "expectedValue": zod.union([zod.string(),zod.null()]).optional().describe('The cell value the client last saw. When provided and it no longer matches the stored value, the update is rejected with 409 so a concurrent admin\'s edit is not silently overwritten.')
 })
 
 export const SetRaciCellResponse = zod.object({
   "rowId": zod.number(),
   "memberId": zod.number(),
-  "value": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()])
+  "value": zod.union([zod.string(),zod.null()])
 })
 
 

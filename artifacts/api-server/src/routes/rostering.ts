@@ -16,15 +16,9 @@ import { UpdateAppTermStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
 import { getRaciPeopleByApp } from "../lib/raciPeople";
+import { readAppSettings } from "../lib/appSettings";
 
 const router: IRouter = Router();
-
-const STATUS_LABELS: Record<string, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  complete: "Complete",
-  needs_review: "Needs review",
-};
 
 router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> => {
   const termIdRaw = req.query.termId;
@@ -400,6 +394,29 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
     res.status(404).json({ message: "Status row not found" });
     return;
   }
+  // Sharing statuses are settings-driven: new values must be an *active*
+  // configured option, but keeping a row's existing (possibly deactivated)
+  // value is always allowed.
+  const settings = await readAppSettings();
+  const activeStatuses = new Set(
+    settings.sharingStatusOptions.filter((o) => o.active).map((o) => o.value),
+  );
+  for (const [field, current] of [
+    ["studentSharingStatus", before.studentSharingStatus],
+    ["staffSharingStatus", before.staffSharingStatus],
+  ] as const) {
+    const next = parsed.data[field];
+    if (next !== undefined && next !== current && !activeStatuses.has(next)) {
+      res.status(400).json({
+        message: `"${next}" is not an active sharing status option`,
+      });
+      return;
+    }
+  }
+  const statusLabels = new Map(
+    settings.sharingStatusOptions.map((o) => [o.value, o.label]),
+  );
+  const labelFor = (value: string) => statusLabels.get(value) ?? value;
   const [row] = await db
     .update(appTermStatusTable)
     .set({ ...parsed.data, updatedBy: user.id, updatedAt: new Date() })
@@ -412,12 +429,12 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
   const changes: string[] = [];
   if (before.studentSharingStatus !== row.studentSharingStatus) {
     changes.push(
-      `Student sharing: ${STATUS_LABELS[before.studentSharingStatus]} → ${STATUS_LABELS[row.studentSharingStatus]}`,
+      `Student sharing: ${labelFor(before.studentSharingStatus)} → ${labelFor(row.studentSharingStatus)}`,
     );
   }
   if (before.staffSharingStatus !== row.staffSharingStatus) {
     changes.push(
-      `Staff sharing: ${STATUS_LABELS[before.staffSharingStatus]} → ${STATUS_LABELS[row.staffSharingStatus]}`,
+      `Staff sharing: ${labelFor(before.staffSharingStatus)} → ${labelFor(row.staffSharingStatus)}`,
     );
   }
   if ((before.owner ?? null) !== (row.owner ?? null)) {

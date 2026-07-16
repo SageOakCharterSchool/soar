@@ -20,6 +20,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity } from "../lib/activityEvents";
+import { readAppSettings } from "../lib/appSettings";
 
 const router: IRouter = Router();
 
@@ -501,6 +502,19 @@ router.put("/raci/cells", requireAdmin, async (req, res): Promise<void> => {
   }
   const user = (req as Request & { user: User }).user;
   const { rowId, memberId, value, expectedValue } = parsed.data;
+  // RACI values are settings-driven: new values must be an *active*
+  // configured option (clearing a cell with null is always allowed).
+  if (value != null) {
+    const settings = await readAppSettings();
+    if (
+      !settings.raciValueOptions.some((o) => o.active && o.value === value)
+    ) {
+      res
+        .status(400)
+        .json({ message: `"${value}" is not an active RACI value option` });
+      return;
+    }
+  }
   const [row] = await db.select().from(raciRowsTable).where(eq(raciRowsTable.id, rowId));
   if (!row) {
     res.status(404).json({ message: "Row not found" });

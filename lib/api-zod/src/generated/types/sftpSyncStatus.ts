@@ -11,6 +11,10 @@ import type { SftpSyncSummary } from './sftpSyncSummary';
 export interface SftpSyncStatus {
   configured: boolean;
   running: boolean;
+  scheduleEnabled: boolean;
+  scheduleTime: string;
+  /** @nullable */
+  nextRunAt: string | null;
   /** @nullable */
   lastRunAt: string | null;
   lastResult: SftpSyncSummary | null;

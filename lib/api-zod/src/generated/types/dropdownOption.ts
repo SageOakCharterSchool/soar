@@ -6,4 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type RaciValue = string;
+export interface DropdownOption {
+  value: string;
+  label: string;
+  active: boolean;
+}

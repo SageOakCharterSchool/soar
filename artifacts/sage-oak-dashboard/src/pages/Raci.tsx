@@ -12,10 +12,12 @@ import {
   useSetRaciCell,
   useRenameRaciCategory,
   useListUserOptions,
+  useGetPublicAppSettings,
   type RaciTeamData,
   type RaciRow,
   type RaciMember,
   type RaciValue,
+  type DropdownOption,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
@@ -85,15 +87,52 @@ const VALUE_META: Record<string, { label: string; className: string }> = {
   },
 };
 
-// Click-to-cycle order for admin editing.
-const CYCLE: (RaciValue | null)[] = [null, "R", "A", "C", "I", "N/A"];
+// Fallback options used until the settings-driven list loads.
+const DEFAULT_RACI_OPTIONS: DropdownOption[] = [
+  { value: "R", label: "Responsible", active: true },
+  { value: "A", label: "Accountable", active: true },
+  { value: "C", label: "Consulted", active: true },
+  { value: "I", label: "Informed", active: true },
+  { value: "N/A", label: "Not applicable", active: true },
+];
 
-function Chip({ value }: { value: string | null }) {
+const RACI_PALETTE = [
+  "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200",
+  "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200",
+  "bg-teal-100 text-teal-900 dark:bg-teal-900/40 dark:text-teal-200",
+  "bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200",
+  "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200",
+];
+
+type RaciMeta = Record<string, { label: string; className: string }>;
+
+/** Settings-driven RACI value options with color metadata and cycle order. */
+function useRaciOptions() {
+  const { data: settings } = useGetPublicAppSettings();
+  return useMemo(() => {
+    const options = settings?.raciValueOptions ?? DEFAULT_RACI_OPTIONS;
+    const meta: RaciMeta = {};
+    options.forEach((o, i) => {
+      meta[o.value] = {
+        label: o.label,
+        className:
+          VALUE_META[o.value]?.className ?? RACI_PALETTE[i % RACI_PALETTE.length]!,
+      };
+    });
+    const cycle: (string | null)[] = [
+      null,
+      ...options.filter((o) => o.active).map((o) => o.value),
+    ];
+    return { options, meta, cycle };
+  }, [settings]);
+}
+
+function Chip({ value, meta }: { value: string | null; meta?: RaciMeta }) {
   if (!value) return <span className="text-muted-foreground/40">·</span>;
-  const meta = VALUE_META[value];
+  const m = (meta ?? VALUE_META)[value];
   return (
     <span
-      className={`inline-flex h-6 min-w-8 items-center justify-center rounded px-1.5 text-xs font-semibold ${meta?.className ?? "bg-muted"}`}
+      className={`inline-flex h-6 min-w-8 items-center justify-center rounded px-1.5 text-xs font-semibold ${m?.className ?? "bg-muted"}`}
     >
       {value}
     </span>
@@ -312,6 +351,7 @@ function TeamMatrix({
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
+  const { meta: raciMeta, cycle } = useRaciOptions();
 
   const setCell = useSetRaciCell();
   const createRow = useCreateRaciRow();
@@ -408,7 +448,10 @@ function TeamMatrix({
     const current =
       (row.assignments.find((a) => a.memberId === memberId)?.value as RaciValue | undefined) ??
       null;
-    const next = CYCLE[(CYCLE.indexOf(current) + 1) % CYCLE.length] ?? null;
+    // Cycle through blank + active options; unknown (deactivated) current
+    // values cycle back to blank first.
+    const idx = cycle.indexOf(current);
+    const next = cycle[(idx + 1) % cycle.length] ?? null;
     setCell.mutate(
       // expectedValue lets the server reject the update if another admin
       // changed this cell since we loaded it (409), instead of overwriting.
@@ -472,10 +515,10 @@ function TeamMatrix({
           onChange={(e) => setSearch(e.target.value)}
         />
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          {Object.entries(VALUE_META).map(([v, meta]) => (
+          {Object.entries(raciMeta).map(([v, m]) => (
             <span key={v} className="inline-flex items-center gap-1">
-              <Chip value={v} />
-              <span className="text-muted-foreground">{meta.label}</span>
+              <Chip value={v} meta={raciMeta} />
+              <span className="text-muted-foreground">{m.label}</span>
             </span>
           ))}
         </div>
@@ -604,6 +647,7 @@ function TeamMatrix({
                   group={group}
                   team={team}
                   isAdmin={isAdmin}
+                  raciMeta={raciMeta}
                   onCycle={cycleCell}
                   onEditRow={setEditRow}
                   onDeleteRow={(row) => {
@@ -774,6 +818,7 @@ function GroupRows({
   group,
   team,
   isAdmin,
+  raciMeta,
   onCycle,
   onEditRow,
   onDeleteRow,
@@ -785,6 +830,7 @@ function GroupRows({
   group: { category: string | null; rows: RaciRow[] };
   team: RaciTeamData;
   isAdmin: boolean;
+  raciMeta: RaciMeta;
   onCycle: (row: RaciRow, memberId: number) => void;
   onEditRow: (row: RaciRow) => void;
   onDeleteRow: (row: RaciRow) => void;
@@ -887,10 +933,10 @@ function GroupRows({
                       onClick={() => onCycle(row, m.id)}
                       aria-label={`${m.name} on ${row.name}: ${value ?? "blank"}`}
                     >
-                      <Chip value={value} />
+                      <Chip value={value} meta={raciMeta} />
                     </button>
                   ) : (
-                    <Chip value={value} />
+                    <Chip value={value} meta={raciMeta} />
                   )}
                 </TableCell>
               );

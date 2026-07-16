@@ -14,8 +14,11 @@ import {
   buildSnapshotFiles,
   type CleverRawFile,
 } from "./cleverDailyReports";
+import { readAppSettings, type SyncScheduleSettings } from "./appSettings";
 
-const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// How often the scheduler wakes up to check whether the configured
+// time-of-day has passed. The actual sync only runs once per day.
+const SCHEDULER_TICK_MS = 60 * 1000;
 
 export interface SftpConfig {
   host: string;
@@ -77,6 +80,9 @@ export interface SftpSyncRun {
 export interface SftpSyncStatus {
   configured: boolean;
   running: boolean;
+  scheduleEnabled: boolean;
+  scheduleTime: string;
+  nextRunAt: string | null;
   lastRunAt: string | null;
   lastResult: SyncSummary | null;
   lastError: string | null;
@@ -109,9 +115,16 @@ export async function getSftpSyncStatus(): Promise<SftpSyncStatus> {
     error: r.error,
   }));
   const last = recentRuns[0] ?? null;
+  const { syncSchedule } = await readAppSettings();
   return {
     configured: getSftpConfig() !== null,
     running: syncRunning,
+    scheduleEnabled: syncSchedule.enabled,
+    scheduleTime: syncSchedule.time,
+    nextRunAt:
+      getSftpConfig() !== null
+        ? (computeNextRunAt(syncSchedule, new Date())?.toISOString() ?? null)
+        : null,
     lastRunAt: last ? last.ranAt : null,
     lastResult:
       last && last.ok
@@ -367,6 +380,54 @@ export async function runSftpSync(): Promise<
   }
 }
 
+/** Today's scheduled run time (server time) for an HH:MM schedule. */
+function scheduledTimeToday(time: string, now: Date): Date {
+  const [h, m] = time.split(":").map((p) => parseInt(p, 10));
+  const at = new Date(now);
+  at.setHours(h ?? 0, m ?? 0, 0, 0);
+  return at;
+}
+
+/**
+ * Next scheduled run strictly after `now`, or null when the nightly
+ * schedule is disabled.
+ */
+export function computeNextRunAt(
+  schedule: SyncScheduleSettings,
+  now: Date,
+): Date | null {
+  if (!schedule.enabled) return null;
+  const today = scheduledTimeToday(schedule.time, now);
+  if (today.getTime() > now.getTime()) return today;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow;
+}
+
+/**
+ * Decide whether the scheduled sync should run now: the schedule is enabled,
+ * today's scheduled time has passed, and no run (scheduled or manual) has
+ * happened since that time. Reading the last run from the database makes
+ * this restart-safe without double-running.
+ */
+export async function shouldRunScheduledSync(now: Date): Promise<boolean> {
+  const { syncSchedule } = await readAppSettings();
+  if (!syncSchedule.enabled) return false;
+  const due = scheduledTimeToday(syncSchedule.time, now);
+  if (now.getTime() < due.getTime()) return false;
+  const [lastRun] = await db
+    .select()
+    .from(syncRunsTable)
+    .orderBy(desc(syncRunsTable.ranAt), desc(syncRunsTable.id))
+    .limit(1);
+  return !lastRun || lastRun.ranAt.getTime() < due.getTime();
+}
+
+/**
+ * Start the nightly sync scheduler. Wakes up every minute and runs the sync
+ * once the configured time-of-day passes, honoring the schedule stored in
+ * app settings (which admins can change at runtime without a restart).
+ */
 export function startSftpSyncJob(): void {
   if (!getSftpConfig()) {
     logger.info(
@@ -374,11 +435,18 @@ export function startSftpSyncJob(): void {
     );
     return;
   }
-  const run = () =>
-    runSftpSync().catch((err) => {
-      logger.error({ err }, "SFTP sync job crashed unexpectedly");
-    });
-  void run();
-  const timer = setInterval(run, RUN_INTERVAL_MS);
+  const tick = async () => {
+    try {
+      if (syncRunning) return;
+      if (await shouldRunScheduledSync(new Date())) {
+        logger.info("Running scheduled SFTP sync");
+        await runSftpSync();
+      }
+    } catch (err) {
+      logger.error({ err }, "SFTP sync scheduler tick failed");
+    }
+  };
+  const timer = setInterval(() => void tick(), SCHEDULER_TICK_MS);
   timer.unref();
+  void tick();
 }

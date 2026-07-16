@@ -6,4 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type RaciValue = string;
+export interface NotificationSettings {
+  syncFailureBannerEnabled: boolean;
+  alertOnSyncWarnings: boolean;
+  recipients: string[];
+}
