@@ -466,6 +466,7 @@ export interface Issue {
   comment: string;
   status: IssueStatus;
   createdAt: string;
+  resolvedAt?: string | null;
 }
 
 export type IssueUpdateStatus = typeof IssueUpdateStatus[keyof typeof IssueUpdateStatus];

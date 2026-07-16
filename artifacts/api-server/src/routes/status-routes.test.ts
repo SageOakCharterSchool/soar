@@ -998,6 +998,7 @@ describe("PATCH /api/issues/:id", () => {
       comment: "Something broke",
       status: "resolved",
     });
+    expect(typeof res.body.resolvedAt).toBe("string");
     const events = fakeDb.rows(tables.appActivityTable);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -1016,6 +1017,7 @@ describe("PATCH /api/issues/:id", () => {
     const res = await admin.patch(`/issues/${issue.id}`, { status: "open" });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("open");
+    expect(res.body.resolvedAt).toBeNull();
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
   });
 });

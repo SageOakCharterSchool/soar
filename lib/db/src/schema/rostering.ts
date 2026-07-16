@@ -83,6 +83,7 @@ export const appIssuesTable = pgTable("app_issues", {
   comment: text("comment").notNull(),
   status: text("status", { enum: ["open", "resolved"] }).notNull().default("open"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
 
 export const appActivityTable = pgTable(

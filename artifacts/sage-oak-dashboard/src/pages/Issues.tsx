@@ -31,18 +31,34 @@ export default function Issues() {
   );
   const updateIssue = useUpdateIssue();
 
-  // Record this visit once so the Issues nav badge clears.
+  // Record this visit once so the Issues nav badge clears. The server
+  // responds with the *previous* last-seen time, which we keep for the rest
+  // of the visit so the "new" markers stay visible until the next page view.
   const markSeen = useMarkIssuesSeen();
   const markedRef = useRef(false);
+  const [lastSeenAt, setLastSeenAt] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     if (markedRef.current) return;
     markedRef.current = true;
     markSeen.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: (res) => {
+        setLastSeenAt(res.lastSeenAt ?? null);
         queryClient.invalidateQueries({ queryKey: getGetIssuesUnseenCountQueryKey() });
       },
+      onError: () => setLastSeenAt(null),
     });
   }, [markSeen, queryClient]);
+
+  const isNewForMe = (issue: { createdAt: string; resolvedAt?: string | null }) => {
+    if (typeof lastSeenAt !== "string") return false;
+    const seen = new Date(lastSeenAt).getTime();
+    if (new Date(issue.createdAt).getTime() > seen) return true;
+    return issue.resolvedAt != null && new Date(issue.resolvedAt).getTime() > seen;
+  };
+  const newCount = (issues ?? []).filter(isNewForMe).length;
+  const firstOldIdx = (issues ?? []).findIndex((i) => !isNewForMe(i));
+  const dividerBeforeId =
+    newCount > 0 && firstOldIdx > 0 ? (issues ?? [])[firstOldIdx]?.id : null;
 
   const setIssueStatus = (id: number, next: "open" | "resolved") => {
     updateIssue.mutate(
@@ -64,7 +80,14 @@ export default function Issues() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-2xl font-bold tracking-tight">Issues</h2>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="text-2xl font-bold tracking-tight">Issues</h2>
+          {newCount > 0 && (
+            <Badge className="border-transparent bg-sky-600 text-white hover:bg-sky-600 dark:bg-sky-500 dark:text-sky-950">
+              {newCount} new since your last visit
+            </Badge>
+          )}
+        </div>
         <div className="flex gap-1">
           {FILTERS.map((f) => (
             <Button
@@ -93,8 +116,18 @@ export default function Issues() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {issues.map((issue) => (
-            <Card key={issue.id}>
+          {issues.map((issue, idx) => (
+            <div key={issue.id}>
+              {issue.id === dividerBeforeId && idx > 0 && (
+                <div className="flex items-center gap-2 pb-2" aria-hidden="true">
+                  <div className="h-px flex-1 bg-sky-300 dark:bg-sky-800" />
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-sky-600 dark:text-sky-400">
+                    Seen on your last visit
+                  </span>
+                  <div className="h-px flex-1 bg-sky-300 dark:bg-sky-800" />
+                </div>
+              )}
+              <Card>
               <CardContent className="p-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -102,6 +135,11 @@ export default function Issues() {
                     <Badge variant={issue.status === "open" ? "destructive" : "secondary"}>
                       {issue.status}
                     </Badge>
+                    {isNewForMe(issue) && (
+                      <Badge className="h-4 border-transparent bg-sky-100 px-1.5 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-300">
+                        New
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-sm">{issue.comment}</p>
                   <p className="text-xs text-muted-foreground">
@@ -122,7 +160,8 @@ export default function Issues() {
                   </Button>
                 )}
               </CardContent>
-            </Card>
+              </Card>
+            </div>
           ))}
         </div>
       )}

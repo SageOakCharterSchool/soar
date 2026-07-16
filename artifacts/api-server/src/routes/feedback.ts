@@ -122,6 +122,7 @@ router.get("/issues", requireAuth, async (req, res): Promise<void> => {
       comment: appIssuesTable.comment,
       status: appIssuesTable.status,
       createdAt: appIssuesTable.createdAt,
+      resolvedAt: appIssuesTable.resolvedAt,
     })
     .from(appIssuesTable)
     .innerJoin(applicationsTable, eq(appIssuesTable.applicationId, applicationsTable.id))
@@ -135,7 +136,13 @@ router.get("/issues", requireAuth, async (req, res): Promise<void> => {
           eq(appIssuesTable.status, statusFilter === "resolved" ? "resolved" : "open"),
         );
 
-  res.json(issues.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() })));
+  res.json(
+    issues.map((i) => ({
+      ...i,
+      createdAt: i.createdAt.toISOString(),
+      resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+    })),
+  );
 });
 
 const ISSUES_PAGE = "issues";
@@ -211,7 +218,10 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
   }
   const [issue] = await db
     .update(appIssuesTable)
-    .set({ status: parsed.data.status })
+    .set({
+      status: parsed.data.status,
+      resolvedAt: parsed.data.status === "resolved" ? new Date() : null,
+    })
     .where(eq(appIssuesTable.id, id))
     .returning();
   if (!issue) {
@@ -249,6 +259,7 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
     comment: issue.comment,
     status: issue.status,
     createdAt: issue.createdAt.toISOString(),
+    resolvedAt: issue.resolvedAt ? issue.resolvedAt.toISOString() : null,
   });
 });
 

@@ -16,4 +16,5 @@ export interface Issue {
   comment: string;
   status: IssueStatus;
   createdAt: string;
+  resolvedAt?: string | null;
 }
