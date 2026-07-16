@@ -134,6 +134,25 @@ router.get(
       conditions.push(lte(appActivityArchiveTable.createdAt, to));
     }
 
+    // Snapshot boundary: only rows archived at/before this instant are
+    // included. Paged exports pass the snapshot from the first page back on
+    // subsequent requests so rows archived mid-export can't shift offsets
+    // (which would silently duplicate or skip rows).
+    const archivedBeforeRaw =
+      typeof req.query.archivedBefore === "string" ? req.query.archivedBefore.trim() : "";
+    let snapshot: Date;
+    if (archivedBeforeRaw) {
+      snapshot = new Date(archivedBeforeRaw);
+      if (Number.isNaN(snapshot.getTime())) {
+        res.status(400).json({ message: "archivedBefore must be a valid ISO 8601 date" });
+        return;
+      }
+    } else {
+      snapshot = new Date();
+    }
+    conditions.push(lte(appActivityArchiveTable.archivedAt, snapshot));
+    res.setHeader("X-Archive-Snapshot", snapshot.toISOString());
+
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [countRow] = await db

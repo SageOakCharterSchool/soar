@@ -406,6 +406,136 @@ describe("GET /api/rostering/activity/archive", () => {
     expect(full.text).toContain('"Line one for row 0\nline ""two"", with comma\nline three"');
   });
 
+  it("rejects an invalid archivedBefore", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getJson(
+      "/rostering/activity/archive?archivedBefore=not-a-date",
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns the snapshot boundary in X-Archive-Snapshot and echoes a provided one", async () => {
+    seedArchive();
+    const admin = await loginAs(ADMIN);
+    const first = await admin.getRaw("/rostering/activity/archive");
+    expect(first.status).toBe(200);
+    const snapshot = first.headers.get("x-archive-snapshot");
+    expect(snapshot).toBeTruthy();
+    expect(Number.isNaN(new Date(snapshot!).getTime())).toBe(false);
+
+    const second = await admin.getRaw(
+      `/rostering/activity/archive?archivedBefore=${encodeURIComponent(snapshot!)}`,
+    );
+    expect(second.headers.get("x-archive-snapshot")).toBe(snapshot);
+  });
+
+  it("excludes rows archived after the archivedBefore snapshot", async () => {
+    const before = seedArchive({ archivedAt: new Date("2026-01-01T00:00:00Z") });
+    const after = seedArchive({ archivedAt: new Date("2026-06-01T00:00:00Z") });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getRaw(
+      "/rostering/activity/archive?archivedBefore=2026-03-01T00:00:00Z",
+    );
+    expect(res.status).toBe(200);
+    const body = JSON.parse(res.text) as { id: number }[];
+    expect(body.map((r) => r.id)).toEqual([before.id]);
+    expect(res.headers.get("x-total-count")).toBe("1");
+    void after;
+  });
+
+  it("paged export stays consistent when rows are archived between pages", async () => {
+    // 25 rows already archived when the export starts. The nightly retention
+    // job will "run" between pages and add newer rows that would otherwise
+    // shift every offset.
+    const seeded: ReturnType<typeof seedArchive>[] = [];
+    for (let i = 0; i < 25; i++) {
+      seeded.push(
+        seedArchive({
+          createdAt: new Date(Date.UTC(2023, 0, 1 + i)),
+          archivedAt: new Date("2026-07-01T00:00:00Z"),
+          appName: `App ${i}`,
+        }),
+      );
+    }
+
+    const admin = await loginAs(ADMIN);
+    const pageSize = 10;
+
+    // First page establishes the snapshot.
+    const first = await admin.getRaw(
+      `/rostering/activity/archive?format=csv&limit=${pageSize}&offset=0`,
+    );
+    expect(first.status).toBe(200);
+    const snapshot = first.headers.get("x-archive-snapshot")!;
+    expect(snapshot).toBeTruthy();
+    const records = splitCsvRecords(first.text);
+    const paged = records.slice(1);
+
+    // Retention job runs mid-export: new rows land in the archive with
+    // createdAt values that sort ahead of everything already exported.
+    const afterSnapshot = new Date(new Date(snapshot).getTime() + 1000);
+    for (let i = 0; i < 7; i++) {
+      seedArchive({
+        createdAt: new Date(Date.UTC(2025, 0, 1 + i)),
+        archivedAt: afterSnapshot,
+        appName: `Late arrival ${i}`,
+      });
+    }
+
+    // Remaining pages pinned to the snapshot.
+    for (let offset = pageSize; offset < seeded.length; offset += pageSize) {
+      const page = await admin.getRaw(
+        `/rostering/activity/archive?format=csv&limit=${pageSize}&offset=${offset}&archivedBefore=${encodeURIComponent(snapshot)}`,
+      );
+      expect(page.status).toBe(200);
+      // Total stays fixed at the snapshot's view of the archive.
+      expect(page.headers.get("x-total-count")).toBe(String(seeded.length));
+      paged.push(...splitCsvRecords(page.text).slice(1));
+    }
+
+    // Exactly the pre-export rows, newest first, no duplicates or gaps.
+    const expectedOrder = [...seeded]
+      .sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+      )
+      .map((r) => r.appName);
+    const exportedApps = paged.map((rec) => rec.split(",")[0]!);
+    expect(exportedApps).toEqual(expectedOrder);
+    expect(new Set(exportedApps).size).toBe(seeded.length);
+    expect(exportedApps).not.toContain("Late arrival 0");
+  });
+
+  it("without the snapshot, mid-export archiving duplicates rows (regression contrast)", async () => {
+    // Documents the failure mode the snapshot prevents: unpinned offsets
+    // shift when newer rows are archived between pages.
+    const seeded: ReturnType<typeof seedArchive>[] = [];
+    for (let i = 0; i < 6; i++) {
+      seeded.push(
+        seedArchive({
+          createdAt: new Date(Date.UTC(2023, 0, 1 + i)),
+          archivedAt: new Date("2026-07-01T00:00:00Z"),
+          appName: `App ${i}`,
+        }),
+      );
+    }
+    const admin = await loginAs(ADMIN);
+    const first = await admin.getRaw("/rostering/activity/archive?limit=3&offset=0");
+    const firstIds = (JSON.parse(first.text) as { id: number }[]).map((r) => r.id);
+
+    // Three newer rows arrive; every unpinned offset now shifts by three.
+    for (let i = 0; i < 3; i++) {
+      seedArchive({
+        createdAt: new Date(Date.UTC(2025, 0, 1 + i)),
+        archivedAt: new Date(Date.now() - 1000),
+        appName: `Late ${i}`,
+      });
+    }
+    const second = await admin.getRaw("/rostering/activity/archive?limit=3&offset=3");
+    const secondIds = (JSON.parse(second.text) as { id: number }[]).map((r) => r.id);
+    // Overlap proves the duplicate bug exists without the snapshot.
+    expect(firstIds.some((id) => secondIds.includes(id))).toBe(true);
+  });
+
   it("exports CSV with format=csv", async () => {
     seedArchive({ detail: 'Has "quotes", and commas' });
     const admin = await loginAs(ADMIN);

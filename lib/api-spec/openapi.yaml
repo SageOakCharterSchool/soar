@@ -373,6 +373,15 @@ paths:
           required: false
           description: Only events occurring on/before this date (ISO 8601)
           schema: { type: string }
+        - name: archivedBefore
+          in: query
+          required: false
+          description: >
+            Snapshot boundary (ISO 8601): only include rows archived at or
+            before this instant. Pass the X-Archive-Snapshot header value from
+            the first page on subsequent pages to keep paged exports
+            consistent while archiving runs.
+          schema: { type: string }
         - name: format
           in: query
           required: false

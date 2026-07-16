@@ -11,7 +11,6 @@ import {
   useUpdateTerm,
   useCopyTermStatuses,
   useGetRosteringActivity,
-  getRosteringActivityArchive,
   useMarkRosteringSeen,
   getGetRosteringUnseenCountQueryKey,
   type ActivityEvent,
@@ -291,21 +290,36 @@ export function ArchiveDialog() {
       { search: debouncedSearch, from: fromDate, to: toDate },
     ],
     queryFn: async ({ pageParam, signal }) => {
-      const params: Record<string, string | number> = {
-        limit: PAGE_SIZE,
-        offset: pageParam,
-      };
-      if (debouncedSearch) params.search = debouncedSearch;
-      if (fromDate) params.from = fromDate;
-      if (toDate) params.to = toDate;
-      return (await getRosteringActivityArchive(params as any, {
+      const { offset, snapshot } = pageParam;
+      const qs = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (debouncedSearch) qs.set("search", debouncedSearch);
+      if (fromDate) qs.set("from", fromDate);
+      if (toDate) qs.set("to", toDate);
+      // Pin later pages to the snapshot the server took on the first page so
+      // rows archived while browsing can't shift offsets (duplicates/gaps).
+      if (snapshot) qs.set("archivedBefore", snapshot);
+      const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
+        credentials: "include",
         signal,
-      })) as ArchivedActivityEvent[];
+      });
+      if (!res.ok) {
+        throw new Error(`Could not load archived history (${res.status})`);
+      }
+      return {
+        rows: (await res.json()) as ArchivedActivityEvent[],
+        snapshot: snapshot ?? res.headers.get("X-Archive-Snapshot"),
+      };
     },
-    initialPageParam: 0,
+    initialPageParam: { offset: 0, snapshot: null as string | null },
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === PAGE_SIZE
-        ? allPages.reduce((sum, page) => sum + page.length, 0)
+      lastPage.rows.length === PAGE_SIZE
+        ? {
+            offset: allPages.reduce((sum, page) => sum + page.rows.length, 0),
+            snapshot: lastPage.snapshot,
+          }
         : undefined,
     enabled: open,
     staleTime: 5 * 60 * 1000,
@@ -322,7 +336,7 @@ export function ArchiveDialog() {
   }, [isError, error, toast]);
 
   const rows = useMemo(
-    () => data?.pages.flat() ?? [],
+    () => data?.pages.flatMap((page) => page.rows) ?? [],
     [data],
   );
   const hasMore = Boolean(hasNextPage);
@@ -363,6 +377,11 @@ export function ArchiveDialog() {
       const parts: string[] = [];
       let offset = 0;
       let rowCount = 0;
+      // Snapshot taken by the server on the first page; passing it back on
+      // later pages keeps offsets stable even if the nightly retention job
+      // archives new rows mid-export (otherwise rows could be duplicated or
+      // skipped).
+      let snapshot: string | null = null;
       for (;;) {
         const qs = new URLSearchParams({
           format: "csv",
@@ -372,6 +391,7 @@ export function ArchiveDialog() {
         if (debouncedSearch) qs.set("search", debouncedSearch);
         if (fromDate) qs.set("from", fromDate);
         if (toDate) qs.set("to", toDate);
+        if (snapshot) qs.set("archivedBefore", snapshot);
         const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
           credentials: "include",
           signal: controller.signal,
@@ -379,6 +399,7 @@ export function ArchiveDialog() {
         if (!res.ok) {
           throw new Error(`Export failed (${res.status})`);
         }
+        if (!snapshot) snapshot = res.headers.get("X-Archive-Snapshot");
         const totalHeader = res.headers.get("X-Total-Count");
         if (totalHeader != null) {
           const total = parseInt(totalHeader, 10);

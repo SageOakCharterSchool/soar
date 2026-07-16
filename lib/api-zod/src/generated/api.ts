@@ -333,6 +333,7 @@ export const GetRosteringActivityArchiveQueryParams = zod.object({
   "appName": zod.coerce.string().optional().describe('Case-insensitive exact app name filter'),
   "from": zod.coerce.string().optional().describe('Only events occurring on\/after this date (ISO 8601)'),
   "to": zod.coerce.string().optional().describe('Only events occurring on\/before this date (ISO 8601)'),
+  "archivedBefore": zod.coerce.string().optional().describe('Snapshot boundary (ISO 8601): only include rows archived at or before this instant. Pass the X-Archive-Snapshot header value from the first page on subsequent pages to keep paged exports consistent while archiving runs.\n'),
   "format": zod.enum(['json', 'csv']).optional()
 })
 

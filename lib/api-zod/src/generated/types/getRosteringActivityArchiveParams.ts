@@ -26,5 +26,9 @@ from?: string;
  * Only events occurring on/before this date (ISO 8601)
  */
 to?: string;
+/**
+ * Snapshot boundary (ISO 8601): only include rows archived at or before this instant. Pass the X-Archive-Snapshot header value from the first page on subsequent pages to keep paged exports consistent while archiving runs.
+ */
+archivedBefore?: string;
 format?: GetRosteringActivityArchiveFormat;
 };
