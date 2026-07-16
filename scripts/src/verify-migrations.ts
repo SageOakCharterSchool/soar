@@ -184,7 +184,10 @@ async function seedBulkActivityRows(dbUrl: string) {
         CASE WHEN gs % 3 = 0 THEN 'status_change' WHEN gs % 3 = 1 THEN 'note_added' ELSE 'issue_opened' END,
         'bulk seeded activity row #' || gs,
         (SELECT id FROM users WHERE email = 'seed-admin@example.invalid'),
-        now() - (gs || ' minutes')::interval
+        -- Deterministic so the post-migration spot check can verify exact values.
+        -- Base date is in the future so activity-retention pruning at server
+        -- boot never deletes these rows out from under the check.
+        '2030-01-01T00:00:00Z'::timestamptz + (gs || ' minutes')::interval
       FROM generate_series(1, $1) AS gs
       `,
       [BULK_ACTIVITY_ROWS],
@@ -248,7 +251,9 @@ async function seedBulkActivityRows(dbUrl: string) {
       SELECT
         'bulk-seed-sid-' || gs,
         json_build_object('cookie', json_build_object('maxAge', 86400000), 'seed', gs),
-        now() + interval '7 days'
+        -- Deterministic future expiry: verifiable exactly, and never swept by
+        -- expired-session cleanup during the check.
+        '2030-01-01T00:00:00Z'::timestamptz + (gs || ' seconds')::interval
       FROM generate_series(1, $1) AS gs
       `,
       [BULK_ACTIVITY_ROWS],
@@ -405,27 +410,38 @@ async function verifyBulkRowValues(client: pg.Client) {
   };
 
   for (const gs of samples) {
-    // usage_by_app: unique_users = gs % 500, scoped_users = gs % 400
+    // usage_by_app: unique_users = gs % 500, scoped_users = gs % 400,
+    // snapshot_date = '2025-09-01' + (gs % 30)
     {
       const res = await client.query(
-        `SELECT unique_users, scoped_users FROM usage_by_app WHERE application = $1`,
-        [`bulk-seed-app-${gs}`],
+        `SELECT unique_users, scoped_users, snapshot_date::text AS snapshot_date,
+                (snapshot_date = ('2025-09-01'::date + ($2::int % 30))) AS date_ok
+           FROM usage_by_app WHERE application = $1`,
+        [`bulk-seed-app-${gs}`, gs],
       );
       const row = res.rows[0];
       if (!row) fail("usage_by_app", gs, "row", "present", "missing");
       if (row.unique_users !== gs % 500) fail("usage_by_app", gs, "unique_users", gs % 500, row.unique_users);
       if (row.scoped_users !== gs % 400) fail("usage_by_app", gs, "scoped_users", gs % 400, row.scoped_users);
+      if (row.date_ok !== true) {
+        fail("usage_by_app", gs, "snapshot_date", `2025-09-01 + ${gs % 30} days`, row.snapshot_date);
+      }
     }
 
     // usage_applist: counts/percents/minutes derived from gs
     {
       const res = await client.query(
-        `SELECT student_count, student_percent, teacher_count, teacher_percent, active_time_per_user_minutes
+        `SELECT student_count, student_percent, teacher_count, teacher_percent, active_time_per_user_minutes,
+                snapshot_date::text AS snapshot_date,
+                (snapshot_date = ('2025-09-01'::date + ($2::int % 30))) AS date_ok
            FROM usage_applist WHERE app_name = $1`,
-        [`bulk-seed-applist-${gs}`],
+        [`bulk-seed-applist-${gs}`, gs],
       );
       const row = res.rows[0];
       if (!row) fail("usage_applist", gs, "row", "present", "missing");
+      if (row.date_ok !== true) {
+        fail("usage_applist", gs, "snapshot_date", `2025-09-01 + ${gs % 30} days`, row.snapshot_date);
+      }
       if (row.student_count !== gs % 1000) fail("usage_applist", gs, "student_count", gs % 1000, row.student_count);
       if (Number(row.student_percent) !== gs % 100) fail("usage_applist", gs, "student_percent", gs % 100, row.student_percent);
       if (row.teacher_count !== gs % 100) fail("usage_applist", gs, "teacher_count", gs % 100, row.teacher_count);
@@ -455,11 +471,14 @@ async function verifyBulkRowValues(client: pg.Client) {
       if (row.active_users !== gs % 300) fail("usage_daily_teacher", gs, "active_users", gs % 300, row.active_users);
     }
 
-    // session: the sess JSON payload must survive byte-for-byte semantically.
+    // session: the sess JSON payload must survive byte-for-byte semantically,
+    // and expire must keep its deterministic seeded timestamp.
     {
       const res = await client.query(
-        `SELECT sess FROM session WHERE sid = $1`,
-        [`bulk-seed-sid-${gs}`],
+        `SELECT sess, expire::text AS expire,
+                (expire = ('2030-01-01T00:00:00Z'::timestamptz + ($2 || ' seconds')::interval)) AS expire_ok
+           FROM session WHERE sid = $1`,
+        [`bulk-seed-sid-${gs}`, gs],
       );
       const row = res.rows[0];
       if (!row) fail("session", gs, "row", "present", "missing");
@@ -467,18 +486,26 @@ async function verifyBulkRowValues(client: pg.Client) {
       if (!sess || typeof sess !== "object") fail("session", gs, "sess", "json object", sess);
       if (sess.seed !== gs) fail("session", gs, "sess.seed", gs, sess?.seed);
       if (sess.cookie?.maxAge !== 86400000) fail("session", gs, "sess.cookie.maxAge", 86400000, sess?.cookie?.maxAge);
+      if (row.expire_ok !== true) {
+        fail("session", gs, "expire", `2030-01-01T00:00:00Z + ${gs}s`, row.expire);
+      }
     }
 
-    // app_activity: detail text and event_type derived from gs
+    // app_activity: detail text, event_type, and created_at derived from gs
     {
       const res = await client.query(
-        `SELECT event_type FROM app_activity WHERE detail = $1`,
-        [`bulk seeded activity row #${gs}`],
+        `SELECT event_type, created_at::text AS created_at,
+                (created_at = ('2030-01-01T00:00:00Z'::timestamptz + ($2 || ' minutes')::interval)) AS created_at_ok
+           FROM app_activity WHERE detail = $1`,
+        [`bulk seeded activity row #${gs}`, gs],
       );
       const row = res.rows[0];
       if (!row) fail("app_activity", gs, "row", "present", "missing");
       const expectedType = gs % 3 === 0 ? "status_change" : gs % 3 === 1 ? "note_added" : "issue_opened";
       if (row.event_type !== expectedType) fail("app_activity", gs, "event_type", expectedType, row.event_type);
+      if (row.created_at_ok !== true) {
+        fail("app_activity", gs, "created_at", `2030-01-01T00:00:00Z + ${gs}min`, row.created_at);
+      }
     }
   }
   console.log(
