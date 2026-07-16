@@ -142,7 +142,7 @@ export default function Issues() {
                       </Badge>
                     )}
                   </div>
-                  <RaciChips people={issue.raci} />
+                  <RaciChips people={issue.raci} applicationId={issue.applicationId} />
                   <p className="text-sm">{issue.comment}</p>
                   <p className="text-xs text-muted-foreground">
                     Reported by {issue.reporterName} on{" "}

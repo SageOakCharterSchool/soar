@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import {
   useGetRaciMatrix,
   getGetRaciMatrixQueryKey,
@@ -150,7 +150,13 @@ function NamePrompt({
   );
 }
 
-function TeamMatrix({ team }: { team: RaciTeamData }) {
+function TeamMatrix({
+  team,
+  highlightAppId,
+}: {
+  team: RaciTeamData;
+  highlightAppId: number | null;
+}) {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -413,6 +419,7 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
                   onRenameCategory={setEditCategory}
                   onAddRow={(category) => setAddRowCategory(category)}
                   onOpenApp={() => setLocation("/rostering")}
+                  highlightAppId={highlightAppId}
                 />
               ))}
             </TableBody>
@@ -564,6 +571,7 @@ function GroupRows({
   onRenameCategory,
   onAddRow,
   onOpenApp,
+  highlightAppId,
 }: {
   group: { category: string | null; rows: RaciRow[] };
   team: RaciTeamData;
@@ -574,8 +582,15 @@ function GroupRows({
   onRenameCategory: (category: string) => void;
   onAddRow: (category: string | null) => void;
   onOpenApp: () => void;
+  highlightAppId: number | null;
 }) {
   const colSpan = team.members.length + (isAdmin ? 2 : 1);
+  const highlightRef = useRef<HTMLTableRowElement | null>(null);
+  useEffect(() => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightAppId]);
   return (
     <>
       {group.category && (
@@ -609,8 +624,19 @@ function GroupRows({
       {group.rows.map((row) => {
         const warnings = rowWarnings(row);
         const byMember = new Map(row.assignments.map((a) => [a.memberId, a.value]));
+        const highlighted =
+          highlightAppId != null && row.applicationId === highlightAppId;
         return (
-          <TableRow key={row.id}>
+          <TableRow
+            key={row.id}
+            ref={highlighted ? highlightRef : undefined}
+            data-highlighted={highlighted || undefined}
+            className={
+              highlighted
+                ? "bg-sky-100/80 hover:bg-sky-100/80 dark:bg-sky-900/40 dark:hover:bg-sky-900/40"
+                : undefined
+            }
+          >
             <TableCell>
               <div className="flex items-center gap-1.5">
                 <span className="font-medium">{row.name}</span>
@@ -698,8 +724,23 @@ export default function Raci() {
   useActivityEventRefresh(getGetRaciMatrixQueryKey());
   const teams = data?.teams ?? [];
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const teamId = selectedTeamId ?? teams[0]?.id;
+
+  // ?app=<applicationId> (from a RACI chip on Issues/Rostering) jumps to the
+  // row for that application: pick the team that contains it and highlight it.
+  const search = useSearch();
+  const appParam = new URLSearchParams(search).get("app");
+  const highlightAppId = appParam != null ? Number(appParam) : null;
+  const highlightTeam =
+    highlightAppId != null && Number.isFinite(highlightAppId)
+      ? teams.find((t) =>
+          t.rows.some((r) => r.applicationId === highlightAppId),
+        )
+      : undefined;
+
+  const teamId = selectedTeamId ?? highlightTeam?.id ?? teams[0]?.id;
   const team = teams.find((t) => t.id === teamId);
+  const effectiveHighlight =
+    highlightTeam != null && highlightTeam.id === teamId ? highlightAppId : null;
 
   return (
     <div className="space-y-4">
@@ -738,7 +779,13 @@ export default function Raci() {
               </Button>
             ))}
           </div>
-          {team && <TeamMatrix key={team.id} team={team} />}
+          {team && (
+            <TeamMatrix
+              key={team.id}
+              team={team}
+              highlightAppId={effectiveHighlight}
+            />
+          )}
         </>
       )}
     </div>

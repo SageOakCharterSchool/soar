@@ -1107,7 +1107,7 @@ export default function Rostering() {
                       {row.category && (
                         <div className="text-xs text-muted-foreground">{row.category}</div>
                       )}
-                      <RaciChips people={row.raci} />
+                      <RaciChips people={row.raci} applicationId={row.applicationId} />
                     </TableCell>
                     <TableCell><StatusBadge status={row.studentSharingStatus} /></TableCell>
                     <TableCell><StatusBadge status={row.staffSharingStatus} /></TableCell>
