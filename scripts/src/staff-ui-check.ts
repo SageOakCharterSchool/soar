@@ -14,6 +14,7 @@
  */
 import { execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import pg from "pg";
 import { chromium, type Page } from "playwright-core";
 
 const appBase =
@@ -38,6 +39,54 @@ function assertNotProduction() {
     throw new Error(
       `Refusing to run staff UI check against non-development host "${host}". ` +
         "This check creates a temporary test account and must only run against localhost or the Replit dev domain.",
+    );
+  }
+}
+
+// Temporary empty RACI team seeded (and removed) every run so the empty-team
+// SKIP branch of the RACI section is exercised continuously, not just when
+// someone remembers to seed one manually. High sort_order keeps it from
+// becoming the default (first) tab on populated databases.
+const EMPTY_RACI_TEAM_NAME = "E2E Empty Team";
+const EMPTY_RACI_TEAM_SORT_ORDER = 999999;
+
+async function withDb<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is not set — cannot seed the temporary empty RACI team for the empty-state check.",
+    );
+  }
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.end();
+  }
+}
+
+async function seedEmptyRaciTeam(): Promise<void> {
+  await withDb(async (client) => {
+    // Remove any leftover from a previous interrupted run, then insert fresh.
+    await client.query(`DELETE FROM raci_teams WHERE name = $1`, [EMPTY_RACI_TEAM_NAME]);
+    await client.query(`INSERT INTO raci_teams (name, sort_order) VALUES ($1, $2)`, [
+      EMPTY_RACI_TEAM_NAME,
+      EMPTY_RACI_TEAM_SORT_ORDER,
+    ]);
+  });
+  console.log(`Seeded temporary empty RACI team "${EMPTY_RACI_TEAM_NAME}"`);
+}
+
+async function deleteEmptyRaciTeam(): Promise<void> {
+  try {
+    await withDb(async (client) => {
+      await client.query(`DELETE FROM raci_teams WHERE name = $1`, [EMPTY_RACI_TEAM_NAME]);
+    });
+    console.log(`Deleted temporary empty RACI team "${EMPTY_RACI_TEAM_NAME}"`);
+  } catch (err) {
+    console.error(
+      `WARNING: could not delete temporary empty RACI team "${EMPTY_RACI_TEAM_NAME}": ${(err as Error).message}`,
     );
   }
 }
@@ -290,6 +339,45 @@ async function runChecks() {
       fail(`${renameDeleteControls} rename/delete/add control(s) visible to staff on RACI page`);
     }
 
+    // Every run also exercises the empty-team branch against the temporary
+    // "E2E Empty Team" seeded by this script, so drift in the empty-state
+    // markup/text is caught immediately instead of on the next fresh install.
+    console.log("\nRACI empty-team branch (seeded temporary team):");
+    const emptyTab = page.getByRole("button", { name: EMPTY_RACI_TEAM_NAME, exact: true });
+    if ((await emptyTab.count()) === 0) {
+      fail(
+        `seeded empty team tab "${EMPTY_RACI_TEAM_NAME}" not found — seeding failed or team tabs are broken`,
+      );
+    } else {
+      await emptyTab.first().click();
+      const emptyStateVisible = await page
+        .getByText(EMPTY_TEAM_TEXT)
+        .first()
+        .waitFor({ timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!emptyStateVisible) {
+        fail(
+          `empty team did not render "${EMPTY_TEAM_TEXT}" — empty-state markup/text has drifted from the check`,
+        );
+      } else {
+        pass(`empty team renders "${EMPTY_TEAM_TEXT}"`);
+        // The empty-state message is itself a tbody row; there must be no
+        // data rows besides it, and no clickable assignment cells.
+        const emptyTeamRows = (await page.locator("table tbody tr").count()) - 1;
+        if (emptyTeamRows === 0) {
+          pass("empty team renders no data rows");
+        } else {
+          fail(`empty team rendered ${emptyTeamRows} unexpected data row(s)`);
+        }
+        if ((await page.locator('table button[aria-label*=": "]').count()) === 0) {
+          pass("empty team has no clickable matrix cells");
+        } else {
+          fail("clickable matrix cell buttons rendered on the empty team");
+        }
+      }
+    }
+
     console.log("\nAdmin API endpoints from the staff browser session:");
     const apiChecks: Array<[string, string]> = [
       ["GET", "/users"],
@@ -339,9 +427,12 @@ async function main() {
   let passed = false;
   try {
     await createStaffUser(adminCookie);
+    await seedEmptyRaciTeam();
     passed = await runChecks();
   } finally {
-    // Always remove the temporary staff account, even if checks failed.
+    // Always remove the temporary staff account and seeded empty RACI team,
+    // even if checks failed.
+    await deleteEmptyRaciTeam();
     await deleteStaffUser(adminCookie);
   }
   if (!passed) process.exit(1);
