@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { UpdateAppTermStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
+import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
 
 const router: IRouter = Router();
 
@@ -217,6 +218,31 @@ router.post("/rostering/last-seen", requireAuth, async (req, res): Promise<void>
   res.json({ lastSeenAt: previous ? previous.lastSeenAt.toISOString() : null });
 });
 
+// Server-sent events stream: pushes a short "activity" event whenever any
+// rostering activity row is created, so clients can refresh badge counts
+// immediately instead of waiting for the next poll.
+router.get("/rostering/events", requireAuth, (req, res): void => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  res.write("retry: 5000\n\n");
+
+  const unsubscribe = onRosteringActivity(() => {
+    res.write("event: activity\ndata: {}\n\n");
+  });
+  // Heartbeat keeps proxies from timing out the idle connection.
+  const heartbeat = setInterval(() => {
+    res.write(": ping\n\n");
+  }, 25_000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
+});
+
 router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
   const termId = parseInt(String(req.query.termId ?? ""), 10);
   if (Number.isNaN(termId)) {
@@ -361,6 +387,7 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
       detail: changes.join("; "),
       actorId: user.id,
     });
+    emitRosteringActivity();
   }
   const [updater] = await db.select().from(usersTable).where(eq(usersTable.id, user.id));
   res.json({

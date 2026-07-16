@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { IssueInput as _unused, ReportIssueBody, UpdateIssueBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
+import { emitRosteringActivity } from "../lib/activityEvents";
 
 const router: IRouter = Router();
 
@@ -95,6 +96,7 @@ router.post("/apps/:id/issues", requireAuth, async (req, res): Promise<void> => 
     detail: `Issue reported: ${snippet}`,
     actorId: user.id,
   });
+  emitRosteringActivity();
   res.status(201).json({
     id: issue!.id,
     applicationId,
@@ -179,6 +181,7 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
       detail: `Issue resolved: ${snippet}`,
       actorId: admin.id,
     });
+    emitRosteringActivity();
   }
   const [app] = await db
     .select()

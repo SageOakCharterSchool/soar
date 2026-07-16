@@ -141,7 +141,11 @@ async function runChecks() {
     const page = await context.newPage();
 
     // Log in as staff through the real login form.
-    await page.goto(`${appBase}/`, { waitUntil: "networkidle" });
+    // Note: the app keeps a server-sent events stream open for live badge
+    // updates, so "networkidle" never fires — wait for "load" plus explicit
+    // element waits instead.
+    await page.goto(`${appBase}/`, { waitUntil: "load" });
+    await page.getByPlaceholder("admin@sageoak.org").waitFor({ timeout: 15000 });
     await page.getByPlaceholder("admin@sageoak.org").fill(STAFF_EMAIL);
     await page.getByPlaceholder("••••••••").fill(STAFF_PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
@@ -166,8 +170,12 @@ async function runChecks() {
 
     console.log("\nDirect navigation to admin pages:");
     for (const path of ["/upload", "/users"]) {
-      await page.goto(`${appBase}${path}`, { waitUntil: "networkidle" });
-      const notFound = await page.getByText("404 Page Not Found").count();
+      await page.goto(`${appBase}${path}`, { waitUntil: "load" });
+      const notFound = await page
+        .getByText("404 Page Not Found")
+        .waitFor({ timeout: 15000 })
+        .then(() => 1)
+        .catch(() => 0);
       if (notFound > 0) {
         pass(`${path} renders the 404 page for staff`);
       } else {
@@ -176,7 +184,7 @@ async function runChecks() {
     }
 
     console.log("\nRostering page (must be read-only for staff):");
-    await page.goto(`${appBase}/rostering`, { waitUntil: "networkidle" });
+    await page.goto(`${appBase}/rostering`, { waitUntil: "load" });
     await page.getByText("Rostering Status Board").waitFor({ timeout: 15000 });
     if ((await page.getByRole("button", { name: "Manage terms" }).count()) === 0) {
       pass(`"Manage terms" control is hidden`);
@@ -190,7 +198,8 @@ async function runChecks() {
     }
 
     console.log("\nIssues page (must be read-only for staff):");
-    await page.goto(`${appBase}/issues`, { waitUntil: "networkidle" });
+    await page.goto(`${appBase}/issues`, { waitUntil: "load" });
+    await page.getByText("Issues").first().waitFor({ timeout: 15000 });
     const resolveButtons =
       (await page.getByRole("button", { name: "Mark resolved" }).count()) +
       (await page.getByRole("button", { name: "Reopen" }).count());

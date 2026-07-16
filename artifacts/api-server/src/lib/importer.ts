@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import { and, eq } from "drizzle-orm";
+import { emitRosteringActivity } from "./activityEvents";
 import {
   db,
   applicationsTable,
@@ -495,6 +496,7 @@ export async function runImport(
           actorId: uploadedBy,
         })),
       );
+      emitRosteringActivity();
     }
     if (currentTerm) {
       const allApps = await db.select().from(applicationsTable);

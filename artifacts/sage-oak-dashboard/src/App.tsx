@@ -1,6 +1,10 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useGetRosteringUnseenCount } from "@workspace/api-client-react";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import {
+  useGetRosteringUnseenCount,
+  getGetRosteringUnseenCountQueryKey,
+} from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
@@ -16,12 +20,29 @@ import Users from "@/pages/Users";
 const queryClient = new QueryClient();
 
 function RosteringNavBadge({ active }: { active: boolean }) {
+  const qc = useQueryClient();
   const { data } = useGetRosteringUnseenCount({
     query: {
+      // Slow polling remains as a fallback; live updates arrive over SSE below.
       refetchInterval: 60_000,
       refetchOnWindowFocus: true,
     } as any,
   });
+
+  useEffect(() => {
+    const base = import.meta.env.BASE_URL;
+    const source = new EventSource(`${base}api/rostering/events`, {
+      withCredentials: true,
+    });
+    const refresh = () => {
+      qc.invalidateQueries({ queryKey: getGetRosteringUnseenCountQueryKey() });
+    };
+    source.addEventListener("activity", refresh);
+    return () => {
+      source.removeEventListener("activity", refresh);
+      source.close();
+    };
+  }, [qc]);
   const count = data?.count ?? 0;
   if (active || count <= 0) return null;
   return (
