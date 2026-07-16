@@ -7,6 +7,7 @@ import {
   appUpvotesTable,
   appIssuesTable,
   appActivityTable,
+  appActivityArchiveTable,
   pageLastSeenTable,
   usersTable,
   type User,
@@ -59,6 +60,62 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
 
   res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
 });
+
+function csvEscape(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Archived activity (rows older than the retention window). Admin-only.
+router.get(
+  "/rostering/activity/archive",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const limitRaw = parseInt(String(req.query.limit ?? "100"), 10);
+    const limit = Number.isNaN(limitRaw) ? 100 : Math.min(Math.max(limitRaw, 1), 1000);
+    const format = String(req.query.format ?? "json");
+
+    const rows = await db
+      .select({
+        id: appActivityArchiveTable.id,
+        applicationId: appActivityArchiveTable.applicationId,
+        appName: appActivityArchiveTable.appName,
+        termId: appActivityArchiveTable.termId,
+        eventType: appActivityArchiveTable.eventType,
+        detail: appActivityArchiveTable.detail,
+        actorName: appActivityArchiveTable.actorName,
+        createdAt: appActivityArchiveTable.createdAt,
+        archivedAt: appActivityArchiveTable.archivedAt,
+      })
+      .from(appActivityArchiveTable)
+      .orderBy(desc(appActivityArchiveTable.createdAt), desc(appActivityArchiveTable.id))
+      .limit(limit);
+
+    const mapped = rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      archivedAt: r.archivedAt.toISOString(),
+    }));
+
+    if (format === "csv") {
+      const header = "app,event_type,detail,actor,occurred_at,archived_at";
+      const lines = mapped.map((r) =>
+        [r.appName, r.eventType, r.detail, r.actorName ?? "", r.createdAt, r.archivedAt]
+          .map(csvEscape)
+          .join(","),
+      );
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="activity-archive.csv"',
+      );
+      res.send([header, ...lines].join("\n") + "\n");
+      return;
+    }
+
+    res.json(mapped);
+  },
+);
 
 const ROSTERING_PAGE = "rostering";
 

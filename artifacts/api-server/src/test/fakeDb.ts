@@ -23,6 +23,7 @@ export type Cond =
   | { type: "gte"; col: Col; val: unknown }
   | { type: "gt"; col: Col; val: unknown }
   | { type: "lte"; col: Col; val: unknown }
+  | { type: "lt"; col: Col; val: unknown }
   | { type: "isNull"; col: Col }
   | { type: "and"; conds: Cond[] }
   | { type: "or"; conds: Cond[] };
@@ -70,6 +71,7 @@ function matches(ctx: RowCtx, cond: Cond | undefined): boolean {
   if (cond.type === "ne") return v !== val;
   if (cond.type === "gte") return v >= val;
   if (cond.type === "gt") return v > val;
+  if (cond.type === "lt") return v < val;
   return v <= val;
 }
 
@@ -222,6 +224,7 @@ const DEFAULTS: Record<string, () => Row> = {
   appUpvotes: () => ({ createdAt: new Date() }),
   appIssues: () => ({ status: "open", createdAt: new Date() }),
   appActivity: () => ({ createdAt: new Date() }),
+  appActivityArchive: () => ({ archivedAt: new Date() }),
   pageLastSeen: () => ({ lastSeenAt: new Date() }),
   syncRuns: () => ({
     ranAt: new Date(),
@@ -296,6 +299,23 @@ export class FakeDb {
           });
         return {
           ...thenable(apply),
+          onConflictDoNothing: async (opts?: { target?: Col[] }) => {
+            for (const v of list) {
+              const targets = opts?.target ?? [];
+              const existing =
+                targets.length > 0
+                  ? self
+                      .rows(table)
+                      .find((r) => targets.every((c) => r[c.name] === v[c.name]))
+                  : undefined;
+              if (!existing)
+                self.rows(table).push({
+                  id: ++state.idCounter,
+                  ...(DEFAULTS[label]?.() ?? {}),
+                  ...v,
+                });
+            }
+          },
           onConflictDoUpdate: async (opts: { target: Col[]; set: Row }) => {
             for (const v of list) {
               const existing = self
@@ -366,6 +386,7 @@ export const tables = {
   applicationsTable: makeTable("applications"),
   appTermStatusTable: makeTable("appTermStatus"),
   appActivityTable: makeTable("appActivity"),
+  appActivityArchiveTable: makeTable("appActivityArchive"),
   appUpvotesTable: makeTable("appUpvotes"),
   appIssuesTable: makeTable("appIssues"),
   pageLastSeenTable: makeTable("pageLastSeen"),
@@ -403,6 +424,7 @@ export const drizzleOrmMock = {
   ne: (col: Col, val: unknown) => ({ type: "ne", col, val }),
   gte: (col: Col, val: unknown) => ({ type: "gte", col, val }),
   gt: (col: Col, val: unknown) => ({ type: "gt", col, val }),
+  lt: (col: Col, val: unknown) => ({ type: "lt", col, val }),
   lte: (col: Col, val: unknown) => ({ type: "lte", col, val }),
   isNull: (col: Col) => ({ type: "isNull", col }),
   and: (...conds: unknown[]) => ({ type: "and", conds }),

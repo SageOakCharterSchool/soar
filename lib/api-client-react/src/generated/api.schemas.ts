@@ -283,6 +283,20 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export interface ArchivedActivityEvent {
+  id: number;
+  applicationId: number;
+  appName: string;
+  /** @nullable */
+  termId?: number | null;
+  eventType: string;
+  detail: string;
+  /** @nullable */
+  actorName?: string | null;
+  createdAt: string;
+  archivedAt: string;
+}
+
 export interface RosteringLastSeen {
   /** @nullable */
   lastSeenAt: string | null;
@@ -489,6 +503,19 @@ export type GetRosteringActivityParams = {
 termId?: number;
 limit?: number;
 };
+
+export type GetRosteringActivityArchiveParams = {
+limit?: number;
+format?: GetRosteringActivityArchiveFormat;
+};
+
+export type GetRosteringActivityArchiveFormat = typeof GetRosteringActivityArchiveFormat[keyof typeof GetRosteringActivityArchiveFormat];
+
+
+export const GetRosteringActivityArchiveFormat = {
+  json: 'json',
+  csv: 'csv',
+} as const;
 
 export type ListIssuesParams = {
 status?: ListIssuesStatus;

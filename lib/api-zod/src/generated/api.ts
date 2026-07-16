@@ -301,6 +301,28 @@ export const GetRosteringActivityResponse = zod.array(GetRosteringActivityRespon
 
 
 /**
+ * @summary Archived activity events older than the retention window (admin)
+ */
+export const GetRosteringActivityArchiveQueryParams = zod.object({
+  "limit": zod.coerce.number().optional(),
+  "format": zod.enum(['json', 'csv']).optional()
+})
+
+export const GetRosteringActivityArchiveResponseItem = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number(),
+  "appName": zod.string(),
+  "termId": zod.number().nullish(),
+  "eventType": zod.string(),
+  "detail": zod.string(),
+  "actorName": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "archivedAt": zod.string()
+})
+export const GetRosteringActivityArchiveResponse = zod.array(GetRosteringActivityArchiveResponseItem)
+
+
+/**
  * @summary When the logged-in user last viewed the Rostering page
  */
 export const GetRosteringLastSeenResponse = zod.object({

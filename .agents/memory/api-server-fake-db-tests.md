@@ -9,4 +9,5 @@ The api-server integration tests mock `@workspace/db` with a shared in-memory fa
 - Aggregate selects (`sql count/sum`) without `groupBy` must collapse all rows into a single group, or count queries return per-row 1s.
 - When a new table is added to the schema, add it to the `tables` map in the shared fake (one place) — a missing export makes unrelated routes 500 with an HTML error page ("Unexpected token '<'" JSON parse failures in tests are usually this).
 - `lib/db` is a composite TS project; if `tsc` claims a table "has no exported member", its `dist/` declarations are stale — rebuild with `npx tsc -b lib/db`.
+- The fake only implements the drizzle operators it has needed so far (`eq/ne/gte/lte/lt/isNull`, `onConflictDoUpdate/DoNothing`); a route using a new operator silently mis-filters or crashes — add it to both the `Cond` union/`matches` and `drizzleOrmMock`.
 - `vi.hoisted` cannot import helpers; the workaround is async `vi.mock` factories with `await import(...)` of a real (unmocked) module.

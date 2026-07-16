@@ -10,9 +10,11 @@ import {
   useUpdateTerm,
   useCopyTermStatuses,
   useGetRosteringActivity,
+  useGetRosteringActivityArchive,
   useMarkRosteringSeen,
   getGetRosteringUnseenCountQueryKey,
   type ActivityEvent,
+  type ArchivedActivityEvent,
   type BoardRow,
   type Term,
   type AppTermStatusUpdate,
@@ -51,7 +53,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download } from "lucide-react";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   not_started: { label: "Not started", className: "bg-muted text-muted-foreground" },
@@ -212,6 +214,91 @@ function RecentActivity({ termId }: { termId: number }) {
         </ul>
       </CardContent>
     </Card>
+  );
+}
+
+function csvCell(value: string | null | undefined): string {
+  const s = value ?? "";
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function ArchiveDialog() {
+  const [open, setOpen] = useState(false);
+  const { data: archived, isLoading } = useGetRosteringActivityArchive(
+    { limit: 500 },
+    { query: { enabled: open } as any },
+  );
+  const rows = (archived ?? []) as ArchivedActivityEvent[];
+
+  const downloadCsv = () => {
+    const header = "app,event_type,detail,actor,occurred_at,archived_at";
+    const lines = rows.map((r) =>
+      [r.appName, r.eventType, r.detail, r.actorName ?? "", r.createdAt, r.archivedAt]
+        .map(csvCell)
+        .join(","),
+    );
+    const blob = new Blob([[header, ...lines].join("\n") + "\n"], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "activity-archive.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Archive className="h-4 w-4 mr-1.5" />
+          Archived history
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Archived activity history</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Changes older than 12 months are moved here so the recent feed stays fast
+          while the full audit trail is preserved.
+        </p>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            Nothing archived yet. Events appear here once they age past 12 months.
+          </p>
+        ) : (
+          <>
+            <div className="max-h-96 overflow-y-auto pr-1">
+              <ul className="space-y-2">
+                {rows.map((e) => (
+                  <li key={e.id} className="flex items-start gap-2 text-sm">
+                    <History className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <span className="font-medium">{e.appName}</span>
+                      <span className="text-muted-foreground"> — {e.detail}</span>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(e.createdAt).toLocaleDateString()}
+                        {e.actorName ? ` · ${e.actorName}` : ""}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <DialogFooter>
+              <Button size="sm" variant="outline" onClick={downloadCsv}>
+                <Download className="h-4 w-4 mr-1.5" />
+                Download CSV
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -587,7 +674,10 @@ export default function Rostering() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-2xl font-bold tracking-tight">Rostering Status Board</h2>
-        {isAdmin && sortedTerms.length > 0 && <TermAdminDialog terms={sortedTerms} />}
+        <div className="flex items-center gap-2">
+          {isAdmin && <ArchiveDialog />}
+          {isAdmin && sortedTerms.length > 0 && <TermAdminDialog terms={sortedTerms} />}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5">

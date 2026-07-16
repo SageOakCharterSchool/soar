@@ -312,6 +312,29 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityEvent"
+  /rostering/activity/archive:
+    get:
+      operationId: getRosteringActivityArchive
+      tags: [rostering]
+      summary: Archived activity events older than the retention window (admin)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [json, csv] }
+      responses:
+        "200":
+          description: Archived activity events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArchivedActivityEvent"
   /rostering/last-seen:
     get:
       operationId: getRosteringLastSeen
@@ -834,6 +857,21 @@ components:
         actorName:
           type: ["string", "null"]
         createdAt: { type: string }
+    ArchivedActivityEvent:
+      type: object
+      required: [id, applicationId, appName, eventType, detail, createdAt, archivedAt]
+      properties:
+        id: { type: integer }
+        applicationId: { type: integer }
+        appName: { type: string }
+        termId:
+          type: ["integer", "null"]
+        eventType: { type: string }
+        detail: { type: string }
+        actorName:
+          type: ["string", "null"]
+        createdAt: { type: string }
+        archivedAt: { type: string }
     RosteringLastSeen:
       type: object
       required: [lastSeenAt]

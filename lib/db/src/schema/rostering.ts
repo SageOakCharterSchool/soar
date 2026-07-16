@@ -106,6 +106,30 @@ export const appActivityTable = pgTable(
   ],
 );
 
+// Long-term audit archive for pruned activity rows. Denormalized (app/actor
+// names copied in) and without foreign keys so history survives app or user
+// deletion.
+export const appActivityArchiveTable = pgTable(
+  "app_activity_archive",
+  {
+    id: serial("id").primaryKey(),
+    originalId: integer("original_id").notNull(),
+    applicationId: integer("application_id").notNull(),
+    appName: text("app_name").notNull(),
+    termId: integer("term_id"),
+    eventType: text("event_type").notNull(),
+    detail: text("detail").notNull(),
+    actorId: integer("actor_id"),
+    actorName: text("actor_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("app_activity_archive_created_at_idx").on(t.createdAt.desc(), t.id.desc()),
+    uniqueIndex("app_activity_archive_original_id_idx").on(t.originalId),
+  ],
+);
+
 export const pageLastSeenTable = pgTable(
   "page_last_seen",
   {
@@ -129,4 +153,5 @@ export type AppTermStatus = typeof appTermStatusTable.$inferSelect;
 export type AppUpvote = typeof appUpvotesTable.$inferSelect;
 export type AppIssue = typeof appIssuesTable.$inferSelect;
 export type AppActivity = typeof appActivityTable.$inferSelect;
+export type AppActivityArchive = typeof appActivityArchiveTable.$inferSelect;
 export type PageLastSeen = typeof pageLastSeenTable.$inferSelect;

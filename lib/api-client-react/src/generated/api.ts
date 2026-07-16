@@ -26,9 +26,11 @@ import type {
   AppTermStatus,
   AppTermStatusUpdate,
   AppUsageRow,
+  ArchivedActivityEvent,
   BoardRow,
   DailyUsageRow,
   GetDailyUsageParams,
+  GetRosteringActivityArchiveParams,
   GetRosteringActivityParams,
   GetRosteringBoardParams,
   GetRosteringSummaryParams,
@@ -1279,6 +1281,90 @@ export function useGetRosteringActivity<TData = Awaited<ReturnType<typeof getRos
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRosteringActivityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRosteringActivityArchiveUrl = (params?: GetRosteringActivityArchiveParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/rostering/activity/archive?${stringifiedParams}` : `/api/rostering/activity/archive`
+}
+
+/**
+ * @summary Archived activity events older than the retention window (admin)
+ */
+export const getRosteringActivityArchive = async (params?: GetRosteringActivityArchiveParams, options?: RequestInit): Promise<ArchivedActivityEvent[]> => {
+
+  return customFetch<ArchivedActivityEvent[]>(getGetRosteringActivityArchiveUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRosteringActivityArchiveQueryKey = (params?: GetRosteringActivityArchiveParams,) => {
+    return [
+    `/api/rostering/activity/archive`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRosteringActivityArchiveQueryOptions = <TData = Awaited<ReturnType<typeof getRosteringActivityArchive>>, TError = ErrorType<unknown>>(params?: GetRosteringActivityArchiveParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringActivityArchive>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRosteringActivityArchiveQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRosteringActivityArchive>>> = ({ signal }) => getRosteringActivityArchive(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRosteringActivityArchive>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRosteringActivityArchiveQueryResult = NonNullable<Awaited<ReturnType<typeof getRosteringActivityArchive>>>
+export type GetRosteringActivityArchiveQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Archived activity events older than the retention window (admin)
+ */
+
+export function useGetRosteringActivityArchive<TData = Awaited<ReturnType<typeof getRosteringActivityArchive>>, TError = ErrorType<unknown>>(
+ params?: GetRosteringActivityArchiveParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRosteringActivityArchive>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRosteringActivityArchiveQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
