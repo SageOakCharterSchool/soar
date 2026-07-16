@@ -67,8 +67,15 @@ async function main() {
       method: "DELETE",
       headers: hdrs,
     });
-    if (deleted.ok) console.log(`Deleted test issue #${issue.id}`);
-    else fail(`cleanup delete of issue #${issue.id} failed: ${deleted.status}`);
+    if (deleted.ok) {
+      console.log(`Deleted test issue #${issue.id}`);
+    } else if (deleted.status === 404) {
+      // Already gone — a concurrent validation run may have cleaned it up.
+      // The goal is "no trace left", so an absent issue is a success.
+      console.log(`Test issue #${issue.id} already deleted (404) — nothing to clean up`);
+    } else {
+      fail(`cleanup delete of issue #${issue.id} failed: ${deleted.status}`);
+    }
   }
 
   async function runBrowserChecks() {

@@ -28,6 +28,9 @@ import { runLint } from "./lint-migrations.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
 const apiServerDir = path.join(repoRoot, "artifacts/api-server");
+// Private build output so this check never wipes/races the shared dist/ that
+// other parallel validation steps boot the api server from.
+const verifyDistDir = path.join(apiServerDir, "dist-verify-migrations");
 const migrationsDir = path.join(repoRoot, "lib/db/migrations");
 
 const adminUrl = process.env.DATABASE_URL;
@@ -749,7 +752,7 @@ async function selfTestBulkCorruptionAlarm(dbUrl: string) {
 function bootServer(dbUrl: string, label: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const port = 20000 + Math.floor(Math.random() * 10000);
-    const child = spawn("node", ["--enable-source-maps", "./dist/index.mjs"], {
+    const child = spawn("node", ["--enable-source-maps", path.join(verifyDistDir, "index.mjs")], {
       cwd: apiServerDir,
       env: {
         ...process.env,
@@ -802,14 +805,17 @@ async function main() {
     throw new Error("Destructive-migration lint failed (see findings above).");
   }
 
-  console.log("Building api-server bundle...");
+  console.log("Building api-server bundle (private output dir)...");
+  // Build to a private directory so this check never wipes or races the
+  // shared artifacts/api-server/dist that other parallel checks boot from.
   const build = spawnSync("pnpm", ["--filter", "@workspace/api-server", "build"], {
     cwd: repoRoot,
     stdio: "inherit",
+    env: { ...process.env, API_SERVER_DIST_DIR: verifyDistDir },
   });
   if (build.status !== 0) throw new Error("api-server build failed");
-  if (!existsSync(path.join(apiServerDir, "dist/index.mjs"))) {
-    throw new Error("dist/index.mjs not found after build");
+  if (!existsSync(path.join(verifyDistDir, "index.mjs"))) {
+    throw new Error(`index.mjs not found after build in ${verifyDistDir}`);
   }
 
   const suffix = Date.now().toString(36);

@@ -10,6 +10,8 @@
  *   - When admin B has a stale "Rename task" dialog open (A renamed the same
  *     task first), B's save gets the "Changed by another admin" toast instead
  *     of overwriting A's rename, and both pages converge on A's name.
+ *   - The same stale-rename conflict flow is verified for member renames and
+ *     category renames (dialog closes, conflict toast, convergence on A's name).
  * Exits with code 1 (fails loudly) on any mismatch.
  *
  * Creates a temporary task row + member in the first RACI team and deletes
@@ -52,7 +54,13 @@ const ROW_NAME = "E2E Conflict Check Task";
 const ROW_NAME_A = "E2E Conflict Check Task (renamed by A)";
 const ROW_NAME_B = "E2E Conflict Check Task (renamed by B)";
 const MEMBER_NAME = "E2E Conflict Tester";
+const MEMBER_NAME_A = "E2E Conflict Tester (renamed by A)";
+const MEMBER_NAME_B = "E2E Conflict Tester (renamed by B)";
+const CATEGORY_NAME = "E2E Conflict Category";
+const CATEGORY_NAME_A = "E2E Conflict Category (renamed by A)";
+const CATEGORY_NAME_B = "E2E Conflict Category (renamed by B)";
 const ROW_NAMES = [ROW_NAME, ROW_NAME_A, ROW_NAME_B];
+const MEMBER_NAMES = [MEMBER_NAME, MEMBER_NAME_A, MEMBER_NAME_B];
 
 let failures = 0;
 function fail(msg: string) {
@@ -126,7 +134,7 @@ async function cleanupLeftovers(cookie: string): Promise<void> {
     for (const row of team.rows.filter((r) => ROW_NAMES.includes(r.name))) {
       await api(cookie, "DELETE", `/raci/rows/${row.id}`);
     }
-    for (const m of team.members.filter((m) => m.name === MEMBER_NAME)) {
+    for (const m of team.members.filter((m) => MEMBER_NAMES.includes(m.name))) {
       await api(cookie, "DELETE", `/raci/members/${m.id}`);
     }
   }
@@ -143,7 +151,9 @@ async function createFixture(cookie: string): Promise<Fixture> {
   const rowRes = await api(cookie, "POST", "/raci/rows", {
     teamId,
     name: ROW_NAME,
-    category: null,
+    // A dedicated category so the category-rename conflict flow has a
+    // category header to work with (deleted along with the row).
+    category: CATEGORY_NAME,
   });
   if (!rowRes.ok) throw new Error(`Could not create test row: HTTP ${rowRes.status}`);
   const row = (await rowRes.json()) as { id: number };
@@ -405,6 +415,161 @@ async function runChecks(fixture: Fixture) {
       pass("B's rejected name is nowhere in the matrix");
     } else {
       fail(`B's stale rename "${ROW_NAME_B}" ended up in the matrix`);
+    }
+
+    // ---- Member and category rename conflict flows ----
+    // Toasts stay on screen a long time, so earlier "Changed by another
+    // admin" toasts may still be visible. Wait for a NEW toast by comparing
+    // against the count taken just before the stale save.
+    const toastCount = (page: Page) =>
+      page.getByText("Changed by another admin").count();
+    const waitForNewToast = async (page: Page, before: number) => {
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline) {
+        if ((await toastCount(page)) > before) return true;
+        await page.waitForTimeout(250);
+      }
+      return false;
+    };
+    const dialogHidden = (page: Page) =>
+      page
+        .getByRole("dialog")
+        .waitFor({ state: "hidden", timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+
+    // The member-name header button uses title="Rename member"; the category
+    // header button uses title="Rename category". Filter by exact text.
+    const memberButton = (page: Page, name: string) =>
+      page
+        .locator('button[title="Rename member"]')
+        .filter({ hasText: name })
+        .first();
+    const categoryButton = (page: Page, name: string) =>
+      page
+        .locator('button[title="Rename category"]')
+        .filter({ hasText: name })
+        .first();
+    const waitForButton = (locator: ReturnType<typeof memberButton>) =>
+      locator
+        .waitFor({ timeout: 30000 })
+        .then(() => true)
+        .catch(() => false);
+
+    console.log(
+      "\nStep 8: B opens the member rename dialog, then A renames the same member:",
+    );
+    await memberButton(pageB, MEMBER_NAME).click();
+    await dialogInput(pageB).waitFor({ timeout: 15000 });
+    pass("B's member rename dialog is open (holding the original name)");
+
+    await memberButton(pageA, MEMBER_NAME).click();
+    await dialogInput(pageA).waitFor({ timeout: 15000 });
+    await dialogInput(pageA).fill(MEMBER_NAME_A);
+    await dialogSave(pageA).click();
+    if (await waitForButton(memberButton(pageA, MEMBER_NAME_A))) {
+      pass(`A renamed the member to "${MEMBER_NAME_A}"`);
+    } else {
+      fail("A's member rename did not take effect");
+    }
+
+    console.log("\nStep 9: B saves the stale member rename and must get a conflict:");
+    const memberToastsBefore = await toastCount(pageB);
+    await dialogInput(pageB).fill(MEMBER_NAME_B);
+    await dialogSave(pageB).click();
+    if (await waitForNewToast(pageB, memberToastsBefore)) {
+      pass(`B got the "Changed by another admin" toast for the member rename`);
+    } else {
+      fail("B did NOT get the conflict toast after a stale member rename");
+    }
+    if (await dialogHidden(pageB)) {
+      pass("B's member rename dialog closed after the conflict");
+    } else {
+      fail("B's member rename dialog stayed open after the conflict");
+    }
+
+    console.log("\nStep 10: both sessions must converge on A's member name:");
+    if (await waitForButton(memberButton(pageB, MEMBER_NAME_A))) {
+      pass(`B refreshed and shows A's member name "${MEMBER_NAME_A}"`);
+    } else {
+      fail(`B did not converge to member name "${MEMBER_NAME_A}"`);
+    }
+    if (await waitForButton(memberButton(pageA, MEMBER_NAME_A))) {
+      pass(`A still shows "${MEMBER_NAME_A}" (B's stale member rename was rejected)`);
+    } else {
+      fail(
+        `A no longer shows "${MEMBER_NAME_A}" — B's stale member rename overwrote it?`,
+      );
+    }
+    if (
+      (await pageB
+        .locator('button[title="Rename member"]')
+        .filter({ hasText: MEMBER_NAME_B })
+        .count()) === 0
+    ) {
+      pass("B's rejected member name is nowhere in the matrix");
+    } else {
+      fail(`B's stale member rename "${MEMBER_NAME_B}" ended up in the matrix`);
+    }
+
+    console.log(
+      "\nStep 11: B opens the category rename dialog, then A renames the same category:",
+    );
+    await categoryButton(pageB, CATEGORY_NAME).click();
+    await dialogInput(pageB).waitFor({ timeout: 15000 });
+    pass("B's category rename dialog is open (holding the original name)");
+
+    await categoryButton(pageA, CATEGORY_NAME).click();
+    await dialogInput(pageA).waitFor({ timeout: 15000 });
+    await dialogInput(pageA).fill(CATEGORY_NAME_A);
+    await dialogSave(pageA).click();
+    if (await waitForButton(categoryButton(pageA, CATEGORY_NAME_A))) {
+      pass(`A renamed the category to "${CATEGORY_NAME_A}"`);
+    } else {
+      fail("A's category rename did not take effect");
+    }
+
+    console.log(
+      "\nStep 12: B saves the stale category rename and must get a conflict:",
+    );
+    const categoryToastsBefore = await toastCount(pageB);
+    await dialogInput(pageB).fill(CATEGORY_NAME_B);
+    await dialogSave(pageB).click();
+    if (await waitForNewToast(pageB, categoryToastsBefore)) {
+      pass(`B got the "Changed by another admin" toast for the category rename`);
+    } else {
+      fail("B did NOT get the conflict toast after a stale category rename");
+    }
+    if (await dialogHidden(pageB)) {
+      pass("B's category rename dialog closed after the conflict");
+    } else {
+      fail("B's category rename dialog stayed open after the conflict");
+    }
+
+    console.log("\nStep 13: both sessions must converge on A's category name:");
+    if (await waitForButton(categoryButton(pageB, CATEGORY_NAME_A))) {
+      pass(`B refreshed and shows A's category name "${CATEGORY_NAME_A}"`);
+    } else {
+      fail(`B did not converge to category name "${CATEGORY_NAME_A}"`);
+    }
+    if (await waitForButton(categoryButton(pageA, CATEGORY_NAME_A))) {
+      pass(
+        `A still shows "${CATEGORY_NAME_A}" (B's stale category rename was rejected)`,
+      );
+    } else {
+      fail(
+        `A no longer shows "${CATEGORY_NAME_A}" — B's stale category rename overwrote it?`,
+      );
+    }
+    if (
+      (await pageB
+        .locator('button[title="Rename category"]')
+        .filter({ hasText: CATEGORY_NAME_B })
+        .count()) === 0
+    ) {
+      pass("B's rejected category name is nowhere in the matrix");
+    } else {
+      fail(`B's stale category rename "${CATEGORY_NAME_B}" ended up in the matrix`);
     }
   } finally {
     await browser.close();
