@@ -48,6 +48,10 @@ args = "issues-legacy-date"
 task = "workflow.run"
 args = "issue-open-age"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "stale-threshold"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -129,6 +133,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run issue-open-age-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "stale-threshold"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run stale-threshold-ui-check"
 
 [workflows.workflow.metadata]
 isValidation = true
