@@ -435,6 +435,7 @@ export interface AppEngagementRow {
 export interface ResourceUsageRow {
   link: string;
   uniqueUsers: number;
+  totalAccesses: number;
 }
 
 export interface UploadFile {

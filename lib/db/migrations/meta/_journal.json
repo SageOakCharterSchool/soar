@@ -43,6 +43,13 @@
       "when": 1784155222850,
       "tag": "0005_google_sso",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784155222851,
+      "tag": "0006_resource_total_accesses",
+      "breakpoints": true
     }
   ]
 }

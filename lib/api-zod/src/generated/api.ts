@@ -549,7 +549,8 @@ export const GetAppEngagementResponse = zod.array(GetAppEngagementResponseItem)
  */
 export const GetAdditionalResourcesResponseItem = zod.object({
   "link": zod.string(),
-  "uniqueUsers": zod.number()
+  "uniqueUsers": zod.number(),
+  "totalAccesses": zod.number()
 })
 export const GetAdditionalResourcesResponse = zod.array(GetAdditionalResourcesResponseItem)
 

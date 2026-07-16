@@ -175,6 +175,43 @@ describe("tolerant header parsing", () => {
     expect(result.warnings.some((w) => w.includes("DailyStudentUsage"))).toBe(true);
     expect(fakeDb.rows(tables.usageDailyStudentTable)).toHaveLength(0);
   });
+
+  it("stores total accesses alongside unique users for additional resources", async () => {
+    await runImport(
+      [
+        EXPORT_PROPS,
+        {
+          name: "UsageByAdditionalResources.csv",
+          content:
+            "Resource,Unique_users,Total_accesses\nSome Link,2,9\nOther Link,1,1\n",
+        },
+      ],
+      1,
+    );
+    const rows = fakeDb.rows(tables.usageAdditionalResourcesTable);
+    expect(rows).toHaveLength(2);
+    const someLink = rows.find((r) => r.link === "Some Link")!;
+    expect(someLink.uniqueUsers).toBe(2);
+    expect(someLink.totalAccesses).toBe(9);
+    const otherLink = rows.find((r) => r.link === "Other Link")!;
+    expect(otherLink.totalAccesses).toBe(1);
+  });
+
+  it("defaults total accesses to 0 when the column is missing", async () => {
+    await runImport(
+      [
+        EXPORT_PROPS,
+        {
+          name: "UsageByAdditionalResources.csv",
+          content: "Resource,Unique_users\nSome Link,2\n",
+        },
+      ],
+      1,
+    );
+    const rows = fakeDb.rows(tables.usageAdditionalResourcesTable);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.totalAccesses).toBe(0);
+  });
 });
 
 describe("snapshot replacement (upsert by snapshot date)", () => {

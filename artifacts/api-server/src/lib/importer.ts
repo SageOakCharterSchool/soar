@@ -404,6 +404,8 @@ export async function runImport(
         snapshotDate,
         link: pick(row, ["link", "resource", "url", "name"]) ?? "",
         uniqueUsers: toInt(pick(row, ["uniqueusers", "users", "count"])) ?? 0,
+        totalAccesses:
+          toInt(pick(row, ["totalaccesses", "accesses", "numaccess", "totalopens"])) ?? 0,
       }))
       .filter((r) => r.link !== "");
     await upsertSnapshotRows(

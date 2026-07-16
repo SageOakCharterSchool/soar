@@ -26,7 +26,7 @@ const RES_STUDENTS = [
 const RES_TEACHERS = [
   "date,sis_id,clever_user_id,clever_school_id,school_name,resource_type,resource_name,resource_id,num_access",
   "2026-07-15,441,t1,s1,School A,app,Canvas,r2,2",
-  "2026-07-15,441,t1,s1,School A,link,Some Link,r3,1",
+  "2026-07-15,441,t1,s1,School A,link,Some Link,r3,3",
   "2026-07-15,441,t1,s1,School A,link,Other Link,r4,1",
 ].join("\n");
 
@@ -121,9 +121,12 @@ describe("buildSnapshotFiles", () => {
     const files = build();
     const extras = files.find((f) => classifyFile(f.name) === "additionalResources")!;
     expect(extras).toBeDefined();
-    // Some Link: u3 + t1 = 2 unique users; Other Link: t1 = 1.
-    expect(extras.content).toContain("Some Link,2");
-    expect(extras.content).toContain("Other Link,1");
+    expect(extras.content).toContain("Resource,Unique_users,Total_accesses");
+    // Some Link: u3 + t1 = 2 unique users, 1 + 3 = 4 total accesses
+    // (proves num_access values are summed, not rows counted);
+    // Other Link: t1 = 1 unique user, 1 access.
+    expect(extras.content).toContain("Some Link,2,4");
+    expect(extras.content).toContain("Other Link,1,1");
     // App rows are excluded from the additional-resources file.
     expect(extras.content).not.toContain("Canvas");
   });

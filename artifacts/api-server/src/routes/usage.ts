@@ -217,7 +217,9 @@ router.get("/usage/additional-resources", requireAuth, async (_req, res): Promis
     .from(usageAdditionalResourcesTable)
     .where(eq(usageAdditionalResourcesTable.snapshotDate, snapshot))
     .orderBy(desc(usageAdditionalResourcesTable.uniqueUsers));
-  res.json(rows.map((r) => ({ link: r.link, uniqueUsers: r.uniqueUsers })));
+  res.json(
+    rows.map((r) => ({ link: r.link, uniqueUsers: r.uniqueUsers, totalAccesses: r.totalAccesses })),
+  );
 });
 
 export default router;

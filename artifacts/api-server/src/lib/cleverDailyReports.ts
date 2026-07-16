@@ -229,7 +229,7 @@ export function buildSnapshotFiles(date: string, files: CleverRawFile[]): Upload
   }
 
   // --- Additional resources (non-app resource types, e.g. links) ---
-  const extras = new Map<string, Set<string>>();
+  const extras = new Map<string, { users: Set<string>; totalAccesses: number }>();
   for (const rows of resources.values()) {
     for (const row of rows) {
       const type = (row["resource_type"] ?? "").trim().toLowerCase();
@@ -237,22 +237,23 @@ export function buildSnapshotFiles(date: string, files: CleverRawFile[]): Upload
       const name = (row["resource_name"] ?? "").trim();
       const user = (row["clever_user_id"] ?? "").trim();
       if (!name || !user) continue;
-      let users = extras.get(name);
-      if (!users) {
-        users = new Set();
-        extras.set(name, users);
+      let entry = extras.get(name);
+      if (!entry) {
+        entry = { users: new Set(), totalAccesses: 0 };
+        extras.set(name, entry);
       }
-      users.add(user);
+      entry.users.add(user);
+      entry.totalAccesses += toCount(row["num_access"]);
     }
   }
   if (extras.size > 0) {
     out.push({
       name: `${date}-UsageByAdditionalResources.csv`,
       content: Papa.unparse({
-        fields: ["Resource", "Unique_users"],
+        fields: ["Resource", "Unique_users", "Total_accesses"],
         data: [...extras.entries()]
-          .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
-          .map(([name, users]) => [name, String(users.size)]),
+          .sort((a, b) => b[1].users.size - a[1].users.size || a[0].localeCompare(b[0]))
+          .map(([name, e]) => [name, String(e.users.size), String(e.totalAccesses)]),
       }),
     });
   }

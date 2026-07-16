@@ -87,6 +87,7 @@ export const usageAdditionalResourcesTable = pgTable(
     snapshotDate: date("snapshot_date", { mode: "string" }).notNull(),
     link: text("link").notNull(),
     uniqueUsers: integer("unique_users").notNull().default(0),
+    totalAccesses: integer("total_accesses").notNull().default(0),
   },
   (t) => [uniqueIndex("usage_additional_resources_idx").on(t.snapshotDate, t.link)],
 );

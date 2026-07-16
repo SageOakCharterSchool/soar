@@ -186,9 +186,11 @@ export default function Overview() {
                 <h4 className="text-sm font-medium mb-2">Additional resources</h4>
                 <ul className="space-y-1">
                   {resources.map((r) => (
-                    <li key={r.link} className="flex justify-between text-sm">
+                    <li key={r.link} className="flex justify-between gap-2 text-sm">
                       <span className="text-muted-foreground">{r.link}</span>
-                      <span className="tabular-nums">{fmt(r.uniqueUsers)} users</span>
+                      <span className="tabular-nums whitespace-nowrap">
+                        {fmt(r.uniqueUsers)} users · {fmt(r.totalAccesses)} opens
+                      </span>
                     </li>
                   ))}
                 </ul>

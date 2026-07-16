@@ -1064,10 +1064,11 @@ components:
         activeTimePerUserMinutes: { type: number }
     ResourceUsageRow:
       type: object
-      required: [link, uniqueUsers]
+      required: [link, uniqueUsers, totalAccesses]
       properties:
         link: { type: string }
         uniqueUsers: { type: integer }
+        totalAccesses: { type: integer }
     UploadFile:
       type: object
       required: [name, content]
