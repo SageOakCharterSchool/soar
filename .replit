@@ -18,10 +18,6 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "test"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "typecheck"
 
 [[workflows.workflow.tasks]]
@@ -36,16 +32,9 @@ args = "migrations"
 task = "workflow.run"
 args = "google-sso"
 
-[[workflows.workflow]]
-name = "test"
-author = "agent"
-
 [[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server test"
-
-[workflows.workflow.metadata]
-isValidation = true
+task = "workflow.run"
+args = "test"
 
 [[workflows.workflow]]
 name = "typecheck"
@@ -90,6 +79,14 @@ args = "pnpm --filter @workspace/scripts run google-sso-ui-check"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "test"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server test && pnpm --filter @workspace/sage-oak-dashboard test"
 
 [agent]
 stack = "PNPM_WORKSPACE"

@@ -6,4 +6,4 @@ description: Why early toast() calls (e.g. from Login's ssoError effect) never r
 
 **Fix:** `useToast`'s subscription effect calls `setState(memoryState)` right after pushing its listener, picking up anything dispatched pre-subscription (no-op when unchanged, since memoryState is referentially stable).
 
-**How to apply:** don't remove that `setState(memoryState)` line from `use-toast.ts`; any toast fired from a component's initial mount effect depends on it.
+**How to apply:** don't remove that `setState(memoryState)` line from `use-toast.ts`; any toast fired from a component's initial mount effect depends on it. A vitest regression test (`use-toast.test.tsx`, part of the `test` validation workflow) fails if the line is removed.
