@@ -21,6 +21,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
+import { useStoredId } from "@/hooks/useStoredId";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -1001,7 +1002,12 @@ export default function Raci() {
   // emitted on the shared rostering activity stream).
   useActivityEventRefresh(getGetRaciMatrixQueryKey());
   const teams = data?.teams ?? [];
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [storedTeamId, setStoredTeamId] = useStoredId("sageoak-raci-team");
+  const [selectedTeamId, setSelectedTeamIdState] = useState<number | null>(null);
+  const setSelectedTeamId = (id: number) => {
+    setSelectedTeamIdState(id);
+    setStoredTeamId(id);
+  };
 
   // ?app=<applicationId> (from a RACI chip on Issues/Rostering) jumps to the
   // row for that application: pick the team that contains it and highlight it.
@@ -1031,7 +1037,20 @@ export default function Raci() {
         )
       : undefined;
 
-  const teamId = selectedTeamId ?? highlightTeam?.id ?? teams[0]?.id;
+  // Arriving via ?app counts as "choosing" that team, so remember it too;
+  // otherwise the view would jump back to the stored team once the
+  // highlight fades.
+  useEffect(() => {
+    if (highlightTeam != null) setStoredTeamId(highlightTeam.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightTeam?.id]);
+
+  const validStoredTeamId =
+    storedTeamId != null && teams.some((t) => t.id === storedTeamId)
+      ? storedTeamId
+      : null;
+  const teamId =
+    selectedTeamId ?? highlightTeam?.id ?? validStoredTeamId ?? teams[0]?.id;
   const team = teams.find((t) => t.id === teamId);
   const effectiveHighlight =
     highlightTeam != null && highlightTeam.id === teamId ? highlightAppId : null;

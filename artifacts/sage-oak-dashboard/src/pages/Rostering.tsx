@@ -24,6 +24,7 @@ import {
 import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { useStoredId } from "@/hooks/useStoredId";
 import { RaciChips } from "@/components/RaciChips";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -985,8 +986,21 @@ export default function Rostering() {
     () => [...(terms ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
     [terms],
   );
-  const [selectedTermId, setSelectedTermId] = useState<number | null>(null);
-  const termId = selectedTermId ?? sortedTerms.find((t) => t.isCurrent)?.id ?? sortedTerms[0]?.id;
+  const [storedTermId, setStoredTermId] = useStoredId("sageoak-rostering-term");
+  const [selectedTermIdState, setSelectedTermIdState] = useState<number | null>(null);
+  const setSelectedTermId = (id: number) => {
+    setSelectedTermIdState(id);
+    setStoredTermId(id);
+  };
+  const validStoredTermId =
+    storedTermId != null && sortedTerms.some((t) => t.id === storedTermId)
+      ? storedTermId
+      : null;
+  const termId =
+    selectedTermIdState ??
+    validStoredTermId ??
+    sortedTerms.find((t) => t.isCurrent)?.id ??
+    sortedTerms[0]?.id;
 
   const { data: board, isLoading } = useGetRosteringBoard(
     { termId: termId as number },
