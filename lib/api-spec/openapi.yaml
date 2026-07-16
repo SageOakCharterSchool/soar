@@ -83,6 +83,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /auth/config:
+    get:
+      operationId: getAuthConfig
+      tags: [auth]
+      summary: Public auth configuration (which sign-in methods are enabled)
+      responses:
+        "200":
+          description: Auth configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthConfig"
   /users:
     get:
       operationId: listUsers
@@ -681,6 +693,11 @@ components:
       properties:
         message: { type: string }
       required: [message]
+    AuthConfig:
+      type: object
+      required: [googleEnabled]
+      properties:
+        googleEnabled: { type: boolean }
     LoginInput:
       type: object
       required: [email, password]

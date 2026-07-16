@@ -19,6 +19,7 @@ export * from './appTermStatusUpdateStudentSharingStatus';
 export * from './appTermStatusUpdateSyncMethod';
 export * from './appUsageRow';
 export * from './archivedActivityEvent';
+export * from './authConfig';
 export * from './boardRow';
 export * from './boardRowStaffSharingStatus';
 export * from './boardRowStudentSharingStatus';

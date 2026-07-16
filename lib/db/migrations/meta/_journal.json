@@ -36,6 +36,13 @@
       "when": 1784155222849,
       "tag": "0004_app_activity_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784155222850,
+      "tag": "0005_google_sso",
+      "breakpoints": true
     }
   ]
 }

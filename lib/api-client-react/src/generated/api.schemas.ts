@@ -13,6 +13,10 @@ export interface ApiMessage {
   message: string;
 }
 
+export interface AuthConfig {
+  googleEnabled: boolean;
+}
+
 export interface LoginInput {
   email: string;
   password: string;

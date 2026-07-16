@@ -54,6 +54,14 @@ export const GetCurrentUserResponse = zod.object({
 
 
 /**
+ * @summary Public auth configuration (which sign-in methods are enabled)
+ */
+export const GetAuthConfigResponse = zod.object({
+  "googleEnabled": zod.boolean()
+})
+
+
+/**
  * @summary List all users (admin)
  */
 export const ListUsersResponseItem = zod.object({

@@ -4,6 +4,12 @@ import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { LoginBody } from "@workspace/api-zod";
 import { getSessionUser, toUserDto, DEFAULT_DEV_ADMIN_PASSWORD } from "../lib/auth";
+import {
+  isGoogleSsoEnabled,
+  buildAuthUrl,
+  generateState,
+  handleGoogleCallback,
+} from "../lib/googleAuth";
 
 const router: IRouter = Router();
 
@@ -24,7 +30,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     .select()
     .from(usersTable)
     .where(eq(usersTable.email, parsed.data.email.toLowerCase()));
-  if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
+  if (
+    !user ||
+    !user.passwordHash ||
+    !(await bcrypt.compare(parsed.data.password, user.passwordHash))
+  ) {
     res.status(401).json({ message: "Invalid email or password" });
     return;
   }
@@ -44,6 +54,46 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
   res.json(toUserDto(user));
+});
+
+router.get("/auth/config", (_req, res): void => {
+  res.json({ googleEnabled: isGoogleSsoEnabled() });
+});
+
+router.get("/auth/google", (req, res): void => {
+  if (!isGoogleSsoEnabled()) {
+    res.status(404).json({ message: "Google sign-in is not configured" });
+    return;
+  }
+  const state = generateState();
+  req.session.oauthState = state;
+  res.redirect(buildAuthUrl(req, state));
+});
+
+router.get("/auth/google/callback", async (req, res): Promise<void> => {
+  if (!isGoogleSsoEnabled()) {
+    res.status(404).json({ message: "Google sign-in is not configured" });
+    return;
+  }
+  const { code, state } = req.query;
+  const expectedState = req.session.oauthState;
+  req.session.oauthState = undefined;
+  if (
+    typeof code !== "string" ||
+    typeof state !== "string" ||
+    !expectedState ||
+    state !== expectedState
+  ) {
+    res.redirect("/?ssoError=google_failed");
+    return;
+  }
+  const result = await handleGoogleCallback(req, code);
+  if (!result.ok) {
+    res.redirect(`/?ssoError=${result.code}`);
+    return;
+  }
+  req.session.userId = result.user.id;
+  res.redirect("/");
 });
 
 export default router;

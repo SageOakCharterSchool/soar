@@ -9,6 +9,7 @@ import { logger } from "./logger";
 declare module "express-session" {
   interface SessionData {
     userId?: number;
+    oauthState?: string;
   }
 }
 
