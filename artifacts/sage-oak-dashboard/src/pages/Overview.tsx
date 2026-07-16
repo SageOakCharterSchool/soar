@@ -32,7 +32,7 @@ import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
 import { MixDonut } from "@/components/charts/MixDonut";
-import { ResourceSparkline } from "@/components/charts/ResourceSparkline";
+import { ResourceSparkline, ResourceTrendBadge } from "@/components/charts/ResourceSparkline";
 import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
 import { ArrowUpDown, UploadCloud } from "lucide-react";
 
@@ -269,6 +269,7 @@ export default function Overview() {
                           <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
                           <span className="flex items-center gap-3 shrink-0">
                             <ResourceSparkline points={points} />
+                            <ResourceTrendBadge points={points} />
                             {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
                               <span className="tabular-nums whitespace-nowrap">
                                 {[
