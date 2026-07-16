@@ -32,6 +32,10 @@ args = "staff-access"
 task = "workflow.run"
 args = "migrations"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "google-sso"
+
 [[workflows.workflow]]
 name = "test"
 author = "agent"
@@ -72,6 +76,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts verify-migrations"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "google-sso"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run google-sso-ui-check"
 
 [workflows.workflow.metadata]
 isValidation = true

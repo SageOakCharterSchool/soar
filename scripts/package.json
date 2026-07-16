@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "staff-access-check": "tsx ./src/staff-access-check.ts",
     "staff-ui-check": "tsx ./src/staff-ui-check.ts",
+    "google-sso-ui-check": "tsx ./src/google-sso-ui-check.ts",
     "prod-login-check": "tsx ./src/prod-login-check.ts",
     "sse-stream-check": "tsx ./src/sse-stream-check.ts",
     "verify-migrations": "tsx ./src/verify-migrations.ts",

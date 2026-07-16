@@ -173,6 +173,10 @@ function useToast() {
 
   React.useEffect(() => {
     listeners.push(setState)
+    // Pick up any toasts dispatched before this component subscribed (e.g. a
+    // toast fired from a sibling's mount effect that ran earlier). No-op when
+    // nothing changed since memoryState is referentially stable.
+    setState(memoryState)
     return () => {
       const index = listeners.indexOf(setState)
       if (index > -1) {
