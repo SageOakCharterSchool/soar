@@ -217,9 +217,24 @@ function RecentActivity({ termId }: { termId: number }) {
   );
 }
 
-function csvCell(value: string | null | undefined): string {
-  const s = value ?? "";
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+function splitCsvRecords(text: string): string[] {
+  const records: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+    } else if (ch === "\n" && !inQuotes) {
+      if (current.length > 0) records.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) records.push(current);
+  return records;
 }
 
 function ArchiveDialog() {
@@ -228,6 +243,8 @@ function ArchiveDialog() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -246,22 +263,56 @@ function ArchiveDialog() {
   const rows = (archived ?? []) as ArchivedActivityEvent[];
   const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
 
-  const downloadCsv = () => {
-    const header = "app,event_type,detail,actor,occurred_at,archived_at";
-    const lines = rows.map((r) =>
-      [r.appName, r.eventType, r.detail, r.actorName ?? "", r.createdAt, r.archivedAt]
-        .map(csvCell)
-        .join(","),
-    );
-    const blob = new Blob([[header, ...lines].join("\n") + "\n"], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "activity-archive.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadCsv = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const pageSize = 1000;
+      const parts: string[] = [];
+      let offset = 0;
+      for (;;) {
+        const qs = new URLSearchParams({
+          format: "csv",
+          limit: String(pageSize),
+          offset: String(offset),
+        });
+        if (debouncedSearch) qs.set("search", debouncedSearch);
+        if (fromDate) qs.set("from", fromDate);
+        if (toDate) qs.set("to", toDate);
+        const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          throw new Error(`Export failed (${res.status})`);
+        }
+        const text = await res.text();
+        const records = splitCsvRecords(text);
+        // First record of every page is the header; keep it only once.
+        const dataRecords = records.slice(1);
+        if (parts.length === 0 && records.length > 0) parts.push(records[0]);
+        parts.push(...dataRecords);
+        if (dataRecords.length < pageSize) break;
+        offset += pageSize;
+      }
+      const blob = new Blob([parts.join("\n") + "\n"], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "activity-archive.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description:
+          err instanceof Error ? err.message : "Could not export the archive. Please try again.",
+      });
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -354,9 +405,14 @@ function ArchiveDialog() {
               </ul>
             </div>
             <DialogFooter>
-              <Button size="sm" variant="outline" onClick={downloadCsv}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={downloadCsv}
+                disabled={downloading}
+              >
                 <Download className="h-4 w-4 mr-1.5" />
-                Download CSV
+                {downloading ? "Preparing…" : "Download CSV"}
               </Button>
             </DialogFooter>
           </>
