@@ -7,4 +7,5 @@
 - [Clever Reports SFTP real layout](clever-sftp-real-layout.md) — real server publishes raw per-user daily CSVs (~13-day retention), not snapshot batches; keep the daily-report adapter path working.
 - [Browser checks via playwright-core](browser-checks-playwright.md) — no bundled browsers; use playwright-core + Nix chromium (executablePath from `which chromium`, --no-sandbox) for scripted UI checks.
 - [Google SSO UI check gotchas](google-sso-ui-check.md) — fulfilled 302s can't be intercepted downstream; Radix toasts double-match getByText (use .first()).
+- [Simulating stale sessions in Playwright](two-session-staleness-playwright.md) — hold refetches in-flight via route queue, not abort; aborted queries never converge after unrouting.
 - [Toasts lost before Toaster mounts](toast-before-toaster-mount.md) — useToast must sync from memoryState on subscribe or mount-effect toasts are silently dropped.
