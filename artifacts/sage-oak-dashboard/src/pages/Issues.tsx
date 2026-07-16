@@ -2,12 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import {
   useListIssues,
   useUpdateIssue,
+  useDeleteIssue,
   useMarkIssuesSeen,
   getGetIssuesUnseenCountQueryKey,
   type ListIssuesStatus,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,6 +74,7 @@ export default function Issues() {
     status ? { status } : undefined,
   );
   const updateIssue = useUpdateIssue();
+  const deleteIssue = useDeleteIssue();
 
   // Record this visit once so the Issues nav badge clears. The server
   // responds with the *previous* last-seen time, which we keep for the rest
@@ -134,6 +148,24 @@ export default function Issues() {
         },
         onError: (err: any) =>
           toast({ title: "Update failed", description: err?.data?.message ?? "Try again.", variant: "destructive" }),
+      },
+    );
+  };
+
+  const handleDelete = (id: number) => {
+    deleteIssue.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              String(q.queryKey[0]).includes("issues") ||
+              String(q.queryKey[0]).includes("rostering"),
+          });
+          toast({ title: "Issue deleted" });
+        },
+        onError: (err: any) =>
+          toast({ title: "Delete failed", description: err?.data?.message ?? "Try again.", variant: "destructive" }),
       },
     );
   };
@@ -268,16 +300,50 @@ export default function Issues() {
                   </p>
                 </div>
                 {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={updateIssue.isPending}
-                    onClick={() =>
-                      setIssueStatus(issue.id, issue.status === "open" ? "resolved" : "open")
-                    }
-                  >
-                    {issue.status === "open" ? "Mark resolved" : "Reopen"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={updateIssue.isPending}
+                      onClick={() =>
+                        setIssueStatus(issue.id, issue.status === "open" ? "resolved" : "open")
+                      }
+                    >
+                      {issue.status === "open" ? "Mark resolved" : "Reopen"}
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          aria-label="Delete issue"
+                          disabled={deleteIssue.isPending}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this issue?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently removes the issue reported for{" "}
+                            {issue.appName} and its related activity. This
+                            cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => handleDelete(issue.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 )}
               </CardContent>
               </Card>

@@ -498,6 +498,18 @@ export const UpdateIssueResponse = zod.object({
 
 
 /**
+ * @summary Delete an issue and its related activity (admin)
+ */
+export const DeleteIssueParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteIssueResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Latest snapshot KPI metrics with snapshot date
  */
 export const GetUsageSummaryResponse = zod.object({

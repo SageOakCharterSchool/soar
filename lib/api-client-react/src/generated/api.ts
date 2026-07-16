@@ -2299,6 +2299,77 @@ export const useUpdateIssue = <TError = ErrorType<unknown>,
       return useMutation(getUpdateIssueMutationOptions(options));
     }
 
+export const getDeleteIssueUrl = (id: number,) => {
+
+
+
+
+  return `/api/issues/${id}`
+}
+
+/**
+ * @summary Delete an issue and its related activity (admin)
+ */
+export const deleteIssue = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDeleteIssueUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteIssueMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIssue>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteIssue>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteIssue'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIssue>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteIssue(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteIssueMutationResult = NonNullable<Awaited<ReturnType<typeof deleteIssue>>>
+
+    export type DeleteIssueMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an issue and its related activity (admin)
+ */
+export const useDeleteIssue = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIssue>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteIssue>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteIssueMutationOptions(options));
+    }
+
 export const getGetUsageSummaryUrl = () => {
 
 
