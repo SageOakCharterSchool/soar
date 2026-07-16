@@ -1758,6 +1758,231 @@ export function useGetRosteringUnseenCount<TData = Awaited<ReturnType<typeof get
 
 
 
+export const getGetIssuesLastSeenUrl = () => {
+
+
+
+
+  return `/api/issues/last-seen`
+}
+
+/**
+ * @summary When the logged-in user last viewed the Issues page
+ */
+export const getIssuesLastSeen = async ( options?: RequestInit): Promise<RosteringLastSeen> => {
+
+  return customFetch<RosteringLastSeen>(getGetIssuesLastSeenUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIssuesLastSeenQueryKey = () => {
+    return [
+    `/api/issues/last-seen`
+    ] as const;
+    }
+
+
+export const getGetIssuesLastSeenQueryOptions = <TData = Awaited<ReturnType<typeof getIssuesLastSeen>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuesLastSeen>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIssuesLastSeenQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIssuesLastSeen>>> = ({ signal }) => getIssuesLastSeen({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIssuesLastSeen>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIssuesLastSeenQueryResult = NonNullable<Awaited<ReturnType<typeof getIssuesLastSeen>>>
+export type GetIssuesLastSeenQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary When the logged-in user last viewed the Issues page
+ */
+
+export function useGetIssuesLastSeen<TData = Awaited<ReturnType<typeof getIssuesLastSeen>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuesLastSeen>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIssuesLastSeenQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkIssuesSeenUrl = () => {
+
+
+
+
+  return `/api/issues/last-seen`
+}
+
+/**
+ * @summary Record that the logged-in user just viewed the Issues page
+ */
+export const markIssuesSeen = async ( options?: RequestInit): Promise<RosteringLastSeen> => {
+
+  return customFetch<RosteringLastSeen>(getMarkIssuesSeenUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkIssuesSeenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markIssuesSeen>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markIssuesSeen>>, TError,void, TContext> => {
+
+const mutationKey = ['markIssuesSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markIssuesSeen>>, void> = () => {
+
+
+          return  markIssuesSeen(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkIssuesSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markIssuesSeen>>>
+
+    export type MarkIssuesSeenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record that the logged-in user just viewed the Issues page
+ */
+export const useMarkIssuesSeen = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markIssuesSeen>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markIssuesSeen>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMarkIssuesSeenMutationOptions(options));
+    }
+
+export const getGetIssuesUnseenCountUrl = () => {
+
+
+
+
+  return `/api/issues/unseen-count`
+}
+
+/**
+ * @summary Number of issue events newer than the user's last Issues visit
+ */
+export const getIssuesUnseenCount = async ( options?: RequestInit): Promise<RosteringUnseenCount> => {
+
+  return customFetch<RosteringUnseenCount>(getGetIssuesUnseenCountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIssuesUnseenCountQueryKey = () => {
+    return [
+    `/api/issues/unseen-count`
+    ] as const;
+    }
+
+
+export const getGetIssuesUnseenCountQueryOptions = <TData = Awaited<ReturnType<typeof getIssuesUnseenCount>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuesUnseenCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIssuesUnseenCountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIssuesUnseenCount>>> = ({ signal }) => getIssuesUnseenCount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIssuesUnseenCount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIssuesUnseenCountQueryResult = NonNullable<Awaited<ReturnType<typeof getIssuesUnseenCount>>>
+export type GetIssuesUnseenCountQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Number of issue events newer than the user's last Issues visit
+ */
+
+export function useGetIssuesUnseenCount<TData = Awaited<ReturnType<typeof getIssuesUnseenCount>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIssuesUnseenCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIssuesUnseenCountQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getToggleUpvoteUrl = (id: number,) => {
 
 

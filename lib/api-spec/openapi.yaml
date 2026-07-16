@@ -420,6 +420,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosteringUnseenCount"
+  /issues/last-seen:
+    get:
+      operationId: getIssuesLastSeen
+      tags: [feedback]
+      summary: When the logged-in user last viewed the Issues page
+      responses:
+        "200":
+          description: Last seen timestamp (null if never visited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+    post:
+      operationId: markIssuesSeen
+      tags: [feedback]
+      summary: Record that the logged-in user just viewed the Issues page
+      responses:
+        "200":
+          description: Previous last-seen timestamp before this visit (null if first visit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+  /issues/unseen-count:
+    get:
+      operationId: getIssuesUnseenCount
+      tags: [feedback]
+      summary: Number of issue events newer than the user's last Issues visit
+      responses:
+        "200":
+          description: Count of unseen issue events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringUnseenCount"
   /apps/{id}/upvote:
     post:
       operationId: toggleUpvote

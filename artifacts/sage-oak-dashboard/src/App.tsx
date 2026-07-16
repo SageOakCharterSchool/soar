@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import {
   useGetRosteringUnseenCount,
   getGetRosteringUnseenCountQueryKey,
+  useGetIssuesUnseenCount,
+  getGetIssuesUnseenCountQueryKey,
 } from "@workspace/api-client-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,40 +21,81 @@ import Users from "@/pages/Users";
 
 const queryClient = new QueryClient();
 
-function RosteringNavBadge({ active }: { active: boolean }) {
-  const qc = useQueryClient();
-  const { data } = useGetRosteringUnseenCount({
-    query: {
-      // Slow polling remains as a fallback; live updates arrive over SSE below.
-      refetchInterval: 60_000,
-      refetchOnWindowFocus: true,
-    } as any,
-  });
+const UNSEEN_QUERY_OPTIONS = {
+  query: {
+    // Slow polling remains as a fallback; live updates arrive over SSE below.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  } as any,
+};
 
+// Any rostering activity event (including issue reported/resolved) is pushed
+// on this single SSE stream, so both nav badges refresh from it.
+function useActivityEventRefresh(queryKey: readonly unknown[]) {
+  const qc = useQueryClient();
   useEffect(() => {
     const base = import.meta.env.BASE_URL;
     const source = new EventSource(`${base}api/rostering/events`, {
       withCredentials: true,
     });
     const refresh = () => {
-      qc.invalidateQueries({ queryKey: getGetRosteringUnseenCountQueryKey() });
+      qc.invalidateQueries({ queryKey });
     };
     source.addEventListener("activity", refresh);
     return () => {
       source.removeEventListener("activity", refresh);
       source.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qc]);
-  const count = data?.count ?? 0;
+}
+
+function NavBadge({
+  count,
+  active,
+  testId,
+  label,
+}: {
+  count: number;
+  active: boolean;
+  testId: string;
+  label: string;
+}) {
   if (active || count <= 0) return null;
   return (
     <span
       className="ml-1.5 inline-flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-primary text-primary-foreground text-[0.65rem] font-semibold leading-none"
-      data-testid="badge-rostering-unseen"
-      aria-label={`${count} new rostering ${count === 1 ? "update" : "updates"}`}
+      data-testid={testId}
+      aria-label={`${count} new ${label} ${count === 1 ? "update" : "updates"}`}
     >
       {count > 99 ? "99+" : count}
     </span>
+  );
+}
+
+function RosteringNavBadge({ active }: { active: boolean }) {
+  const { data } = useGetRosteringUnseenCount(UNSEEN_QUERY_OPTIONS);
+  useActivityEventRefresh(getGetRosteringUnseenCountQueryKey());
+  return (
+    <NavBadge
+      count={data?.count ?? 0}
+      active={active}
+      testId="badge-rostering-unseen"
+      label="rostering"
+    />
+  );
+}
+
+function IssuesNavBadge({ active }: { active: boolean }) {
+  const { data } = useGetIssuesUnseenCount(UNSEEN_QUERY_OPTIONS);
+  useActivityEventRefresh(getGetIssuesUnseenCountQueryKey());
+  return (
+    <NavBadge
+      count={data?.count ?? 0}
+      active={active}
+      testId="badge-issues-unseen"
+      label="issues"
+    />
   );
 }
 
@@ -87,10 +130,11 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <RosteringNavBadge active={location === "/rostering"} />
               </button>
               <button 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/issues" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center ${location === "/issues" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                 onClick={() => setLocation("/issues")}
               >
                 Issues
+                <IssuesNavBadge active={location === "/issues"} />
               </button>
               {isAdmin && (
                 <>

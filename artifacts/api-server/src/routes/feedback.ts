@@ -1,11 +1,12 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   db,
   applicationsTable,
   appUpvotesTable,
   appIssuesTable,
   appActivityTable,
+  pageLastSeenTable,
   termsTable,
   usersTable,
   type User,
@@ -135,6 +136,57 @@ router.get("/issues", requireAuth, async (req, res): Promise<void> => {
         );
 
   res.json(issues.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() })));
+});
+
+const ISSUES_PAGE = "issues";
+const ISSUE_EVENT_TYPES = ["issue_reported", "issue_resolved"] as const;
+
+router.get("/issues/last-seen", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [row] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ISSUES_PAGE)));
+  res.json({ lastSeenAt: row ? row.lastSeenAt.toISOString() : null });
+});
+
+router.get("/issues/unseen-count", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [row] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ISSUES_PAGE)));
+  const [result] = row
+    ? await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appActivityTable)
+        .where(
+          and(
+            inArray(appActivityTable.eventType, ISSUE_EVENT_TYPES),
+            gt(appActivityTable.createdAt, row.lastSeenAt),
+          ),
+        )
+    : await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appActivityTable)
+        .where(inArray(appActivityTable.eventType, ISSUE_EVENT_TYPES));
+  res.json({ count: result?.count ?? 0 });
+});
+
+router.post("/issues/last-seen", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [previous] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ISSUES_PAGE)));
+  await db
+    .insert(pageLastSeenTable)
+    .values({ userId: user.id, page: ISSUES_PAGE, lastSeenAt: new Date() })
+    .onConflictDoUpdate({
+      target: [pageLastSeenTable.userId, pageLastSeenTable.page],
+      set: { lastSeenAt: new Date() },
+    });
+  res.json({ lastSeenAt: previous ? previous.lastSeenAt.toISOString() : null });
 });
 
 router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {

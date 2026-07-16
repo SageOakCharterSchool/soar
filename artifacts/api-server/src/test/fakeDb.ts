@@ -25,6 +25,7 @@ export type Cond =
   | { type: "lte"; col: Col; val: unknown }
   | { type: "lt"; col: Col; val: unknown }
   | { type: "isNull"; col: Col }
+  | { type: "inArray"; col: Col; vals: unknown[] }
   | { type: "ilike"; col: Col; val: string }
   | { type: "and"; conds: Cond[] }
   | { type: "or"; conds: Cond[] };
@@ -66,6 +67,7 @@ function matches(ctx: RowCtx, cond: Cond | undefined): boolean {
   if (cond.type === "and") return cond.conds.every((c) => matches(ctx, c));
   if (cond.type === "or") return cond.conds.some((c) => matches(ctx, c));
   if (cond.type === "isNull") return resolve(ctx, cond.col) == null;
+  if (cond.type === "inArray") return cond.vals.includes(resolve(ctx, cond.col));
   if (cond.type === "ilike") {
     const target = resolve(ctx, cond.col);
     if (target == null) return false;
@@ -449,6 +451,7 @@ const drizzleOrmImpl = {
   lt: (col: Col, val: unknown) => ({ type: "lt", col, val }),
   lte: (col: Col, val: unknown) => ({ type: "lte", col, val }),
   isNull: (col: Col) => ({ type: "isNull", col }),
+  inArray: (col: Col, vals: unknown[]) => ({ type: "inArray", col, vals: [...vals] }),
   ilike: (col: Col, val: string) => ({ type: "ilike", col, val }),
   and: (...conds: unknown[]) => ({ type: "and", conds }),
   or: (...conds: unknown[]) => ({ type: "or", conds }),

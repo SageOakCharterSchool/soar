@@ -54,8 +54,8 @@ describe("fakeDb schema drift guard", () => {
 describe("fakeDb drizzle-orm operator guard", () => {
   it("throws a clear error naming an unsupported operator", () => {
     expect(
-      () => (drizzleOrmMock as Record<string, unknown>).inArray,
-    ).toThrowError(/does not implement "inArray"/);
+      () => (drizzleOrmMock as Record<string, unknown>).notInArray,
+    ).toThrowError(/does not implement "notInArray"/);
   });
 
   it("still returns implemented operators", () => {

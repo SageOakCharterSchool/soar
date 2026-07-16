@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useListIssues,
   useUpdateIssue,
+  useMarkIssuesSeen,
+  getGetIssuesUnseenCountQueryKey,
   type ListIssuesStatus,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,6 +30,19 @@ export default function Issues() {
     status ? { status } : undefined,
   );
   const updateIssue = useUpdateIssue();
+
+  // Record this visit once so the Issues nav badge clears.
+  const markSeen = useMarkIssuesSeen();
+  const markedRef = useRef(false);
+  useEffect(() => {
+    if (markedRef.current) return;
+    markedRef.current = true;
+    markSeen.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetIssuesUnseenCountQueryKey() });
+      },
+    });
+  }, [markSeen, queryClient]);
 
   const setIssueStatus = (id: number, next: "open" | "resolved") => {
     updateIssue.mutate(

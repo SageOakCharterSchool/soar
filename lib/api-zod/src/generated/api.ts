@@ -371,6 +371,30 @@ export const GetRosteringUnseenCountResponse = zod.object({
 
 
 /**
+ * @summary When the logged-in user last viewed the Issues page
+ */
+export const GetIssuesLastSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Record that the logged-in user just viewed the Issues page
+ */
+export const MarkIssuesSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Number of issue events newer than the user's last Issues visit
+ */
+export const GetIssuesUnseenCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
  * @summary Toggle the logged-in user's upvote for an app
  */
 export const ToggleUpvoteParams = zod.object({

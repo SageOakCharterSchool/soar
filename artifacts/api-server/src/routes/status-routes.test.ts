@@ -649,6 +649,110 @@ describe("GET /api/rostering/unseen-count", () => {
   });
 });
 
+describe("issues last-seen and unseen-count", () => {
+  it("requires authentication", async () => {
+    expect((await new Client().get("/issues/last-seen")).status).toBe(401);
+    expect((await new Client().post("/issues/last-seen")).status).toBe(401);
+    expect((await new Client().get("/issues/unseen-count")).status).toBe(401);
+  });
+
+  it("starts null, records a visit, and returns the previous visit on re-post", async () => {
+    const client = await loginAs(STAFF);
+    const first = await client.get("/issues/last-seen");
+    expect(first.status).toBe(200);
+    expect(first.body).toEqual({ lastSeenAt: null });
+
+    const mark = await client.post("/issues/last-seen");
+    expect(mark.status).toBe(200);
+    expect(mark.body.lastSeenAt).toBeNull();
+
+    const after = await client.get("/issues/last-seen");
+    expect(after.status).toBe(200);
+    expect(typeof after.body.lastSeenAt).toBe("string");
+
+    const again = await client.post("/issues/last-seen");
+    expect(again.status).toBe(200);
+    expect(again.body.lastSeenAt).toBe(after.body.lastSeenAt);
+  });
+
+  it("counts only issue events, ignoring other activity types", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push(
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_reported",
+        detail: "Issue reported: broken login",
+        actorId: null,
+        createdAt: new Date("2026-07-01T09:00:00Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_resolved",
+        detail: "Issue resolved: broken login",
+        actorId: null,
+        createdAt: new Date("2026-07-02T09:00:00Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "status_change",
+        detail: "not an issue event",
+        actorId: null,
+        createdAt: new Date("2026-07-03T09:00:00Z"),
+      },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/issues/unseen-count");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: 2 });
+  });
+
+  it("counts only issue events newer than the last visit and resets after marking seen", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "issue_reported",
+      detail: "old issue",
+      actorId: null,
+      createdAt: new Date("2026-07-01T09:00:00Z"),
+    });
+    const client = await loginAs(STAFF);
+    await client.post("/issues/last-seen");
+
+    const cleared = await client.get("/issues/unseen-count");
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toEqual({ count: 0 });
+
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "issue_resolved",
+      detail: "new resolution",
+      actorId: null,
+      createdAt: new Date(Date.now() + 60_000),
+    });
+    const after = await client.get("/issues/unseen-count");
+    expect(after.status).toBe(200);
+    expect(after.body).toEqual({ count: 1 });
+  });
+
+  it("keeps rostering and issues last-seen independent", async () => {
+    const client = await loginAs(STAFF);
+    await client.post("/rostering/last-seen");
+    const issues = await client.get("/issues/last-seen");
+    expect(issues.status).toBe(200);
+    expect(issues.body).toEqual({ lastSeenAt: null });
+  });
+});
+
 describe("PATCH /api/rostering/status/:id", () => {
   it("requires admin", async () => {
     const staff = await loginAs(STAFF);
