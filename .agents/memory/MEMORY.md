@@ -5,6 +5,7 @@
 - [Hand-written drizzle migrations](hand-written-migrations.md) — drizzle-kit generate is broken (path bug, missing snapshots); write migration SQL + journal entry by hand.
 - [esbuild externalized transitive deps](esbuild-transitive-deps.md) — externalized packages' own deps (ssh2 for ssh2-sftp-client) must be direct deps; verify by booting the bundle, not just building.
 - [Clever Reports SFTP real layout](clever-sftp-real-layout.md) — real server publishes raw per-user daily CSVs (~13-day retention), not snapshot batches; keep the daily-report adapter path working.
+- [Git pane subrepl bloat](git-pane-subrepl-bloat.md) — stale subrepl-* remotes break the Git pane; main agent may edit .git/config directly but cannot delete branch refs.
 - [Browser checks via playwright-core](browser-checks-playwright.md) — no bundled browsers; use playwright-core + Nix chromium (executablePath from `which chromium`, --no-sandbox) for scripted UI checks.
 - [Google SSO UI check gotchas](google-sso-ui-check.md) — fulfilled 302s can't be intercepted downstream; Radix toasts double-match getByText (use .first()).
 - [Simulating stale sessions in Playwright](two-session-staleness-playwright.md) — hold refetches in-flight via route queue, not abort; aborted queries never converge after unrouting.
