@@ -543,4 +543,51 @@ describe("rostering board RACI people", () => {
     const zoom = res.body.find((r: any) => r.applicationId === 50);
     expect(zoom.raci).toEqual([{ name: "Ash", value: "R" }]);
   });
+
+  it("never surfaces RACI owners of apps that are not on the board for the term", async () => {
+    // App 51 has RACI assignments but NO term status row, so it is off the board.
+    fakeDb.rows(tables.applicationsTable).push({
+      id: 51,
+      name: "Canva",
+      category: "Creative",
+    });
+    fakeDb.rows(tables.raciRowsTable).push({
+      id: 32,
+      teamId: 10,
+      category: "ROSTERING",
+      name: "Canva",
+      sortOrder: 2,
+      applicationId: 51,
+    });
+    fakeDb.rows(tables.raciAssignmentsTable).push(
+      { id: 43, rowId: 32, memberId: 20, value: "A" },
+      { id: 44, rowId: 32, memberId: 21, value: "C" },
+    );
+    fakeDb.rows(tables.termsTable).push({ id: 70, name: "Fall", isCurrent: true });
+    fakeDb.rows(tables.appTermStatusTable).push({
+      id: 71,
+      applicationId: 50,
+      termId: 70,
+      studentSharingStatus: "not_started",
+      staffSharingStatus: "not_started",
+      updatedAt: new Date(),
+    });
+
+    const c = await loginStaff();
+    const res = await c.get("/rostering/board?termId=70");
+    expect(res.status).toBe(200);
+
+    // Off-board app 51 has no row at all.
+    expect(res.body.some((r: any) => r.applicationId === 51)).toBe(false);
+
+    // Each board row carries only its own app's people: Zoom (app 50) shows
+    // only Ash/R; Brad (A on off-board app 51) appears nowhere in the response.
+    const zoom = res.body.find((r: any) => r.applicationId === 50);
+    expect(zoom.raci).toEqual([{ name: "Ash", value: "R" }]);
+    const allPeople = res.body.flatMap((r: any) => r.raci ?? []);
+    expect(allPeople.some((p: any) => p.name === "Brad")).toBe(false);
+    expect(
+      allPeople.some((p: any) => p.name === "Ash" && p.value === "C"),
+    ).toBe(false);
+  });
 });
