@@ -99,7 +99,7 @@ router.post("/apps/:id/issues", requireAuth, async (req, res): Promise<void> => 
     actorId: user.id,
   });
   emitRosteringActivity();
-  const raciMap = await getRaciPeopleByApp();
+  const raciMap = await getRaciPeopleByApp([applicationId]);
   res.status(201).json({
     id: issue!.id,
     applicationId,
@@ -141,7 +141,9 @@ router.get("/issues", requireAuth, async (req, res): Promise<void> => {
         );
 
   // RACI people so staff can see who owns each app (from the RACI matrix).
-  const raciMap = await getRaciPeopleByApp();
+  const raciMap = await getRaciPeopleByApp([
+    ...new Set(issues.map((i) => i.applicationId)),
+  ]);
   res.json(
     issues.map((i) => ({
       ...i,
@@ -257,7 +259,7 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
     .from(applicationsTable)
     .where(eq(applicationsTable.id, issue.applicationId));
   const [reporter] = await db.select().from(usersTable).where(eq(usersTable.id, issue.userId));
-  const raciMap = await getRaciPeopleByApp();
+  const raciMap = await getRaciPeopleByApp([issue.applicationId]);
   res.json({
     id: issue.id,
     applicationId: issue.applicationId,

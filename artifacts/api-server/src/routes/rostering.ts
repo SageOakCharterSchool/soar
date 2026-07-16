@@ -334,7 +334,9 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
   const issueMap = new Map(issues.map((i) => [i.applicationId, i.count]));
 
   // RACI people for each linked application (from the RACI matrix page).
-  const raciMap = await getRaciPeopleByApp();
+  const raciMap = await getRaciPeopleByApp([
+    ...new Set(rows.map((row) => row.applicationId)),
+  ]);
 
   res.json(
     rows.map((row) => ({
