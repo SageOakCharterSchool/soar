@@ -547,7 +547,16 @@ export const GetSftpSyncStatusResponse = zod.object({
   "skippedSnapshots": zod.array(zod.string()),
   "warnings": zod.array(zod.string())
 }),zod.null()]),
-  "lastError": zod.string().nullable()
+  "lastError": zod.string().nullable(),
+  "recentRuns": zod.array(zod.object({
+  "id": zod.number(),
+  "ranAt": zod.string(),
+  "ok": zod.boolean(),
+  "importedSnapshots": zod.array(zod.string()),
+  "skippedSnapshots": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "error": zod.string().nullable()
+}))
 })
 
 

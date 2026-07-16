@@ -15,6 +15,13 @@
       "when": 1784155222846,
       "tag": "0001_import_log_source",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784155222847,
+      "tag": "0002_sync_runs",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { SftpSyncRun } from './sftpSyncRun';
 import type { SftpSyncSummary } from './sftpSyncSummary';
 
 export interface SftpSyncStatus {
@@ -15,4 +16,5 @@ export interface SftpSyncStatus {
   lastResult: SftpSyncSummary | null;
   /** @nullable */
   lastError: string | null;
+  recentRuns: SftpSyncRun[];
 }

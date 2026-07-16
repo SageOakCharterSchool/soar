@@ -6,6 +6,7 @@ vi.mock("@workspace/db", async () => (await import("../test/fakeDb")).dbModuleMo
 
 import {
   getSftpConfig,
+  getSftpSyncStatus,
   listRemoteBatches,
   syncFromSftp,
   type SftpClientLike,
@@ -213,6 +214,64 @@ describe("syncFromSftp", () => {
     expect(summary.importedSnapshots).toEqual([]);
     expect(summary.warnings[0]).toMatch(/No CSV report files/);
     expect(calls.end).toBe(1);
+  });
+
+  it("builds status from persisted sync runs so it survives restarts", async () => {
+    fakeDb.rows(tables.syncRunsTable).push(
+      {
+        id: 1,
+        ranAt: new Date("2026-07-14T02:00:00Z"),
+        ok: true,
+        importedSnapshots: ["2026-07-13"],
+        skippedSnapshots: [],
+        warnings: [],
+        error: null,
+      },
+      {
+        id: 2,
+        ranAt: new Date("2026-07-15T02:00:00Z"),
+        ok: true,
+        importedSnapshots: [],
+        skippedSnapshots: ["2026-07-13"],
+        warnings: [],
+        error: null,
+      },
+    );
+    const status = await getSftpSyncStatus();
+    expect(status.lastRunAt).toBe("2026-07-15T02:00:00.000Z");
+    expect(status.lastResult).toEqual({
+      importedSnapshots: [],
+      skippedSnapshots: ["2026-07-13"],
+      warnings: [],
+    });
+    expect(status.lastError).toBeNull();
+    expect(status.recentRuns).toHaveLength(2);
+    expect(status.recentRuns[0]!.id).toBe(2);
+    expect(status.recentRuns[1]!.importedSnapshots).toEqual(["2026-07-13"]);
+  });
+
+  it("surfaces a failed run's error from the persisted history", async () => {
+    fakeDb.rows(tables.syncRunsTable).push({
+      id: 1,
+      ranAt: new Date("2026-07-15T02:00:00Z"),
+      ok: false,
+      importedSnapshots: [],
+      skippedSnapshots: [],
+      warnings: [],
+      error: "connection refused",
+    });
+    const status = await getSftpSyncStatus();
+    expect(status.lastError).toBe("connection refused");
+    expect(status.lastResult).toBeNull();
+    expect(status.recentRuns[0]!.ok).toBe(false);
+  });
+
+  it("reports empty status when no runs are persisted", async () => {
+    const status = await getSftpSyncStatus();
+    expect(status.lastRunAt).toBeNull();
+    expect(status.lastResult).toBeNull();
+    expect(status.lastError).toBeNull();
+    expect(status.recentRuns).toEqual([]);
   });
 
   it("closes the connection even when listing fails", async () => {

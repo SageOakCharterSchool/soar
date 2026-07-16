@@ -221,6 +221,13 @@ const DEFAULTS: Record<string, () => Row> = {
   appIssues: () => ({ status: "open", createdAt: new Date() }),
   appActivity: () => ({ createdAt: new Date() }),
   pageLastSeen: () => ({ lastSeenAt: new Date() }),
+  syncRuns: () => ({
+    ranAt: new Date(),
+    importedSnapshots: [],
+    skippedSnapshots: [],
+    warnings: [],
+    error: null,
+  }),
 };
 
 function thenable(apply: () => Row[]) {
@@ -364,6 +371,7 @@ export const tables = {
   usageDailyStudentTable: makeTable("usageDailyStudent"),
   usageDailyTeacherTable: makeTable("usageDailyTeacher"),
   importLogTable: makeTable("importLog"),
+  syncRunsTable: makeTable("syncRuns"),
   feedbackTable: makeTable("feedback"),
 };
 

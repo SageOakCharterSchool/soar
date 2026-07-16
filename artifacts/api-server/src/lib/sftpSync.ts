@@ -1,5 +1,6 @@
 import SftpClient from "ssh2-sftp-client";
-import { db, importLogTable } from "@workspace/db";
+import { desc } from "drizzle-orm";
+import { db, importLogTable, syncRunsTable } from "@workspace/db";
 import { logger } from "./logger";
 import {
   classifyFile,
@@ -57,32 +58,90 @@ export interface SyncSummary {
   warnings: string[];
 }
 
+export interface SftpSyncRun {
+  id: number;
+  ranAt: string;
+  ok: boolean;
+  importedSnapshots: string[];
+  skippedSnapshots: string[];
+  warnings: string[];
+  error: string | null;
+}
+
 export interface SftpSyncStatus {
   configured: boolean;
   running: boolean;
   lastRunAt: string | null;
   lastResult: SyncSummary | null;
   lastError: string | null;
+  recentRuns: SftpSyncRun[];
 }
 
-const status: SftpSyncStatus = {
-  configured: false,
-  running: false,
-  lastRunAt: null,
-  lastResult: null,
-  lastError: null,
-};
+const RECENT_RUNS_LIMIT = 20;
 
-export function getSftpSyncStatus(): SftpSyncStatus {
-  return { ...status, configured: getSftpConfig() !== null };
+// Only the "currently running" flag lives in memory; run history is
+// persisted in the sync_runs table so it survives restarts.
+let syncRunning = false;
+
+/**
+ * Build the sync status from the persisted run history so the last run's
+ * time/result/error survive server restarts.
+ */
+export async function getSftpSyncStatus(): Promise<SftpSyncStatus> {
+  const rows = await db
+    .select()
+    .from(syncRunsTable)
+    .orderBy(desc(syncRunsTable.ranAt), desc(syncRunsTable.id))
+    .limit(RECENT_RUNS_LIMIT);
+  const recentRuns: SftpSyncRun[] = rows.map((r) => ({
+    id: r.id,
+    ranAt: r.ranAt.toISOString(),
+    ok: r.ok,
+    importedSnapshots: r.importedSnapshots,
+    skippedSnapshots: r.skippedSnapshots,
+    warnings: r.warnings,
+    error: r.error,
+  }));
+  const last = recentRuns[0] ?? null;
+  return {
+    configured: getSftpConfig() !== null,
+    running: syncRunning,
+    lastRunAt: last ? last.ranAt : null,
+    lastResult:
+      last && last.ok
+        ? {
+            importedSnapshots: last.importedSnapshots,
+            skippedSnapshots: last.skippedSnapshots,
+            warnings: last.warnings,
+          }
+        : null,
+    lastError: last ? last.error : null,
+    recentRuns,
+  };
 }
 
-/** Test hook: reset in-memory sync status. */
+/** Test hook: reset the in-memory running flag. */
 export function resetSftpSyncStatus(): void {
-  status.running = false;
-  status.lastRunAt = null;
-  status.lastResult = null;
-  status.lastError = null;
+  syncRunning = false;
+}
+
+async function recordSyncRun(run: {
+  ok: boolean;
+  summary: SyncSummary | null;
+  error: string | null;
+}): Promise<void> {
+  try {
+    await db.insert(syncRunsTable).values({
+      ranAt: new Date(),
+      ok: run.ok,
+      importedSnapshots: run.summary?.importedSnapshots ?? [],
+      skippedSnapshots: run.summary?.skippedSnapshots ?? [],
+      warnings: run.summary?.warnings ?? [],
+      error: run.error,
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to record SFTP sync run in the database");
+  }
 }
 
 function joinRemote(dir: string, name: string): string {
@@ -220,8 +279,8 @@ export async function syncFromSftp(
 }
 
 /**
- * Run one sync pass against the real SFTP server, updating the in-memory
- * status. Never throws — failures are recorded in the status and logged.
+ * Run one sync pass against the real SFTP server, persisting the outcome to
+ * the sync_runs table. Never throws — failures are recorded and logged.
  */
 export async function runSftpSync(): Promise<
   { ok: true; summary: SyncSummary } | { ok: false; error: string }
@@ -230,16 +289,14 @@ export async function runSftpSync(): Promise<
   if (!config) {
     return { ok: false, error: "SFTP is not configured" };
   }
-  if (status.running) {
+  if (syncRunning) {
     return { ok: false, error: "A sync is already running" };
   }
-  status.running = true;
+  syncRunning = true;
   try {
     const client = new SftpClient();
     const summary = await syncFromSftp(client as unknown as SftpClientLike, config);
-    status.lastRunAt = new Date().toISOString();
-    status.lastResult = summary;
-    status.lastError = null;
+    await recordSyncRun({ ok: true, summary, error: null });
     logger.info(
       {
         imported: summary.importedSnapshots,
@@ -251,13 +308,11 @@ export async function runSftpSync(): Promise<
     return { ok: true, summary };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    status.lastRunAt = new Date().toISOString();
-    status.lastResult = null;
-    status.lastError = message;
+    await recordSyncRun({ ok: false, summary: null, error: message });
     logger.error({ err }, "SFTP report sync failed");
     return { ok: false, error: message };
   } finally {
-    status.running = false;
+    syncRunning = false;
   }
 }
 

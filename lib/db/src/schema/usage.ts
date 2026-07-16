@@ -7,6 +7,7 @@ import {
   date,
   doublePrecision,
   uniqueIndex,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
@@ -130,5 +131,16 @@ export const importLogTable = pgTable("import_log", {
   rowsUpdated: integer("rows_updated").notNull().default(0),
 });
 
+export const syncRunsTable = pgTable("sync_runs", {
+  id: serial("id").primaryKey(),
+  ranAt: timestamp("ran_at", { withTimezone: true }).notNull().defaultNow(),
+  ok: boolean("ok").notNull(),
+  importedSnapshots: text("imported_snapshots").array().notNull().default([]),
+  skippedSnapshots: text("skipped_snapshots").array().notNull().default([]),
+  warnings: text("warnings").array().notNull().default([]),
+  error: text("error"),
+});
+
 export type UsageKeyMetrics = typeof usageKeyMetricsTable.$inferSelect;
 export type ImportLogEntry = typeof importLogTable.$inferSelect;
+export type SyncRun = typeof syncRunsTable.$inferSelect;

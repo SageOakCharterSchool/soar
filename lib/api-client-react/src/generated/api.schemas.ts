@@ -443,6 +443,17 @@ export interface SftpSyncSummary {
   warnings: string[];
 }
 
+export interface SftpSyncRun {
+  id: number;
+  ranAt: string;
+  ok: boolean;
+  importedSnapshots: string[];
+  skippedSnapshots: string[];
+  warnings: string[];
+  /** @nullable */
+  error: string | null;
+}
+
 export interface SftpSyncStatus {
   configured: boolean;
   running: boolean;
@@ -451,6 +462,7 @@ export interface SftpSyncStatus {
   lastResult: SftpSyncSummary | null;
   /** @nullable */
   lastError: string | null;
+  recentRuns: SftpSyncRun[];
 }
 
 export type GetRosteringBoardParams = {

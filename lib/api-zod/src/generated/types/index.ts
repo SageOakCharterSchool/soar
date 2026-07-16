@@ -43,6 +43,7 @@ export * from './resourceUsageRow';
 export * from './rosteringLastSeen';
 export * from './rosteringSummary';
 export * from './schoolUsageRow';
+export * from './sftpSyncRun';
 export * from './sftpSyncStatus';
 export * from './sftpSyncSummary';
 export * from './term';

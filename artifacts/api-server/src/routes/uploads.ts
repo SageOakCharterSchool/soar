@@ -52,8 +52,8 @@ router.get("/uploads/log", requireAdmin, async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/uploads/sftp/status", requireAdmin, (_req, res): void => {
-  res.json(getSftpSyncStatus());
+router.get("/uploads/sftp/status", requireAdmin, async (_req, res): Promise<void> => {
+  res.json(await getSftpSyncStatus());
 });
 
 router.post("/uploads/sftp/sync", requireAdmin, async (_req, res): Promise<void> => {

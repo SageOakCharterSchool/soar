@@ -965,9 +965,27 @@ components:
         warnings:
           type: array
           items: { type: string }
+    SftpSyncRun:
+      type: object
+      required: [id, ranAt, ok, importedSnapshots, skippedSnapshots, warnings, error]
+      properties:
+        id: { type: integer }
+        ranAt: { type: string }
+        ok: { type: boolean }
+        importedSnapshots:
+          type: array
+          items: { type: string }
+        skippedSnapshots:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        error:
+          type: [string, "null"]
     SftpSyncStatus:
       type: object
-      required: [configured, running, lastRunAt, lastResult, lastError]
+      required: [configured, running, lastRunAt, lastResult, lastError, recentRuns]
       properties:
         configured: { type: boolean }
         running: { type: boolean }
@@ -979,3 +997,7 @@ components:
             - type: "null"
         lastError:
           type: [string, "null"]
+        recentRuns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SftpSyncRun"

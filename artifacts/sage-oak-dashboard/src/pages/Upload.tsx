@@ -169,6 +169,61 @@ export default function Upload() {
         </CardContent>
       </Card>
 
+      {sftpStatus && sftpStatus.recentRuns.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Recent sync runs</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ran at</TableHead>
+                  <TableHead>Result</TableHead>
+                  <TableHead className="text-right">Imported</TableHead>
+                  <TableHead className="text-right">Already up to date</TableHead>
+                  <TableHead>Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sftpStatus.recentRuns.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {new Date(run.ranAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={run.ok ? "secondary" : "destructive"}>
+                        {run.ok ? "Success" : "Failed"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {run.importedSnapshots.length}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {run.skippedSnapshots.length}
+                    </TableCell>
+                    <TableCell className="text-sm max-w-md">
+                      {run.error ? (
+                        <span className="text-destructive">{run.error}</span>
+                      ) : run.importedSnapshots.length > 0 ? (
+                        `Imported ${run.importedSnapshots.join(", ")}`
+                      ) : (
+                        <span className="text-muted-foreground">No new data found</span>
+                      )}
+                      {run.warnings.length > 0 && (
+                        <span className="text-amber-700 dark:text-amber-400">
+                          {" "}— {run.warnings.length} warning{run.warnings.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       <div
         className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
           dragOver ? "border-primary bg-primary/5" : "border-border"
