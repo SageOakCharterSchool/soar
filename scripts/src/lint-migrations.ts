@@ -68,6 +68,45 @@ export function hasDeleteWithoutWhere(cleanedSql: string): boolean {
   return false;
 }
 
+/**
+ * True when the (comment/string-stripped) SQL contains an UPDATE statement
+ * whose own statement has no top-level WHERE clause. Uses the same
+ * statement-splitting / paren-depth approach as hasDeleteWithoutWhere, and
+ * ignores "ON UPDATE" (FK actions) and "FOR UPDATE" (row locks), which are
+ * not UPDATE statements.
+ */
+export function hasUpdateWithoutWhere(cleanedSql: string): boolean {
+  for (const statement of cleanedSql.split(";")) {
+    const updateRe = /\bUPDATE\b/gi;
+    let match: RegExpExecArray | null = null;
+    while ((match = updateRe.exec(statement)) !== null) {
+      const before = statement.slice(0, match.index).trimEnd();
+      if (/\b(ON|FOR)$/i.test(before)) continue;
+      break;
+    }
+    if (!match) continue;
+    const rest = statement.slice(match.index + match[0].length);
+    if (!/\bSET\b/i.test(rest)) continue;
+    let depth = 0;
+    let topLevelWhere = false;
+    for (let i = 0; i < rest.length; i++) {
+      const ch = rest[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") depth = Math.max(0, depth - 1);
+      else if (
+        depth === 0 &&
+        /^where\b/i.test(rest.slice(i, i + 6)) &&
+        (i === 0 || /[\s)]/.test(rest[i - 1]))
+      ) {
+        topLevelWhere = true;
+        break;
+      }
+    }
+    if (!topLevelWhere) return true;
+  }
+  return false;
+}
+
 const RULES: Rule[] = [
   {
     name: "DROP TABLE",
@@ -94,6 +133,11 @@ const RULES: Rule[] = [
     name: "DELETE without WHERE",
     check: hasDeleteWithoutWhere,
     message: "DELETE FROM without a WHERE clause removes every row in the table.",
+  },
+  {
+    name: "UPDATE without WHERE",
+    check: hasUpdateWithoutWhere,
+    message: "UPDATE without a WHERE clause overwrites every row in the table.",
   },
   {
     name: "DROP SCHEMA/DATABASE",

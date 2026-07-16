@@ -104,6 +104,46 @@ describe("lintMigrationsDir destructive patterns", () => {
     ).toEqual(["DELETE without WHERE"]);
   });
 
+  it("flags UPDATE without WHERE", () => {
+    expect(rulesFound({ "0001_a.sql": 'UPDATE "users" SET active = false;' })).toEqual([
+      "UPDATE without WHERE",
+    ]);
+  });
+
+  it("flags a multi-line UPDATE without WHERE", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": 'UPDATE "users"\nSET active = false,\n  role = \'member\';',
+      }),
+    ).toEqual(["UPDATE without WHERE"]);
+  });
+
+  it("flags UPDATE without WHERE followed by a qualified UPDATE in the same block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          'UPDATE "users" SET active = false;\nUPDATE "users" SET role = \'x\' WHERE id = 1;',
+      }),
+    ).toEqual(["UPDATE without WHERE"]);
+  });
+
+  it("flags UPDATE whose only WHERE is inside a subquery", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "UPDATE users SET banned = (SELECT count(*) FROM logins WHERE failed) > 3;",
+      }),
+    ).toEqual(["UPDATE without WHERE"]);
+  });
+
+  it("flags real UPDATE without WHERE inside dollar-quoted DO blocks", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN UPDATE users SET active = false; END $$;",
+      }),
+    ).toEqual(["UPDATE without WHERE"]);
+  });
+
   it("flags DROP SCHEMA", () => {
     expect(rulesFound({ "0001_a.sql": 'DROP SCHEMA "old" CASCADE;' })).toEqual([
       "DROP SCHEMA/DATABASE",
@@ -178,6 +218,64 @@ describe("non-destructive statements are not flagged", () => {
       rulesFound({
         "0001_a.sql":
           "DELETE FROM sessions USING (SELECT id FROM users WHERE banned) u WHERE sessions.user_id = u.id;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag UPDATE with WHERE", () => {
+    expect(
+      rulesFound({ "0001_a.sql": "UPDATE users SET active = false WHERE id = 1;" }),
+    ).toEqual([]);
+  });
+
+  it("does not flag a multi-line UPDATE with a top-level WHERE", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": 'UPDATE "users"\nSET active = false\nWHERE last_login < now();',
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag UPDATE with WHERE ... IN (subquery)", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "UPDATE users SET banned = true WHERE id IN (SELECT user_id FROM abuse WHERE score > 9);",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag UPDATE FROM with a top-level WHERE after a subquery", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "UPDATE users SET role = r.role FROM (SELECT id, role FROM staged WHERE ready) r WHERE users.id = r.id;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag ON UPDATE foreign-key actions", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          'ALTER TABLE "sessions" ADD CONSTRAINT fk FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag SELECT ... FOR UPDATE", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "DO $$ BEGIN PERFORM 1 FROM users FOR UPDATE; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("allows an intentional mass UPDATE carrying a -- destructive: marker", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          '-- destructive: backfilling new column for all rows intentionally\nUPDATE "users" SET plan = \'free\';',
       }),
     ).toEqual([]);
   });
