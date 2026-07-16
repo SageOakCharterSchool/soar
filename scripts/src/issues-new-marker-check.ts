@@ -34,9 +34,6 @@ async function main() {
   const cookie = loginRes.headers.get("set-cookie")!.split(";")[0]!;
   const hdrs = { "Content-Type": "application/json", Cookie: cookie };
 
-  // Record a visit now so anything created afterwards counts as new.
-  await fetch(`${apiBase}/issues/last-seen`, { method: "POST", headers: hdrs });
-
   // Find an application to report an issue against (straight from the dev DB).
   const appId = parseInt(
     execSync(`psql "$DATABASE_URL" -t -A -c "SELECT id FROM applications ORDER BY id LIMIT 1"`)
@@ -47,6 +44,22 @@ async function main() {
   if (Number.isNaN(appId))
     throw new Error("No applications available to report an issue against");
   const app = { id: appId, name: `app #${appId}` };
+
+  // Seed an older issue BEFORE recording the visit, so the divider always has
+  // at least one already-seen issue below it.
+  const olderRes = await fetch(`${apiBase}/apps/${app.id}/issues`, {
+    method: "POST",
+    headers: hdrs,
+    body: JSON.stringify({ comment: "UI check: older seen issue" }),
+  });
+  if (olderRes.status !== 201)
+    throw new Error(`Older issue create failed: ${olderRes.status}`);
+  const olderIssue = (await olderRes.json()) as { id: number };
+  console.log(`Created older issue #${olderIssue.id} on ${app.name}`);
+
+  // Record a visit now so anything created afterwards counts as new.
+  await new Promise((r) => setTimeout(r, 1100));
+  await fetch(`${apiBase}/issues/last-seen`, { method: "POST", headers: hdrs });
 
   await new Promise((r) => setTimeout(r, 1100));
   const created = await fetch(`${apiBase}/apps/${app.id}/issues`, {
@@ -61,20 +74,22 @@ async function main() {
   try {
     await runBrowserChecks();
   } finally {
-    // Cleanup: delete the synthetic test issue (and its activity events) so
-    // repeated validation runs leave no trace in the Issues page.
-    const deleted = await fetch(`${apiBase}/issues/${issue.id}`, {
-      method: "DELETE",
-      headers: hdrs,
-    });
-    if (deleted.ok) {
-      console.log(`Deleted test issue #${issue.id}`);
-    } else if (deleted.status === 404) {
-      // Already gone — a concurrent validation run may have cleaned it up.
-      // The goal is "no trace left", so an absent issue is a success.
-      console.log(`Test issue #${issue.id} already deleted (404) — nothing to clean up`);
-    } else {
-      fail(`cleanup delete of issue #${issue.id} failed: ${deleted.status}`);
+    // Cleanup: delete the synthetic test issues (and their activity events)
+    // so repeated validation runs leave no trace in the Issues page.
+    for (const id of [issue.id, olderIssue.id]) {
+      const deleted = await fetch(`${apiBase}/issues/${id}`, {
+        method: "DELETE",
+        headers: hdrs,
+      });
+      if (deleted.ok) {
+        console.log(`Deleted test issue #${id}`);
+      } else if (deleted.status === 404) {
+        // Already gone — a concurrent validation run may have cleaned it up.
+        // The goal is "no trace left", so an absent issue is a success.
+        console.log(`Test issue #${id} already deleted (404) — nothing to clean up`);
+      } else {
+        fail(`cleanup delete of issue #${id} failed: ${deleted.status}`);
+      }
     }
   }
 
@@ -97,16 +112,27 @@ async function main() {
     await page.goto(`${appBase}/issues`, { waitUntil: "load" });
     await page.getByText("UI check: new-marker issue").first().waitFor({ timeout: 15000 });
 
-    if (await page.getByText(/\d+ new since your last visit/).first().isVisible())
+    // Markers render only after the page's mark-seen request resolves (the
+    // response carries the previous last-seen time), so wait rather than
+    // checking instantly — under load this can lag behind the issues list.
+    try {
+      await page
+        .getByText(/\d+ new since your last visit/)
+        .first()
+        .waitFor({ timeout: 15000 });
       pass("header shows 'new since your last visit' count");
-    else fail("header count badge missing");
+    } catch {
+      fail("header count badge missing");
+    }
 
     if ((await page.getByText("New", { exact: true }).count()) > 0)
       pass("'New' badge shown on the fresh issue");
     else fail("'New' badge missing");
 
     const dividerCount = await page.getByText("Seen on your last visit").count();
-    console.log(`  divider present: ${dividerCount > 0} (needs older issues below)`);
+    if (dividerCount > 0)
+      pass("'Seen on your last visit' divider shown above older issues");
+    else fail("'Seen on your last visit' divider missing");
 
     // Markers should persist even though this visit was just recorded:
     // reload state was already post-mark-seen, and badges still rendered above.
