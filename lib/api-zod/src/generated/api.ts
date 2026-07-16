@@ -29,6 +29,7 @@ export const LoginResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 
@@ -49,7 +50,16 @@ export const GetCurrentUserResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Public auth configuration (which sign-in methods are enabled)
+ */
+export const GetAuthConfigResponse = zod.object({
+  "googleEnabled": zod.boolean()
 })
 
 
@@ -61,6 +71,7 @@ export const ListUsersResponseItem = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
@@ -73,7 +84,8 @@ export const CreateUserBody = zod.object({
   "email": zod.string(),
   "password": zod.string(),
   "displayName": zod.string(),
-  "role": zod.enum(['admin', 'staff'])
+  "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()).optional()
 })
 
 export const CreateUserResponse = zod.object({
@@ -81,8 +93,21 @@ export const CreateUserResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary List users as owner-picker options (any signed-in user)
+ */
+export const ListUserOptionsResponseItem = zod.object({
+  "id": zod.number(),
+  "displayName": zod.string(),
+  "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string())
+})
+export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem)
 
 
 /**
@@ -95,7 +120,8 @@ export const UpdateUserParams = zod.object({
 export const UpdateUserBody = zod.object({
   "displayName": zod.string().optional(),
   "role": zod.enum(['admin', 'staff']).optional(),
-  "password": zod.string().optional()
+  "password": zod.string().optional(),
+  "tags": zod.array(zod.string()).optional()
 })
 
 export const UpdateUserResponse = zod.object({
@@ -103,6 +129,7 @@ export const UpdateUserResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 
@@ -217,8 +244,8 @@ export const GetRosteringBoardResponseItem = zod.object({
   "appName": zod.string(),
   "category": zod.string().nullish(),
   "statusId": zod.number(),
-  "studentSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
-  "staffSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
+  "studentSharingStatus": zod.string(),
+  "staffSharingStatus": zod.string(),
   "syncMethod": zod.string().nullish(),
   "lastSyncedAt": zod.string().nullish(),
   "owner": zod.string().nullish(),
@@ -227,7 +254,11 @@ export const GetRosteringBoardResponseItem = zod.object({
   "updatedByName": zod.string().nullish(),
   "upvoteCount": zod.number(),
   "upvotedByMe": zod.boolean(),
-  "openIssueCount": zod.number()
+  "openIssueCount": zod.number(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string()
+}))
 })
 export const GetRosteringBoardResponse = zod.array(GetRosteringBoardResponseItem)
 
@@ -256,8 +287,8 @@ export const UpdateAppTermStatusParams = zod.object({
 })
 
 export const UpdateAppTermStatusBody = zod.object({
-  "studentSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']).optional(),
-  "staffSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']).optional(),
+  "studentSharingStatus": zod.string().optional(),
+  "staffSharingStatus": zod.string().optional(),
   "syncMethod": zod.union([zod.literal('SSO'),zod.literal('SAML'),zod.literal('manual'),zod.literal('other'),zod.literal(null)]).nullish(),
   "lastSyncedAt": zod.string().nullish(),
   "owner": zod.string().nullish(),
@@ -268,8 +299,8 @@ export const UpdateAppTermStatusResponse = zod.object({
   "id": zod.number(),
   "applicationId": zod.number(),
   "termId": zod.number(),
-  "studentSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
-  "staffSharingStatus": zod.enum(['not_started', 'in_progress', 'complete', 'needs_review']),
+  "studentSharingStatus": zod.string(),
+  "staffSharingStatus": zod.string(),
   "syncMethod": zod.string().nullish(),
   "lastSyncedAt": zod.string().nullish(),
   "owner": zod.string().nullish(),
@@ -289,15 +320,43 @@ export const GetRosteringActivityQueryParams = zod.object({
 
 export const GetRosteringActivityResponseItem = zod.object({
   "id": zod.number(),
-  "applicationId": zod.number(),
+  "applicationId": zod.number().nullable(),
   "appName": zod.string(),
   "termId": zod.number().nullish(),
-  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved']),
+  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved', 'raci_change']),
   "detail": zod.string(),
   "actorName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const GetRosteringActivityResponse = zod.array(GetRosteringActivityResponseItem)
+
+
+/**
+ * @summary Archived activity events older than the retention window (admin)
+ */
+export const GetRosteringActivityArchiveQueryParams = zod.object({
+  "limit": zod.coerce.number().optional(),
+  "offset": zod.coerce.number().optional(),
+  "search": zod.coerce.string().optional().describe('Case-insensitive match against app name, actor, or detail'),
+  "appName": zod.coerce.string().optional().describe('Case-insensitive exact app name filter'),
+  "from": zod.coerce.string().optional().describe('Only events occurring on\/after this date (ISO 8601)'),
+  "to": zod.coerce.string().optional().describe('Only events occurring on\/before this date (ISO 8601)'),
+  "archivedBefore": zod.coerce.string().optional().describe('Snapshot boundary (ISO 8601): only include rows archived at or before this instant. Pass the X-Archive-Snapshot header value from the first page on subsequent pages to keep paged exports consistent while archiving runs.\n'),
+  "format": zod.enum(['json', 'csv']).optional()
+})
+
+export const GetRosteringActivityArchiveResponseItem = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string(),
+  "termId": zod.number().nullish(),
+  "eventType": zod.string(),
+  "detail": zod.string(),
+  "actorName": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "archivedAt": zod.string()
+})
+export const GetRosteringActivityArchiveResponse = zod.array(GetRosteringActivityArchiveResponseItem)
 
 
 /**
@@ -313,6 +372,38 @@ export const GetRosteringLastSeenResponse = zod.object({
  */
 export const MarkRosteringSeenResponse = zod.object({
   "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Number of activity events newer than the user's last Rostering visit
+ */
+export const GetRosteringUnseenCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
+ * @summary When the logged-in user last viewed the Issues page
+ */
+export const GetIssuesLastSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Record that the logged-in user just viewed the Issues page
+ */
+export const MarkIssuesSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Number of issue events newer than the user's last Issues visit
+ */
+export const GetIssuesUnseenCountResponse = zod.object({
+  "count": zod.number()
 })
 
 
@@ -352,7 +443,12 @@ export const ReportIssueResponse = zod.object({
   "reporterName": zod.string(),
   "comment": zod.string(),
   "status": zod.enum(['open', 'resolved']),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string()
+}))
 })
 
 
@@ -371,7 +467,12 @@ export const ListIssuesResponseItem = zod.object({
   "reporterName": zod.string(),
   "comment": zod.string(),
   "status": zod.enum(['open', 'resolved']),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string()
+}))
 })
 export const ListIssuesResponse = zod.array(ListIssuesResponseItem)
 
@@ -395,7 +496,156 @@ export const UpdateIssueResponse = zod.object({
   "reporterName": zod.string(),
   "comment": zod.string(),
   "status": zod.enum(['open', 'resolved']),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.string()
+}))
+})
+
+
+/**
+ * @summary Delete an issue and its related activity (admin)
+ */
+export const DeleteIssueParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteIssueResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Full application settings (admin only)
+ */
+export const getAppSettingsResponseStaleOpenDaysMax = 365;
+
+
+
+export const GetAppSettingsResponse = zod.object({
+  "staleOpenDays": zod.number().min(1).max(getAppSettingsResponseStaleOpenDaysMax),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "syncSchedule": zod.object({
+  "enabled": zod.boolean(),
+  "time": zod.string().describe('Time of day (server time) in HH:MM 24-hour format.')
+}),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}),
+  "notifications": zod.object({
+  "syncFailureBannerEnabled": zod.boolean(),
+  "alertOnSyncWarnings": zod.boolean(),
+  "recipients": zod.array(zod.string())
+})
+})
+
+
+/**
+ * @summary Update application settings (admin)
+ */
+export const updateAppSettingsBodyStaleOpenDaysMax = 365;
+
+
+
+export const UpdateAppSettingsBody = zod.object({
+  "staleOpenDays": zod.number().min(1).max(updateAppSettingsBodyStaleOpenDaysMax).optional(),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})).optional(),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})).optional(),
+  "syncSchedule": zod.object({
+  "enabled": zod.boolean(),
+  "time": zod.string().describe('Time of day (server time) in HH:MM 24-hour format.')
+}).optional(),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}).optional(),
+  "notifications": zod.object({
+  "syncFailureBannerEnabled": zod.boolean(),
+  "alertOnSyncWarnings": zod.boolean(),
+  "recipients": zod.array(zod.string())
+}).optional()
+})
+
+export const updateAppSettingsResponseStaleOpenDaysMax = 365;
+
+
+
+export const UpdateAppSettingsResponse = zod.object({
+  "staleOpenDays": zod.number().min(1).max(updateAppSettingsResponseStaleOpenDaysMax),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "syncSchedule": zod.object({
+  "enabled": zod.boolean(),
+  "time": zod.string().describe('Time of day (server time) in HH:MM 24-hour format.')
+}),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}),
+  "notifications": zod.object({
+  "syncFailureBannerEnabled": zod.boolean(),
+  "alertOnSyncWarnings": zod.boolean(),
+  "recipients": zod.array(zod.string())
+})
+})
+
+
+/**
+ * @summary Settings subset needed by all signed-in users
+ */
+export const getPublicAppSettingsResponseStaleOpenDaysMax = 365;
+
+
+
+export const GetPublicAppSettingsResponse = zod.object({
+  "staleOpenDays": zod.number().min(1).max(getPublicAppSettingsResponseStaleOpenDaysMax),
+  "sharingStatusOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "raciValueOptions": zod.array(zod.object({
+  "value": zod.string(),
+  "label": zod.string(),
+  "active": zod.boolean()
+})),
+  "branding": zod.object({
+  "appName": zod.string(),
+  "logoDataUrl": zod.string().nullable(),
+  "accentColor": zod.string().nullable().describe('Hex color like \"#4a7c67\", or null for the default theme.')
+}),
+  "syncFailureBannerEnabled": zod.boolean()
 })
 
 
@@ -485,7 +735,7 @@ export const GetAppEngagementResponseItem = zod.object({
   "studentPercent": zod.number(),
   "teacherCount": zod.number(),
   "teacherPercent": zod.number(),
-  "activeTimePerUserMinutes": zod.number()
+  "activeTimePerUserMinutes": zod.number().nullable()
 })
 export const GetAppEngagementResponse = zod.array(GetAppEngagementResponseItem)
 
@@ -495,9 +745,34 @@ export const GetAppEngagementResponse = zod.array(GetAppEngagementResponseItem)
  */
 export const GetAdditionalResourcesResponseItem = zod.object({
   "link": zod.string(),
-  "uniqueUsers": zod.number()
+  "uniqueUsers": zod.number(),
+  "totalAccesses": zod.number()
 })
 export const GetAdditionalResourcesResponse = zod.array(GetAdditionalResourcesResponseItem)
+
+
+/**
+ * @summary Per-resource usage across recent snapshot dates
+ */
+export const getAdditionalResourcesHistoryQueryLimitMax = 60;
+
+
+
+export const GetAdditionalResourcesHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getAdditionalResourcesHistoryQueryLimitMax).optional().describe('How many recent snapshot dates to include (default 12)')
+})
+
+export const GetAdditionalResourcesHistoryResponse = zod.object({
+  "snapshotDates": zod.array(zod.string()),
+  "resources": zod.array(zod.object({
+  "link": zod.string(),
+  "points": zod.array(zod.object({
+  "snapshotDate": zod.string(),
+  "uniqueUsers": zod.number(),
+  "totalAccesses": zod.number()
+}))
+}))
+})
 
 
 /**
@@ -528,9 +803,280 @@ export const GetImportLogResponseItem = zod.object({
   "uploadedByName": zod.string(),
   "snapshotDate": zod.string(),
   "filesIncluded": zod.array(zod.string()),
+  "source": zod.enum(['upload', 'sftp']),
   "rowsInserted": zod.number(),
   "rowsUpdated": zod.number()
 })
 export const GetImportLogResponse = zod.array(GetImportLogResponseItem)
+
+
+/**
+ * @summary Status of the automatic Clever SFTP report sync (admin)
+ */
+export const GetSftpSyncStatusResponse = zod.object({
+  "configured": zod.boolean(),
+  "running": zod.boolean(),
+  "scheduleEnabled": zod.boolean(),
+  "scheduleTime": zod.string(),
+  "nextRunAt": zod.string().nullable(),
+  "lastRunAt": zod.string().nullable(),
+  "lastResult": zod.union([zod.object({
+  "importedSnapshots": zod.array(zod.string()),
+  "skippedSnapshots": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+}),zod.null()]),
+  "lastError": zod.string().nullable(),
+  "recentRuns": zod.array(zod.object({
+  "id": zod.number(),
+  "ranAt": zod.string(),
+  "ok": zod.boolean(),
+  "importedSnapshots": zod.array(zod.string()),
+  "skippedSnapshots": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "error": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Trigger an immediate Clever SFTP report sync (admin)
+ */
+export const TriggerSftpSyncResponse = zod.object({
+  "importedSnapshots": zod.array(zod.string()),
+  "skippedSnapshots": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Active alerts from failed Clever SFTP syncs (admin)
+ */
+export const GetSyncAlertsResponseItem = zod.object({
+  "id": zod.number(),
+  "message": zod.string(),
+  "occurrences": zod.number(),
+  "firstSeenAt": zod.string(),
+  "lastSeenAt": zod.string()
+})
+export const GetSyncAlertsResponse = zod.array(GetSyncAlertsResponseItem)
+
+
+/**
+ * @summary Dismiss a sync failure alert (admin)
+ */
+export const DismissSyncAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DismissSyncAlertResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Full RACI matrix (all teams, members, rows, and assignments)
+ */
+export const GetRaciMatrixResponse = zod.object({
+  "teams": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "members": zod.array(zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "name": zod.string(),
+  "userId": zod.number().nullish(),
+  "sortOrder": zod.number()
+})),
+  "rows": zod.array(zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "category": zod.string().nullish(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "applicationId": zod.number().nullish(),
+  "appName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "memberId": zod.number(),
+  "value": zod.string()
+}))
+}))
+}))
+})
+
+
+/**
+ * @summary Add a RACI row (admin)
+ */
+
+
+
+export const CreateRaciRowBody = zod.object({
+  "teamId": zod.number(),
+  "name": zod.string().min(1),
+  "category": zod.string().nullish()
+})
+
+export const CreateRaciRowResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "category": zod.string().nullish(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "applicationId": zod.number().nullish(),
+  "appName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "memberId": zod.number(),
+  "value": zod.string()
+}))
+})
+
+
+/**
+ * @summary Rename, recategorize, or (un)link a RACI row (admin)
+ */
+export const UpdateRaciRowParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateRaciRowBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "expectedName": zod.string().optional().describe('The row name the client last saw. When provided with a rename and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin\'s rename is not silently overwritten.'),
+  "category": zod.string().nullish(),
+  "applicationId": zod.number().nullish()
+})
+
+export const UpdateRaciRowResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "category": zod.string().nullish(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "applicationId": zod.number().nullish(),
+  "appName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "memberId": zod.number(),
+  "value": zod.string()
+}))
+})
+
+
+/**
+ * @summary Remove a RACI row (admin)
+ */
+export const DeleteRaciRowParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRaciRowQueryParams = zod.object({
+  "expectedName": zod.coerce.string().optional().describe('The row name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin\'s rename is not silently destroyed.'),
+  "expectedAssignments": zod.coerce.string().optional().describe('Canonical fingerprint of the row\'s cell assignments the client last saw: \"memberId=value\" pairs sorted by memberId and joined with commas (empty string when the row had no assignments). When provided and it no longer matches the stored assignments, the delete is rejected with 409 so a concurrent admin\'s assignment changes are not silently destroyed.')
+})
+
+export const DeleteRaciRowResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Add a team member column (admin)
+ */
+
+
+
+export const CreateRaciMemberBody = zod.object({
+  "teamId": zod.number(),
+  "name": zod.string().min(1)
+})
+
+export const CreateRaciMemberResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "name": zod.string(),
+  "userId": zod.number().nullish(),
+  "sortOrder": zod.number()
+})
+
+
+/**
+ * @summary Rename a team member column (admin)
+ */
+export const UpdateRaciMemberParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateRaciMemberBody = zod.object({
+  "name": zod.string().min(1),
+  "expectedName": zod.string().optional().describe('The member name the client last saw. When provided and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin\'s rename is not silently overwritten.')
+})
+
+export const UpdateRaciMemberResponse = zod.object({
+  "id": zod.number(),
+  "teamId": zod.number(),
+  "name": zod.string(),
+  "userId": zod.number().nullish(),
+  "sortOrder": zod.number()
+})
+
+
+/**
+ * @summary Remove a team member column (admin)
+ */
+export const DeleteRaciMemberParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRaciMemberQueryParams = zod.object({
+  "expectedName": zod.coerce.string().optional().describe('The member name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin\'s rename is not silently destroyed.'),
+  "expectedAssignments": zod.coerce.string().optional().describe('Canonical fingerprint of the member\'s column assignments the client last saw: \"rowId=value\" pairs sorted by rowId and joined with commas (empty string when the member had no assignments). When provided and it no longer matches the stored assignments, the delete is rejected with 409 so a concurrent admin\'s assignment changes are not silently destroyed.')
+})
+
+export const DeleteRaciMemberResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Set or clear a RACI cell (admin)
+ */
+export const SetRaciCellBody = zod.object({
+  "rowId": zod.number(),
+  "memberId": zod.number(),
+  "value": zod.union([zod.string(),zod.null()]),
+  "expectedValue": zod.union([zod.string(),zod.null()]).optional().describe('The cell value the client last saw. When provided and it no longer matches the stored value, the update is rejected with 409 so a concurrent admin\'s edit is not silently overwritten.')
+})
+
+export const SetRaciCellResponse = zod.object({
+  "rowId": zod.number(),
+  "memberId": zod.number(),
+  "value": zod.union([zod.string(),zod.null()])
+})
+
+
+/**
+ * @summary Rename a category within a team (admin)
+ */
+export const RenameRaciCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+export const RenameRaciCategoryBody = zod.object({
+  "from": zod.string().min(1),
+  "to": zod.string().min(1)
+})
+
+export const RenameRaciCategoryResponse = zod.object({
+  "message": zod.string()
+})
 
 

@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import {
   useUploadUsageData,
   useGetImportLog,
+  useGetSftpSyncStatus,
+  useTriggerSftpSync,
   type ImportResult,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, FileText, X, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { UploadCloud, FileText, X, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 
 interface PendingFile {
   name: string;
@@ -32,6 +34,36 @@ export default function Upload() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const upload = useUploadUsageData();
   const { data: importLog } = useGetImportLog();
+  const { data: sftpStatus, refetch: refetchSftpStatus } = useGetSftpSyncStatus();
+  const sftpSync = useTriggerSftpSync();
+
+  const runSftpSync = () =>
+    sftpSync.mutate(undefined, {
+      onSuccess: (res) => {
+        void refetchSftpStatus();
+        queryClient.invalidateQueries({
+          predicate: (q) =>
+            String(q.queryKey[0]).includes("usage") ||
+            String(q.queryKey[0]).includes("uploads") ||
+            String(q.queryKey[0]).includes("rostering"),
+        });
+        toast({
+          title: "SFTP sync complete",
+          description:
+            res.importedSnapshots.length > 0
+              ? `Imported ${res.importedSnapshots.length} new snapshot${res.importedSnapshots.length === 1 ? "" : "s"} (${res.importedSnapshots.join(", ")}).`
+              : "Everything is already up to date.",
+        });
+      },
+      onError: (err: any) => {
+        void refetchSftpStatus();
+        toast({
+          title: "SFTP sync failed",
+          description: err?.data?.message ?? "Check the server logs for details.",
+          variant: "destructive",
+        });
+      },
+    });
 
   const addFiles = useCallback(async (list: FileList | File[]) => {
     const incoming = await Promise.all(
@@ -79,6 +111,118 @@ export default function Upload() {
           re-uploaded dates are corrected in place.
         </p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Automatic SFTP sync</CardTitle>
+          {sftpStatus?.configured && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runSftpSync}
+              disabled={sftpSync.isPending || sftpStatus.running}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${sftpSync.isPending || sftpStatus.running ? "animate-spin" : ""}`} />
+              {sftpSync.isPending || sftpStatus.running ? "Syncing..." : "Sync now"}
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="text-sm space-y-1.5">
+          {!sftpStatus ? (
+            <p className="text-muted-foreground">Loading sync status…</p>
+          ) : !sftpStatus.configured ? (
+            <p className="text-muted-foreground">
+              Not configured. Set the SFTP environment variables on the server to
+              pull Clever reports automatically each day. Manual upload always works.
+            </p>
+          ) : (
+            <>
+              <p className="flex items-center gap-2">
+                <Badge variant="secondary">Configured</Badge>
+                Reports are pulled from Clever automatically once a day.
+              </p>
+              <p className="text-muted-foreground">
+                Last sync:{" "}
+                {sftpStatus.lastRunAt
+                  ? new Date(sftpStatus.lastRunAt).toLocaleString()
+                  : "not yet run"}
+                {sftpStatus.lastResult &&
+                  ` — ${sftpStatus.lastResult.importedSnapshots.length} imported, ${sftpStatus.lastResult.skippedSnapshots.length} already up to date`}
+              </p>
+              {sftpStatus.lastError && (
+                <p className="text-destructive flex items-start gap-1.5">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  Last sync failed: {sftpStatus.lastError}
+                </p>
+              )}
+              {sftpStatus.lastResult && sftpStatus.lastResult.warnings.length > 0 && (
+                <ul className="space-y-1">
+                  {sftpStatus.lastResult.warnings.map((w, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /> {w}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {sftpStatus && sftpStatus.recentRuns.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Recent sync runs</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ran at</TableHead>
+                  <TableHead>Result</TableHead>
+                  <TableHead className="text-right">Imported</TableHead>
+                  <TableHead className="text-right">Already up to date</TableHead>
+                  <TableHead>Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sftpStatus.recentRuns.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell className="whitespace-nowrap text-sm">
+                      {new Date(run.ranAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={run.ok ? "secondary" : "destructive"}>
+                        {run.ok ? "Success" : "Failed"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {run.importedSnapshots.length}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {run.skippedSnapshots.length}
+                    </TableCell>
+                    <TableCell className="text-sm max-w-md">
+                      {run.error ? (
+                        <span className="text-destructive">{run.error}</span>
+                      ) : run.importedSnapshots.length > 0 ? (
+                        `Imported ${run.importedSnapshots.join(", ")}`
+                      ) : (
+                        <span className="text-muted-foreground">No new data found</span>
+                      )}
+                      {run.warnings.length > 0 && (
+                        <span className="text-amber-700 dark:text-amber-400">
+                          {" "}— {run.warnings.length} warning{run.warnings.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <div
         className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
@@ -182,6 +326,7 @@ export default function Upload() {
               <TableRow>
                 <TableHead>Uploaded</TableHead>
                 <TableHead>By</TableHead>
+                <TableHead>Source</TableHead>
                 <TableHead>Snapshot date</TableHead>
                 <TableHead>Files</TableHead>
                 <TableHead className="text-right">Inserted</TableHead>
@@ -196,6 +341,11 @@ export default function Upload() {
                     {new Date(entry.uploadedAt).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-sm">{entry.uploadedByName}</TableCell>
+                  <TableCell>
+                    <Badge variant={entry.source === "sftp" ? "outline" : "secondary"}>
+                      {entry.source === "sftp" ? "SFTP" : "Upload"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-sm">{entry.snapshotDate}</TableCell>
                   <TableCell><Badge variant="secondary">{entry.filesIncluded.length} files</Badge></TableCell>
                   <TableCell className="text-right tabular-nums">{entry.rowsInserted}</TableCell>
@@ -205,7 +355,7 @@ export default function Upload() {
               ))}
               {(!importLog || importLog.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No imports yet.
                   </TableCell>
                 </TableRow>

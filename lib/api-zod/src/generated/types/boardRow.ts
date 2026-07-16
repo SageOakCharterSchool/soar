@@ -5,8 +5,7 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
-import type { BoardRowStaffSharingStatus } from './boardRowStaffSharingStatus';
-import type { BoardRowStudentSharingStatus } from './boardRowStudentSharingStatus';
+import type { RaciBoardPerson } from './raciBoardPerson';
 
 export interface BoardRow {
   applicationId: number;
@@ -14,8 +13,8 @@ export interface BoardRow {
   /** @nullable */
   category?: string | null;
   statusId: number;
-  studentSharingStatus: BoardRowStudentSharingStatus;
-  staffSharingStatus: BoardRowStaffSharingStatus;
+  studentSharingStatus: string;
+  staffSharingStatus: string;
   /** @nullable */
   syncMethod?: string | null;
   /** @nullable */
@@ -31,4 +30,5 @@ export interface BoardRow {
   upvoteCount: number;
   upvotedByMe: boolean;
   openIssueCount: number;
+  raci: RaciBoardPerson[];
 }

@@ -11,4 +11,5 @@ export interface UserUpdate {
   displayName?: string;
   role?: UserUpdateRole;
   password?: string;
+  tags?: string[];
 }

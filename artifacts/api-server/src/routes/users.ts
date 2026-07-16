@@ -3,13 +3,26 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { CreateUserBody, UpdateUserBody } from "@workspace/api-zod";
-import { requireAdmin, toUserDto } from "../lib/auth";
+import { requireAdmin, requireAuth, toUserDto } from "../lib/auth";
 
 const router: IRouter = Router();
 
 router.get("/users", requireAdmin, async (_req, res): Promise<void> => {
   const users = await db.select().from(usersTable).orderBy(usersTable.email);
   res.json(users.map(toUserDto));
+});
+
+router.get("/users/options", requireAuth, async (_req, res): Promise<void> => {
+  const users = await db
+    .select({
+      id: usersTable.id,
+      displayName: usersTable.displayName,
+      role: usersTable.role,
+      tags: usersTable.tags,
+    })
+    .from(usersTable)
+    .orderBy(usersTable.displayName);
+  res.json(users);
 });
 
 router.post("/users", requireAdmin, async (req, res): Promise<void> => {
@@ -32,6 +45,7 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
       passwordHash,
       displayName: parsed.data.displayName,
       role: parsed.data.role,
+      tags: parsed.data.tags ?? [],
     })
     .returning();
   res.status(201).json(toUserDto(user!));
@@ -52,6 +66,7 @@ router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
   const updates: Partial<typeof usersTable.$inferInsert> = {};
   if (parsed.data.displayName !== undefined) updates.displayName = parsed.data.displayName;
   if (parsed.data.role !== undefined) updates.role = parsed.data.role;
+  if (parsed.data.tags !== undefined) updates.tags = parsed.data.tags;
   if (parsed.data.password !== undefined && parsed.data.password.length > 0) {
     updates.passwordHash = await bcrypt.hash(parsed.data.password, 10);
   }

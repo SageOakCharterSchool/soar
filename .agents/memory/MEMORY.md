@@ -1,3 +1,16 @@
 - [connect-pg-simple bundling](connect-pg-simple-bundling.md) — createTableIfMissing reads a .sql file from disk and silently fails in esbuild bundles; create the session table at startup instead.
 - [TS project references stale dist](ts-project-references-stale-dist.md) — typecheck reads lib/db dist declarations, not src; rebuild refs (tsc -b) before trusting "missing export" errors.
-- [api-server fake-db tests](api-server-fake-db-tests.md) — mocks must return row copies, add new schema tables to every test file's db mock, and rebuild lib/db dist when tsc claims missing exports.
+- [api-server fake-db tests](api-server-fake-db-tests.md) — mocks must return row copies, new schema tables go in the shared fakeDb tables map (one place), rebuild lib/db dist when tsc claims missing exports.
+- [Drizzle startup migrations](drizzle-startup-migrations.md) — schema applied at boot from bundled SQL; new migrations must be hand-edited to be idempotent since existing DBs came from `push`.
+- [Hand-written drizzle migrations](hand-written-migrations.md) — drizzle-kit generate is broken (path bug, missing snapshots); write migration SQL + journal entry by hand.
+- [esbuild externalized transitive deps](esbuild-transitive-deps.md) — externalized packages' own deps (ssh2 for ssh2-sftp-client) must be direct deps; verify by booting the bundle, not just building.
+- [Clever Reports SFTP real layout](clever-sftp-real-layout.md) — real server publishes raw per-user daily CSVs (~13-day retention), not snapshot batches; keep the daily-report adapter path working.
+- [Browser checks via playwright-core](browser-checks-playwright.md) — no bundled browsers; use playwright-core + Nix chromium (executablePath from `which chromium`, --no-sandbox) for scripted UI checks.
+- [Google SSO UI check gotchas](google-sso-ui-check.md) — fulfilled 302s can't be intercepted downstream; Radix toasts double-match getByText (use .first()).
+- [Simulating stale sessions in Playwright](two-session-staleness-playwright.md) — hold refetches in-flight via route queue, not abort; aborted queries never converge after unrouting.
+- [Toasts lost before Toaster mounts](toast-before-toaster-mount.md) — useToast must sync from memoryState on subscribe or mount-effect toasts are silently dropped.
+- [Validation dist rebuild race](validation-dist-rebuild-race.md) — google-sso check flakes when verify-migrations rebuilds api-server dist concurrently; rerun in isolation, and start dev workflows first.
+- [Orval query-param name collision](orval-query-param-name-collision.md) — query params on an op with path params collide in api-zod's barrel; fix with explicit re-export, single-quoted index lines.
+- [RACI empty-state UI checks](raci-empty-state-check.md) — in-table empty-state messages are tbody rows, so "no rows" guards based on tr counts never fire; exclude them first.
+- [Count-based toast waits are flaky](toast-count-waits-flaky.md) — TOAST_LIMIT caps visible count and toasts auto-dismiss ~5s; wait on unique toast text started before the action instead.
+- [Drizzle text enum is TS-only](drizzle-text-enum-ts-only.md) — text({enum}) has no DB constraint; widening allowed values is a schema-type edit, not a migration.

@@ -4,7 +4,9 @@ import authRouter from "./auth";
 import usersRouter from "./users";
 import termsRouter from "./terms";
 import rosteringRouter from "./rostering";
+import raciRouter from "./raci";
 import feedbackRouter from "./feedback";
+import settingsRouter from "./settings";
 import usageRouter from "./usage";
 import uploadsRouter from "./uploads";
 
@@ -15,7 +17,9 @@ router.use(authRouter);
 router.use(usersRouter);
 router.use(termsRouter);
 router.use(rosteringRouter);
+router.use(raciRouter);
 router.use(feedbackRouter);
+router.use(settingsRouter);
 router.use(usageRouter);
 router.use(uploadsRouter);
 

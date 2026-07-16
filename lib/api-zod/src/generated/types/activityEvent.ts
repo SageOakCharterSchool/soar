@@ -9,7 +9,8 @@ import type { ActivityEventEventType } from './activityEventEventType';
 
 export interface ActivityEvent {
   id: number;
-  applicationId: number;
+  /** @nullable */
+  applicationId: number | null;
   appName: string;
   /** @nullable */
   termId?: number | null;

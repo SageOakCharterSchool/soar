@@ -13,7 +13,9 @@ tags:
   - name: users
   - name: terms
   - name: rostering
+  - name: raci
   - name: feedback
+  - name: settings
   - name: usage
   - name: uploads
 paths:
@@ -83,6 +85,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /auth/config:
+    get:
+      operationId: getAuthConfig
+      tags: [auth]
+      summary: Public auth configuration (which sign-in methods are enabled)
+      responses:
+        "200":
+          description: Auth configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthConfig"
   /users:
     get:
       operationId: listUsers
@@ -114,6 +128,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+  /users/options:
+    get:
+      operationId: listUserOptions
+      tags: [users]
+      summary: List users as owner-picker options (any signed-in user)
+      responses:
+        "200":
+          description: User options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserOption"
   /users/{id}:
     patch:
       operationId: updateUser
@@ -312,6 +340,62 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityEvent"
+  /rostering/activity/archive:
+    get:
+      operationId: getRosteringActivityArchive
+      tags: [rostering]
+      summary: Archived activity events older than the retention window (admin)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer }
+        - name: search
+          in: query
+          required: false
+          description: Case-insensitive match against app name, actor, or detail
+          schema: { type: string }
+        - name: appName
+          in: query
+          required: false
+          description: Case-insensitive exact app name filter
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          description: Only events occurring on/after this date (ISO 8601)
+          schema: { type: string }
+        - name: to
+          in: query
+          required: false
+          description: Only events occurring on/before this date (ISO 8601)
+          schema: { type: string }
+        - name: archivedBefore
+          in: query
+          required: false
+          description: >
+            Snapshot boundary (ISO 8601): only include rows archived at or
+            before this instant. Pass the X-Archive-Snapshot header value from
+            the first page on subsequent pages to keep paged exports
+            consistent while archiving runs.
+          schema: { type: string }
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [json, csv] }
+      responses:
+        "200":
+          description: Archived activity events, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArchivedActivityEvent"
   /rostering/last-seen:
     get:
       operationId: getRosteringLastSeen
@@ -335,6 +419,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosteringLastSeen"
+  /rostering/unseen-count:
+    get:
+      operationId: getRosteringUnseenCount
+      tags: [rostering]
+      summary: Number of activity events newer than the user's last Rostering visit
+      responses:
+        "200":
+          description: Count of unseen activity events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringUnseenCount"
+  /issues/last-seen:
+    get:
+      operationId: getIssuesLastSeen
+      tags: [feedback]
+      summary: When the logged-in user last viewed the Issues page
+      responses:
+        "200":
+          description: Last seen timestamp (null if never visited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+    post:
+      operationId: markIssuesSeen
+      tags: [feedback]
+      summary: Record that the logged-in user just viewed the Issues page
+      responses:
+        "200":
+          description: Previous last-seen timestamp before this visit (null if first visit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+  /issues/unseen-count:
+    get:
+      operationId: getIssuesUnseenCount
+      tags: [feedback]
+      summary: Number of issue events newer than the user's last Issues visit
+      responses:
+        "200":
+          description: Count of unseen issue events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringUnseenCount"
   /apps/{id}/upvote:
     post:
       operationId: toggleUpvote
@@ -419,6 +550,63 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Issue"
+    delete:
+      operationId: deleteIssue
+      tags: [feedback]
+      summary: Delete an issue and its related activity (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /settings:
+    get:
+      operationId: getAppSettings
+      tags: [settings]
+      summary: Full application settings (admin only)
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    put:
+      operationId: updateAppSettings
+      tags: [settings]
+      summary: Update application settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+  /settings/public:
+    get:
+      operationId: getPublicAppSettings
+      tags: [settings]
+      summary: Settings subset needed by all signed-in users
+      responses:
+        "200":
+          description: Public settings subset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicAppSettings"
   /usage/summary:
     get:
       operationId: getUsageSummary
@@ -522,6 +710,24 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ResourceUsageRow"
+  /usage/additional-resources/history:
+    get:
+      operationId: getAdditionalResourcesHistory
+      tags: [usage]
+      summary: Per-resource usage across recent snapshot dates
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 60 }
+          description: How many recent snapshot dates to include (default 12)
+      responses:
+        "200":
+          description: Usage history per resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUsageHistory"
   /uploads:
     post:
       operationId: uploadUsageData
@@ -560,8 +766,497 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ImportLogEntry"
+  /uploads/sftp/status:
+    get:
+      operationId: getSftpSyncStatus
+      tags: [uploads]
+      summary: Status of the automatic Clever SFTP report sync (admin)
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SftpSyncStatus"
+  /uploads/sftp/sync:
+    post:
+      operationId: triggerSftpSync
+      tags: [uploads]
+      summary: Trigger an immediate Clever SFTP report sync (admin)
+      responses:
+        "200":
+          description: Sync summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SftpSyncSummary"
+        "400":
+          description: SFTP not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: A sync is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /uploads/sftp/alerts:
+    get:
+      operationId: getSyncAlerts
+      tags: [uploads]
+      summary: Active alerts from failed Clever SFTP syncs (admin)
+      responses:
+        "200":
+          description: Active sync alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SyncAlert"
+  /uploads/sftp/alerts/{id}/dismiss:
+    post:
+      operationId: dismissSyncAlert
+      tags: [uploads]
+      summary: Dismiss a sync failure alert (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Alert dismissed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Alert not found or already resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci:
+    get:
+      operationId: getRaciMatrix
+      tags: [raci]
+      summary: Full RACI matrix (all teams, members, rows, and assignments)
+      responses:
+        "200":
+          description: RACI matrix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciMatrix"
+  /raci/rows:
+    post:
+      operationId: createRaciRow
+      tags: [raci]
+      summary: Add a RACI row (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciRowInput"
+      responses:
+        "200":
+          description: Created row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciRow"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/rows/{id}:
+    patch:
+      operationId: updateRaciRow
+      tags: [raci]
+      summary: Rename, recategorize, or (un)link a RACI row (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciRowUpdate"
+      responses:
+        "200":
+          description: Updated row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciRow"
+        "404":
+          description: Row not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The row name was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
+    delete:
+      operationId: deleteRaciRow
+      tags: [raci]
+      summary: Remove a RACI row (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: expectedName
+          in: query
+          required: false
+          description: >-
+            The row name the client last saw. When provided and it no longer
+            matches the stored name, the delete is rejected with 409 so a
+            concurrent admin's rename is not silently destroyed.
+          schema:
+            type: string
+        - name: expectedAssignments
+          in: query
+          required: false
+          description: >-
+            Canonical fingerprint of the row's cell assignments the client
+            last saw: "memberId=value" pairs sorted by memberId and joined
+            with commas (empty string when the row had no assignments). When
+            provided and it no longer matches the stored assignments, the
+            delete is rejected with 409 so a concurrent admin's assignment
+            changes are not silently destroyed.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Row removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Row not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: >-
+            The row's name or assignments were changed by another admin since
+            it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
+  /raci/members:
+    post:
+      operationId: createRaciMember
+      tags: [raci]
+      summary: Add a team member column (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciMemberInput"
+      responses:
+        "200":
+          description: Created member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciMember"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /raci/members/{id}:
+    patch:
+      operationId: updateRaciMember
+      tags: [raci]
+      summary: Rename a team member column (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciMemberUpdate"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciMember"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The member name was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
+    delete:
+      operationId: deleteRaciMember
+      tags: [raci]
+      summary: Remove a team member column (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: expectedName
+          in: query
+          required: false
+          description: >-
+            The member name the client last saw. When provided and it no
+            longer matches the stored name, the delete is rejected with 409 so
+            a concurrent admin's rename is not silently destroyed.
+          schema:
+            type: string
+        - name: expectedAssignments
+          in: query
+          required: false
+          description: >-
+            Canonical fingerprint of the member's column assignments the
+            client last saw: "rowId=value" pairs sorted by rowId and joined
+            with commas (empty string when the member had no assignments).
+            When provided and it no longer matches the stored assignments, the
+            delete is rejected with 409 so a concurrent admin's assignment
+            changes are not silently destroyed.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: >-
+            The member's name or assignments were changed by another admin
+            since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciNameConflict"
+  /raci/cells:
+    put:
+      operationId: setRaciCell
+      tags: [raci]
+      summary: Set or clear a RACI cell (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciCellInput"
+      responses:
+        "200":
+          description: Cell state after the update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciCellState"
+        "404":
+          description: Row or member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The cell was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciCellConflict"
+  /raci/teams/{id}/rename-category:
+    post:
+      operationId: renameRaciCategory
+      tags: [raci]
+      summary: Rename a category within a team (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaciCategoryRename"
+      responses:
+        "200":
+          description: Category renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Team not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: >-
+            The category no longer exists on this team — it was likely renamed
+            or removed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciCategoryRenameConflict"
 components:
   schemas:
+    DropdownOption:
+      type: object
+      required: [value, label, active]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        active: { type: boolean }
+    SyncScheduleSettings:
+      type: object
+      required: [enabled, time]
+      properties:
+        enabled: { type: boolean }
+        time:
+          type: string
+          description: Time of day (server time) in HH:MM 24-hour format.
+    BrandingSettings:
+      type: object
+      required: [appName, logoDataUrl, accentColor]
+      properties:
+        appName: { type: string }
+        logoDataUrl:
+          type: ["string", "null"]
+        accentColor:
+          type: ["string", "null"]
+          description: Hex color like "#4a7c67", or null for the default theme.
+    NotificationSettings:
+      type: object
+      required: [syncFailureBannerEnabled, alertOnSyncWarnings, recipients]
+      properties:
+        syncFailureBannerEnabled: { type: boolean }
+        alertOnSyncWarnings: { type: boolean }
+        recipients:
+          type: array
+          items: { type: string }
+    AppSettings:
+      type: object
+      required:
+        [
+          staleOpenDays,
+          sharingStatusOptions,
+          raciValueOptions,
+          syncSchedule,
+          branding,
+          notifications,
+        ]
+      properties:
+        staleOpenDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        sharingStatusOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        raciValueOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        syncSchedule:
+          $ref: "#/components/schemas/SyncScheduleSettings"
+        branding:
+          $ref: "#/components/schemas/BrandingSettings"
+        notifications:
+          $ref: "#/components/schemas/NotificationSettings"
+    PublicAppSettings:
+      type: object
+      required:
+        [
+          staleOpenDays,
+          sharingStatusOptions,
+          raciValueOptions,
+          branding,
+          syncFailureBannerEnabled,
+        ]
+      properties:
+        staleOpenDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        sharingStatusOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        raciValueOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        branding:
+          $ref: "#/components/schemas/BrandingSettings"
+        syncFailureBannerEnabled: { type: boolean }
+    AppSettingsUpdate:
+      type: object
+      properties:
+        staleOpenDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        sharingStatusOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        raciValueOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DropdownOption"
+        syncSchedule:
+          $ref: "#/components/schemas/SyncScheduleSettings"
+        branding:
+          $ref: "#/components/schemas/BrandingSettings"
+        notifications:
+          $ref: "#/components/schemas/NotificationSettings"
     HealthStatus:
       type: object
       properties:
@@ -572,6 +1267,11 @@ components:
       properties:
         message: { type: string }
       required: [message]
+    AuthConfig:
+      type: object
+      required: [googleEnabled]
+      properties:
+        googleEnabled: { type: boolean }
     LoginInput:
       type: object
       required: [email, password]
@@ -580,7 +1280,7 @@ components:
         password: { type: string }
     User:
       type: object
-      required: [id, email, displayName, role, createdAt]
+      required: [id, email, displayName, role, tags, createdAt]
       properties:
         id: { type: integer }
         email: { type: string }
@@ -588,7 +1288,22 @@ components:
         role:
           type: string
           enum: [admin, staff]
+        tags:
+          type: array
+          items: { type: string }
         createdAt: { type: string }
+    UserOption:
+      type: object
+      required: [id, displayName, role, tags]
+      properties:
+        id: { type: integer }
+        displayName: { type: string }
+        role:
+          type: string
+          enum: [admin, staff]
+        tags:
+          type: array
+          items: { type: string }
     UserInput:
       type: object
       required: [email, password, displayName, role]
@@ -599,6 +1314,9 @@ components:
         role:
           type: string
           enum: [admin, staff]
+        tags:
+          type: array
+          items: { type: string }
     UserUpdate:
       type: object
       properties:
@@ -607,6 +1325,9 @@ components:
           type: string
           enum: [admin, staff]
         password: { type: string }
+        tags:
+          type: array
+          items: { type: string }
     Term:
       type: object
       required: [id, label, schoolYear, termType, startDate, endDate, sortOrder, isCurrent]
@@ -660,10 +1381,8 @@ components:
         termId: { type: integer }
         studentSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         staffSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         syncMethod:
           type: ["string", "null"]
         lastSyncedAt:
@@ -680,10 +1399,8 @@ components:
       properties:
         studentSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         staffSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         syncMethod:
           type: ["string", "null"]
           enum: [SSO, SAML, manual, other, null]
@@ -695,7 +1412,7 @@ components:
           type: ["string", "null"]
     BoardRow:
       type: object
-      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, upvoteCount, upvotedByMe, openIssueCount]
+      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, upvoteCount, upvotedByMe, openIssueCount, raci]
       properties:
         applicationId: { type: integer }
         appName: { type: string }
@@ -704,10 +1421,8 @@ components:
         statusId: { type: integer }
         studentSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         staffSharingStatus:
           type: string
-          enum: [not_started, in_progress, complete, needs_review]
         syncMethod:
           type: ["string", "null"]
         lastSyncedAt:
@@ -723,6 +1438,188 @@ components:
         upvoteCount: { type: integer }
         upvotedByMe: { type: boolean }
         openIssueCount: { type: integer }
+        raci:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciBoardPerson"
+    RaciValue:
+      type: string
+    RaciAssignment:
+      type: object
+      required: [memberId, value]
+      properties:
+        memberId: { type: integer }
+        value:
+          $ref: "#/components/schemas/RaciValue"
+    RaciMember:
+      type: object
+      required: [id, teamId, name, sortOrder]
+      properties:
+        id: { type: integer }
+        teamId: { type: integer }
+        name: { type: string }
+        userId:
+          type: ["integer", "null"]
+        sortOrder: { type: integer }
+    RaciRow:
+      type: object
+      required: [id, teamId, name, sortOrder, assignments]
+      properties:
+        id: { type: integer }
+        teamId: { type: integer }
+        category:
+          type: ["string", "null"]
+        name: { type: string }
+        sortOrder: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
+        appName:
+          type: ["string", "null"]
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciAssignment"
+    RaciTeamData:
+      type: object
+      required: [id, name, sortOrder, members, rows]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        sortOrder: { type: integer }
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciMember"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciRow"
+    RaciMatrix:
+      type: object
+      required: [teams]
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciTeamData"
+    RaciRowInput:
+      type: object
+      required: [teamId, name]
+      properties:
+        teamId: { type: integer }
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: ["string", "null"]
+    RaciRowUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        expectedName:
+          description: >-
+            The row name the client last saw. When provided with a rename and
+            it no longer matches the stored name, the update is rejected with
+            409 so a concurrent admin's rename is not silently overwritten.
+          type: string
+        category:
+          type: ["string", "null"]
+        applicationId:
+          type: ["integer", "null"]
+    RaciMemberInput:
+      type: object
+      required: [teamId, name]
+      properties:
+        teamId: { type: integer }
+        name:
+          type: string
+          minLength: 1
+    RaciMemberUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        expectedName:
+          description: >-
+            The member name the client last saw. When provided and it no
+            longer matches the stored name, the update is rejected with 409 so
+            a concurrent admin's rename is not silently overwritten.
+          type: string
+    RaciNameConflict:
+      type: object
+      required: [message, currentName]
+      properties:
+        message: { type: string }
+        currentName: { type: string }
+    RaciCellInput:
+      type: object
+      required: [rowId, memberId, value]
+      properties:
+        rowId: { type: integer }
+        memberId: { type: integer }
+        value:
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+        expectedValue:
+          description: >-
+            The cell value the client last saw. When provided and it no longer
+            matches the stored value, the update is rejected with 409 so a
+            concurrent admin's edit is not silently overwritten.
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+    RaciCellConflict:
+      type: object
+      required: [message, currentValue]
+      properties:
+        message: { type: string }
+        currentValue:
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+    RaciCategoryRenameConflict:
+      type: object
+      required: [message, removed]
+      properties:
+        message: { type: string }
+        removed:
+          type: boolean
+          description: True when the category no longer exists on the team
+        currentName:
+          type: string
+          description: The category's current name, when it could be discovered
+    RaciCellState:
+      type: object
+      required: [rowId, memberId, value]
+      properties:
+        rowId: { type: integer }
+        memberId: { type: integer }
+        value:
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+    RaciCategoryRename:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          minLength: 1
+        to:
+          type: string
+          minLength: 1
+    RaciBoardPerson:
+      type: object
+      required: [name, value]
+      properties:
+        name: { type: string }
+        value:
+          $ref: "#/components/schemas/RaciValue"
     RosteringSummary:
       type: object
       required: [notStarted, inProgress, complete, needsReview, total]
@@ -737,23 +1634,45 @@ components:
       required: [id, applicationId, appName, eventType, detail, createdAt]
       properties:
         id: { type: integer }
-        applicationId: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
         appName: { type: string }
         termId:
           type: ["integer", "null"]
         eventType:
           type: string
-          enum: [status_change, app_added, issue_reported, issue_resolved]
+          enum: [status_change, app_added, issue_reported, issue_resolved, raci_change]
         detail: { type: string }
         actorName:
           type: ["string", "null"]
         createdAt: { type: string }
+    ArchivedActivityEvent:
+      type: object
+      required: [id, applicationId, appName, eventType, detail, createdAt, archivedAt]
+      properties:
+        id: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
+        appName: { type: string }
+        termId:
+          type: ["integer", "null"]
+        eventType: { type: string }
+        detail: { type: string }
+        actorName:
+          type: ["string", "null"]
+        createdAt: { type: string }
+        archivedAt: { type: string }
     RosteringLastSeen:
       type: object
       required: [lastSeenAt]
       properties:
         lastSeenAt:
           type: ["string", "null"]
+    RosteringUnseenCount:
+      type: object
+      required: [count]
+      properties:
+        count: { type: integer }
     UpvoteState:
       type: object
       required: [applicationId, upvoted, upvoteCount]
@@ -768,7 +1687,7 @@ components:
         comment: { type: string, minLength: 1 }
     Issue:
       type: object
-      required: [id, applicationId, appName, userId, reporterName, comment, status, createdAt]
+      required: [id, applicationId, appName, userId, reporterName, comment, status, createdAt, raci]
       properties:
         id: { type: integer }
         applicationId: { type: integer }
@@ -780,6 +1699,11 @@ components:
           type: string
           enum: [open, resolved]
         createdAt: { type: string }
+        resolvedAt: { type: string, nullable: true }
+        raci:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciBoardPerson"
     IssueUpdate:
       type: object
       required: [status]
@@ -868,13 +1792,41 @@ components:
         studentPercent: { type: number }
         teacherCount: { type: integer }
         teacherPercent: { type: number }
-        activeTimePerUserMinutes: { type: number }
+        activeTimePerUserMinutes: { type: number, nullable: true }
     ResourceUsageRow:
       type: object
-      required: [link, uniqueUsers]
+      required: [link, uniqueUsers, totalAccesses]
       properties:
         link: { type: string }
         uniqueUsers: { type: integer }
+        totalAccesses: { type: integer }
+    ResourceUsagePoint:
+      type: object
+      required: [snapshotDate, uniqueUsers, totalAccesses]
+      properties:
+        snapshotDate: { type: string }
+        uniqueUsers: { type: integer }
+        totalAccesses: { type: integer }
+    ResourceUsageSeries:
+      type: object
+      required: [link, points]
+      properties:
+        link: { type: string }
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceUsagePoint"
+    ResourceUsageHistory:
+      type: object
+      required: [snapshotDates, resources]
+      properties:
+        snapshotDates:
+          type: array
+          items: { type: string }
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceUsageSeries"
     UploadFile:
       type: object
       required: [name, content]
@@ -904,7 +1856,7 @@ components:
           items: { type: string }
     ImportLogEntry:
       type: object
-      required: [id, uploadedAt, uploadedByName, snapshotDate, filesIncluded, rowsInserted, rowsUpdated]
+      required: [id, uploadedAt, uploadedByName, snapshotDate, filesIncluded, source, rowsInserted, rowsUpdated]
       properties:
         id: { type: integer }
         uploadedAt: { type: string }
@@ -913,5 +1865,79 @@ components:
         filesIncluded:
           type: array
           items: { type: string }
+        source: { type: string, enum: [upload, sftp] }
         rowsInserted: { type: integer }
         rowsUpdated: { type: integer }
+    SftpSyncSummary:
+      type: object
+      required: [importedSnapshots, skippedSnapshots, warnings]
+      properties:
+        importedSnapshots:
+          type: array
+          items: { type: string }
+        skippedSnapshots:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+    SftpSyncRun:
+      type: object
+      required: [id, ranAt, ok, importedSnapshots, skippedSnapshots, warnings, error]
+      properties:
+        id: { type: integer }
+        ranAt: { type: string }
+        ok: { type: boolean }
+        importedSnapshots:
+          type: array
+          items: { type: string }
+        skippedSnapshots:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        error:
+          type: [string, "null"]
+    SftpSyncStatus:
+      type: object
+      required:
+        [
+          configured,
+          running,
+          lastRunAt,
+          lastResult,
+          lastError,
+          recentRuns,
+          scheduleEnabled,
+          scheduleTime,
+          nextRunAt,
+        ]
+      properties:
+        configured: { type: boolean }
+        running: { type: boolean }
+        scheduleEnabled: { type: boolean }
+        scheduleTime: { type: string }
+        nextRunAt:
+          type: [string, "null"]
+        lastRunAt:
+          type: [string, "null"]
+        lastResult:
+          oneOf:
+            - $ref: "#/components/schemas/SftpSyncSummary"
+            - type: "null"
+        lastError:
+          type: [string, "null"]
+        recentRuns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SftpSyncRun"
+    SyncAlert:
+      type: object
+      required: [id, message, occurrences, firstSeenAt, lastSeenAt]
+      properties:
+        id: { type: integer }
+        message: { type: string }
+        occurrences: { type: integer }
+        firstSeenAt: { type: string }
+        lastSeenAt: { type: string }

@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "postgresql-16"]
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -18,22 +18,39 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "typecheck"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "migrations"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "google-sso"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "test"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "typecheck"
-
-[[workflows.workflow]]
-name = "test"
-author = "agent"
+args = "raci-conflict"
 
 [[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server test"
+task = "workflow.run"
+args = "staff-access"
 
-[workflows.workflow.metadata]
-isValidation = true
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "issues-legacy-date"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "issue-open-age"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "stale-threshold"
 
 [[workflows.workflow]]
 name = "typecheck"
@@ -45,6 +62,91 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsc -b lib/db lib/api-zod && pnpm --filter @workspace/api-server typecheck"
+
+[[workflows.workflow]]
+name = "migrations"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts verify-migrations"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "google-sso"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run google-sso-ui-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "test"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server test && pnpm --filter @workspace/sage-oak-dashboard test"
+
+[[workflows.workflow]]
+name = "raci-conflict"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run raci-conflict-ui-check && pnpm --filter @workspace/scripts run raci-highlight-fade-check"
+
+[[workflows.workflow]]
+name = "staff-access"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run staff-access-check && pnpm --filter @workspace/scripts run staff-ui-check && pnpm --filter @workspace/scripts run issues-new-marker-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "issues-legacy-date"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run issues-legacy-date-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "issue-open-age"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run issue-open-age-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "stale-threshold"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run stale-threshold-ui-check && pnpm --filter @workspace/scripts run stale-threshold-invalid-ui-check"
 
 [agent]
 stack = "PNPM_WORKSPACE"

@@ -1,384 +1,14 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import type { Server } from "http";
+import { fakeDb, tables, state, resetFakeDb } from "../test/fakeDb";
 
-// Extended fake-db + in-memory session pattern (see routes.test.ts).
-// This variant also supports inner joins, groupBy with sql aggregates,
-// returning(), delete, onConflictDoUpdate, and or/ne/isNull conditions,
-// which the rostering/terms/users/feedback routes rely on.
-
-const { fakeDb, tables, state } = vi.hoisted(() => {
-  type HCol = { name: string; table: string };
-  type Row = Record<string, unknown>;
-  type SqlMarker = { __sql: string; vals: unknown[] };
-  type HCond =
-    | { type: "eq"; col: HCol; val: unknown }
-    | { type: "ne"; col: HCol; val: unknown }
-    | { type: "gte"; col: HCol; val: unknown }
-    | { type: "lte"; col: HCol; val: unknown }
-    | { type: "isNull"; col: HCol }
-    | { type: "and"; conds: HCond[] }
-    | { type: "or"; conds: HCond[] };
-
-  function isCol(v: unknown): v is HCol {
-    return (
-      typeof v === "object" &&
-      v !== null &&
-      "name" in v &&
-      "table" in v &&
-      typeof (v as HCol).name === "string"
-    );
-  }
-
-  function makeTable(label: string) {
-    return new Proxy(
-      { __label: label },
-      {
-        get(_target, prop: string) {
-          if (prop === "__label") return label;
-          return { name: prop, table: label };
-        },
-      },
-    );
-  }
-
-  type RowCtx = { base: Row; byTable: Record<string, Row | null> };
-
-  function resolve(ctx: RowCtx, col: HCol): unknown {
-    const src = ctx.byTable[col.table];
-    if (src !== undefined) return src ? src[col.name] : null;
-    return ctx.base[col.name];
-  }
-
-  function matches(ctx: RowCtx, cond: HCond | undefined): boolean {
-    if (!cond) return true;
-    if (cond.type === "and") return cond.conds.every((c) => matches(ctx, c));
-    if (cond.type === "or") return cond.conds.some((c) => matches(ctx, c));
-    if (cond.type === "isNull") return resolve(ctx, cond.col) == null;
-    const v = resolve(ctx, cond.col) as string | number;
-    const val = cond.val as string | number;
-    if (cond.type === "eq") return v === val;
-    if (cond.type === "ne") return v !== val;
-    if (cond.type === "gte") return v >= val;
-    return v <= val;
-  }
-
-  const state = { idCounter: 0 };
-
-  type OrderSpec = { col: HCol; dir: "asc" | "desc" } | HCol;
-  type JoinSpec = {
-    table: object;
-    cond: { type: "eq"; col: HCol; val: HCol };
-    kind: "inner" | "left";
-  };
-
-  class Query implements PromiseLike<Row[]> {
-    constructor(
-      private db: FakeDb,
-      private table: object,
-      private fields?: Record<string, HCol | SqlMarker>,
-    ) {}
-
-    private cond?: HCond;
-    private order: OrderSpec[] = [];
-    private max?: number;
-    private joins: JoinSpec[] = [];
-    private groupCol?: HCol;
-
-    where(cond: HCond | undefined) {
-      this.cond = cond;
-      return this;
-    }
-    orderBy(...specs: OrderSpec[]) {
-      this.order = specs;
-      return this;
-    }
-    limit(n: number) {
-      this.max = n;
-      return this;
-    }
-    innerJoin(table: object, cond: { type: "eq"; col: HCol; val: HCol }) {
-      this.joins.push({ table, cond, kind: "inner" });
-      return this;
-    }
-    leftJoin(table: object, cond: { type: "eq"; col: HCol; val: HCol }) {
-      this.joins.push({ table, cond, kind: "left" });
-      return this;
-    }
-    groupBy(col: HCol) {
-      this.groupCol = col;
-      return this;
-    }
-
-    private run(): Row[] {
-      const label = (this.table as { __label: string }).__label;
-      let rows: RowCtx[] = this.db
-        .rows(this.table)
-        .map((r) => ({ base: r, byTable: { [label]: r } }));
-
-      for (const join of this.joins) {
-        const joinLabel = (join.table as { __label: string }).__label;
-        const joinRows = this.db.rows(join.table);
-        const { col, val } = join.cond;
-        const joinedCol = col.table === joinLabel ? col : val;
-        const otherCol = col.table === joinLabel ? val : col;
-        const next: RowCtx[] = [];
-        for (const ctx of rows) {
-          const otherVal = resolve(ctx, otherCol);
-          const match =
-            joinRows.find((jr) => jr[joinedCol.name] === otherVal) ?? null;
-          if (match === null && join.kind === "inner") continue;
-          next.push({ ...ctx, byTable: { ...ctx.byTable, [joinLabel]: match } });
-        }
-        rows = next;
-      }
-
-      rows = rows.filter((ctx) => matches(ctx, this.cond));
-
-      const hasAggregate =
-        this.fields != null && Object.values(this.fields).some((f) => !isCol(f));
-
-      let groups: RowCtx[][];
-      if (!this.groupCol && hasAggregate) {
-        groups = [rows];
-      } else if (this.groupCol) {
-        const map = new Map<unknown, RowCtx[]>();
-        for (const ctx of rows) {
-          const key = resolve(ctx, this.groupCol);
-          if (!map.has(key)) map.set(key, []);
-          map.get(key)!.push(ctx);
-        }
-        groups = [...map.values()];
-      } else {
-        groups = rows.map((ctx) => [ctx]);
-      }
-
-      const evalField = (group: RowCtx[], field: HCol | SqlMarker): unknown => {
-        if (isCol(field)) return resolve(group[0]!, field);
-        const marker = field as SqlMarker;
-        if (marker.__sql.includes("sum")) {
-          const col = marker.vals.find(isCol) as HCol | undefined;
-          const scalar = marker.vals.find((v) => !isCol(v));
-          if (!col) return 0;
-          return group.filter((ctx) => resolve(ctx, col) === scalar).length;
-        }
-        return group.length;
-      };
-
-      const normalizeOrder = (spec: OrderSpec) =>
-        "dir" in spec && (spec.dir === "asc" || spec.dir === "desc")
-          ? (spec as { col: HCol; dir: "asc" | "desc" })
-          : { col: spec as HCol, dir: "asc" as const };
-
-      for (const raw of [...this.order].reverse()) {
-        const spec = normalizeOrder(raw);
-        groups.sort((a, b) => {
-          const av = resolve(a[0]!, spec.col) as string | number;
-          const bv = resolve(b[0]!, spec.col) as string | number;
-          const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-          return spec.dir === "desc" ? -cmp : cmp;
-        });
-      }
-      if (this.max != null) groups = groups.slice(0, this.max);
-
-      return groups.map((group) => {
-        // Return copies so "before" snapshots don't mutate with later updates.
-        if (!this.fields) return { ...group[0]!.base };
-        const out: Row = {};
-        for (const [key, field] of Object.entries(this.fields)) {
-          out[key] = evalField(group, field);
-        }
-        return out;
-      });
-    }
-
-    then<T1 = Row[], T2 = never>(
-      onResolve?: ((rows: Row[]) => T1 | PromiseLike<T1>) | null,
-      onReject?: ((e: unknown) => T2 | PromiseLike<T2>) | null,
-    ): PromiseLike<T1 | T2> {
-      return Promise.resolve(this.run()).then(onResolve, onReject);
-    }
-  }
-
-  const DEFAULTS: Record<string, () => Row> = {
-    users: () => ({ createdAt: new Date() }),
-    terms: () => ({ isCurrent: false }),
-    appTermStatus: () => ({
-      studentSharingStatus: "not_started",
-      staffSharingStatus: "not_started",
-      updatedAt: new Date(),
-    }),
-    appUpvotes: () => ({ createdAt: new Date() }),
-    appIssues: () => ({ status: "open", createdAt: new Date() }),
-    appActivity: () => ({ createdAt: new Date() }),
-    pageLastSeen: () => ({ lastSeenAt: new Date() }),
-  };
-
-  function thenable(apply: () => Row[]) {
-    return {
-      then<T1, T2>(
-        onResolve?: ((rows: Row[]) => T1 | PromiseLike<T1>) | null,
-        onReject?: ((e: unknown) => T2 | PromiseLike<T2>) | null,
-      ) {
-        return Promise.resolve(apply()).then(onResolve, onReject);
-      },
-      returning: async () => apply(),
-    };
-  }
-
-  class FakeDb {
-    store = new Map<object, Row[]>();
-
-    rows(table: object): Row[] {
-      if (!this.store.has(table)) this.store.set(table, []);
-      return this.store.get(table)!;
-    }
-
-    select(fields?: Record<string, HCol | SqlMarker>) {
-      const self = this;
-      return {
-        from(table: object) {
-          return new Query(self, table, fields);
-        },
-      };
-    }
-
-    insert(table: object) {
-      const self = this;
-      const label = (table as { __label: string }).__label;
-      return {
-        values: (vals: Row | Row[]) => {
-          const list = Array.isArray(vals) ? vals : [vals];
-          const apply = () =>
-            list.map((v) => {
-              const row: Row = {
-                id: ++state.idCounter,
-                ...(DEFAULTS[label]?.() ?? {}),
-                ...v,
-              };
-              self.rows(table).push(row);
-              return row;
-            });
-          return {
-            ...thenable(apply),
-            onConflictDoUpdate: async (opts: { target: HCol[]; set: Row }) => {
-              for (const v of list) {
-                const existing = self
-                  .rows(table)
-                  .find((r) => opts.target.every((c) => r[c.name] === v[c.name]));
-                if (existing) Object.assign(existing, opts.set);
-                else
-                  self.rows(table).push({
-                    id: ++state.idCounter,
-                    ...(DEFAULTS[label]?.() ?? {}),
-                    ...v,
-                  });
-              }
-            },
-          };
-        },
-      };
-    }
-
-    update(table: object) {
-      const self = this;
-      return {
-        set: (vals: Row) => ({
-          where: (cond: HCond) =>
-            thenable(() => {
-              const updated: Row[] = [];
-              for (const row of self.rows(table)) {
-                if (matches({ base: row, byTable: {} }, cond)) {
-                  Object.assign(row, vals);
-                  updated.push(row);
-                }
-              }
-              return updated;
-            }),
-        }),
-      };
-    }
-
-    delete(table: object) {
-      const self = this;
-      return {
-        where: (cond: HCond) =>
-          thenable(() => {
-            const all = self.rows(table);
-            const removed = all.filter((row) => matches({ base: row, byTable: {} }, cond));
-            self.store.set(
-              table,
-              all.filter((row) => !removed.includes(row)),
-            );
-            return removed;
-          }),
-      };
-    }
-
-    async execute() {
-      return { rows: [] };
-    }
-  }
-
-  const fakeDb = new FakeDb();
-
-  const tables = {
-    usersTable: makeTable("users"),
-    termsTable: makeTable("terms"),
-    applicationsTable: makeTable("applications"),
-    appTermStatusTable: makeTable("appTermStatus"),
-    appUpvotesTable: makeTable("appUpvotes"),
-    appIssuesTable: makeTable("appIssues"),
-    appActivityTable: makeTable("appActivity"),
-    pageLastSeenTable: makeTable("pageLastSeen"),
-    usageKeyMetricsTable: makeTable("usageKeyMetrics"),
-    usageByAppTable: makeTable("usageByApp"),
-    usageBySchoolTable: makeTable("usageBySchool"),
-    usageByDeviceTable: makeTable("usageByDevice"),
-    usageByBrowserTable: makeTable("usageByBrowser"),
-    usageByLoginMethodTable: makeTable("usageByLoginMethod"),
-    usageAdditionalResourcesTable: makeTable("usageAdditionalResources"),
-    usageAppListTable: makeTable("usageAppList"),
-    usageDailyStudentTable: makeTable("usageDailyStudent"),
-    usageDailyTeacherTable: makeTable("usageDailyTeacher"),
-    importLogTable: makeTable("importLog"),
-    feedbackTable: makeTable("feedback"),
-  };
-
-  return { fakeDb, tables, state };
-});
-
-type Col = { name: string; table: string };
-
-vi.mock("drizzle-orm", () => ({
-  eq: (col: Col, val: unknown) => ({ type: "eq", col, val }),
-  ne: (col: Col, val: unknown) => ({ type: "ne", col, val }),
-  gte: (col: Col, val: unknown) => ({ type: "gte", col, val }),
-  lte: (col: Col, val: unknown) => ({ type: "lte", col, val }),
-  isNull: (col: Col) => ({ type: "isNull", col }),
-  and: (...conds: unknown[]) => ({ type: "and", conds }),
-  or: (...conds: unknown[]) => ({ type: "or", conds }),
-  asc: (col: Col) => ({ col, dir: "asc" }),
-  desc: (col: Col) => ({ col, dir: "desc" }),
-  sql: (strings: TemplateStringsArray, ...vals: unknown[]) => ({
-    __sql: Array.from(strings).join("?"),
-    vals,
-  }),
-}));
-
-vi.mock("@workspace/db", () => ({
-  db: fakeDb,
-  ...tables,
-}));
-
-vi.mock("connect-pg-simple", () => ({
-  default: (session: { MemoryStore: new () => object }) =>
-    class extends session.MemoryStore {
-      constructor(_opts: unknown) {
-        super();
-      }
-    },
-}));
+vi.mock("drizzle-orm", async () => (await import("../test/fakeDb")).drizzleOrmMock);
+vi.mock("@workspace/db", async () => (await import("../test/fakeDb")).dbModuleMock);
+vi.mock(
+  "connect-pg-simple",
+  async () => (await import("../test/fakeDb")).connectPgSimpleMock,
+);
 
 import app from "../app";
 
@@ -440,8 +70,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  fakeDb.store.clear();
-  state.idCounter = 0;
+  resetFakeDb();
   fakeDb.rows(tables.usersTable).push(
     {
       id: 1,
@@ -449,6 +78,7 @@ beforeEach(() => {
       passwordHash: adminHash,
       displayName: "Administrator",
       role: "admin",
+      tags: [],
       createdAt: new Date("2026-01-01T00:00:00Z"),
     },
     {
@@ -457,6 +87,7 @@ beforeEach(() => {
       passwordHash: staffHash,
       displayName: "Staff Member",
       role: "staff",
+      tags: ["IT"],
       createdAt: new Date("2026-01-02T00:00:00Z"),
     },
   );
@@ -641,6 +272,40 @@ describe("GET /api/users", () => {
       expect(u).not.toHaveProperty("passwordHash");
       expect(typeof u.createdAt).toBe("string");
     }
+  });
+});
+
+describe("GET /api/users/options", () => {
+  it("requires a signed-in user", async () => {
+    expect((await new Client().get("/users/options")).status).toBe(401);
+  });
+
+  it("lets staff list user options sorted by display name, without emails or hashes", async () => {
+    const staff = await loginAs(STAFF);
+    const res = await staff.get("/users/options");
+    expect(res.status).toBe(200);
+    expect(res.body.map((u: { displayName: string }) => u.displayName)).toEqual([
+      "Administrator",
+      "Staff Member",
+    ]);
+    for (const u of res.body) {
+      expect(Object.keys(u).sort()).toEqual(["displayName", "id", "role", "tags"]);
+      expect(Array.isArray(u.tags)).toBe(true);
+    }
+    const staffOption = res.body.find(
+      (u: { displayName: string }) => u.displayName === "Staff Member",
+    );
+    expect(staffOption.tags).toEqual(["IT"]);
+  });
+
+  it("lets an admin update a user's tags", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch("/users/1", { tags: ["IT", "Ops"] });
+    expect(res.status).toBe(200);
+    expect(res.body.tags).toEqual(["IT", "Ops"]);
+    const options = await admin.get("/users/options");
+    const updated = options.body.find((u: { id: number }) => u.id === 1);
+    expect(updated.tags).toEqual(["IT", "Ops"]);
   });
 });
 
@@ -935,6 +600,176 @@ describe("rostering last-seen", () => {
   });
 });
 
+describe("GET /api/rostering/unseen-count", () => {
+  it("requires authentication", async () => {
+    expect((await new Client().get("/rostering/unseen-count")).status).toBe(401);
+  });
+
+  it("counts all activity when the user has never visited", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push(
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "status_change",
+        detail: "one",
+        actorId: null,
+        createdAt: new Date("2026-07-01T09:00:00Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "status_change",
+        detail: "two",
+        actorId: null,
+        createdAt: new Date("2026-07-02T09:00:00Z"),
+      },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/rostering/unseen-count");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: 2 });
+  });
+
+  it("counts only activity newer than the last visit and resets after marking seen", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "status_change",
+      detail: "old",
+      actorId: null,
+      createdAt: new Date("2026-07-01T09:00:00Z"),
+    });
+    const client = await loginAs(STAFF);
+    await client.post("/rostering/last-seen");
+
+    const cleared = await client.get("/rostering/unseen-count");
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toEqual({ count: 0 });
+
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "status_change",
+      detail: "new",
+      actorId: null,
+      createdAt: new Date(Date.now() + 60_000),
+    });
+    const after = await client.get("/rostering/unseen-count");
+    expect(after.status).toBe(200);
+    expect(after.body).toEqual({ count: 1 });
+  });
+});
+
+describe("issues last-seen and unseen-count", () => {
+  it("requires authentication", async () => {
+    expect((await new Client().get("/issues/last-seen")).status).toBe(401);
+    expect((await new Client().post("/issues/last-seen")).status).toBe(401);
+    expect((await new Client().get("/issues/unseen-count")).status).toBe(401);
+  });
+
+  it("starts null, records a visit, and returns the previous visit on re-post", async () => {
+    const client = await loginAs(STAFF);
+    const first = await client.get("/issues/last-seen");
+    expect(first.status).toBe(200);
+    expect(first.body).toEqual({ lastSeenAt: null });
+
+    const mark = await client.post("/issues/last-seen");
+    expect(mark.status).toBe(200);
+    expect(mark.body.lastSeenAt).toBeNull();
+
+    const after = await client.get("/issues/last-seen");
+    expect(after.status).toBe(200);
+    expect(typeof after.body.lastSeenAt).toBe("string");
+
+    const again = await client.post("/issues/last-seen");
+    expect(again.status).toBe(200);
+    expect(again.body.lastSeenAt).toBe(after.body.lastSeenAt);
+  });
+
+  it("counts only issue events, ignoring other activity types", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push(
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_reported",
+        detail: "Issue reported: broken login",
+        actorId: null,
+        createdAt: new Date("2026-07-01T09:00:00Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_resolved",
+        detail: "Issue resolved: broken login",
+        actorId: null,
+        createdAt: new Date("2026-07-02T09:00:00Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "status_change",
+        detail: "not an issue event",
+        actorId: null,
+        createdAt: new Date("2026-07-03T09:00:00Z"),
+      },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/issues/unseen-count");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: 2 });
+  });
+
+  it("counts only issue events newer than the last visit and resets after marking seen", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "issue_reported",
+      detail: "old issue",
+      actorId: null,
+      createdAt: new Date("2026-07-01T09:00:00Z"),
+    });
+    const client = await loginAs(STAFF);
+    await client.post("/issues/last-seen");
+
+    const cleared = await client.get("/issues/unseen-count");
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toEqual({ count: 0 });
+
+    fakeDb.rows(tables.appActivityTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      termId: null,
+      eventType: "issue_resolved",
+      detail: "new resolution",
+      actorId: null,
+      createdAt: new Date(Date.now() + 60_000),
+    });
+    const after = await client.get("/issues/unseen-count");
+    expect(after.status).toBe(200);
+    expect(after.body).toEqual({ count: 1 });
+  });
+
+  it("keeps rostering and issues last-seen independent", async () => {
+    const client = await loginAs(STAFF);
+    await client.post("/rostering/last-seen");
+    const issues = await client.get("/issues/last-seen");
+    expect(issues.status).toBe(200);
+    expect(issues.body).toEqual({ lastSeenAt: null });
+  });
+});
+
 describe("PATCH /api/rostering/status/:id", () => {
   it("requires admin", async () => {
     const staff = await loginAs(STAFF);
@@ -945,8 +780,11 @@ describe("PATCH /api/rostering/status/:id", () => {
   });
 
   it("rejects an invalid body with 400", async () => {
+    const term = seedTerm();
+    const app1 = seedApp("IXL");
+    const status = seedStatus(app1.id, term.id);
     const admin = await loginAs(ADMIN);
-    const res = await admin.patch("/rostering/status/1", {
+    const res = await admin.patch(`/rostering/status/${status.id}`, {
       studentSharingStatus: "bogus",
     });
     expect(res.status).toBe(400);
@@ -999,6 +837,45 @@ describe("PATCH /api/rostering/status/:id", () => {
     });
     expect(res.status).toBe(200);
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
+
+  it("accepts a custom status defined in settings", async () => {
+    fakeDb.rows(tables.appSettingsTable).push({
+      key: "sharingStatusOptions",
+      value: JSON.stringify([
+        { value: "not_started", label: "Not started", active: true },
+        { value: "waiting_on_vendor", label: "Waiting on vendor", active: true },
+      ]),
+      updatedAt: new Date(),
+    });
+    const term = seedTerm();
+    const app1 = seedApp("IXL");
+    const status = seedStatus(app1.id, term.id);
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch(`/rostering/status/${status.id}`, {
+      studentSharingStatus: "waiting_on_vendor",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.studentSharingStatus).toBe("waiting_on_vendor");
+  });
+
+  it("rejects a status that has been deactivated in settings", async () => {
+    fakeDb.rows(tables.appSettingsTable).push({
+      key: "sharingStatusOptions",
+      value: JSON.stringify([
+        { value: "not_started", label: "Not started", active: true },
+        { value: "complete", label: "Complete", active: false },
+      ]),
+      updatedAt: new Date(),
+    });
+    const term = seedTerm();
+    const app1 = seedApp("IXL");
+    const status = seedStatus(app1.id, term.id);
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch(`/rostering/status/${status.id}`, {
+      studentSharingStatus: "complete",
+    });
+    expect(res.status).toBe(400);
   });
 });
 
@@ -1128,6 +1005,44 @@ describe("GET /api/issues", () => {
       "resolved one",
     ]);
   });
+
+  it("includes RACI people for the app, sorted A then R, skipping N/A", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appIssuesTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      userId: 2,
+      comment: "who owns this?",
+      status: "open",
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    fakeDb.rows(tables.raciTeamsTable).push({ id: 10, name: "IT", sortOrder: 0 });
+    fakeDb.rows(tables.raciMembersTable).push(
+      { id: 20, teamId: 10, name: "Brad", userId: null, sortOrder: 0 },
+      { id: 21, teamId: 10, name: "Ash", userId: null, sortOrder: 1 },
+      { id: 22, teamId: 10, name: "Katie", userId: null, sortOrder: 2 },
+    );
+    fakeDb.rows(tables.raciRowsTable).push({
+      id: 30,
+      teamId: 10,
+      category: "ROSTERING",
+      name: "IXL",
+      sortOrder: 0,
+      applicationId: app1.id,
+    });
+    fakeDb.rows(tables.raciAssignmentsTable).push(
+      { id: 40, rowId: 30, memberId: 20, value: "R" },
+      { id: 41, rowId: 30, memberId: 21, value: "A" },
+      { id: 42, rowId: 30, memberId: 22, value: "N/A" },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/issues");
+    expect(res.status).toBe(200);
+    expect(res.body[0].raci).toEqual([
+      { name: "Ash", value: "A" },
+      { name: "Brad", value: "R" },
+    ]);
+  });
 });
 
 describe("PATCH /api/issues/:id", () => {
@@ -1180,6 +1095,7 @@ describe("PATCH /api/issues/:id", () => {
       comment: "Something broke",
       status: "resolved",
     });
+    expect(typeof res.body.resolvedAt).toBe("string");
     const events = fakeDb.rows(tables.appActivityTable);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
@@ -1198,6 +1114,77 @@ describe("PATCH /api/issues/:id", () => {
     const res = await admin.patch(`/issues/${issue.id}`, { status: "open" });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("open");
+    expect(res.body.resolvedAt).toBeNull();
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
+});
+
+describe("DELETE /api/issues/:id", () => {
+  function seedIssue(applicationId: number, overrides: Record<string, unknown> = {}) {
+    const issue = {
+      id: ++state.idCounter,
+      applicationId,
+      userId: 2,
+      comment: "UI check: new-marker issue",
+      status: "open",
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+      ...overrides,
+    };
+    fakeDb.rows(tables.appIssuesTable).push(issue);
+    return issue;
+  }
+
+  it("requires admin", async () => {
+    const app1 = seedApp("IXL");
+    const issue = seedIssue(app1.id);
+    const staff = await loginAs(STAFF);
+    expect((await staff.delete(`/issues/${issue.id}`)).status).toBe(403);
+  });
+
+  it("returns 404 for an unknown issue", async () => {
+    const admin = await loginAs(ADMIN);
+    expect((await admin.delete("/issues/999")).status).toBe(404);
+  });
+
+  it("deletes the issue and its activity events, leaving unrelated rows", async () => {
+    const app1 = seedApp("IXL");
+    const issue = seedIssue(app1.id);
+    fakeDb.rows(tables.appActivityTable).push(
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_reported",
+        detail: "Issue reported: UI check: new-marker issue",
+        actorId: 2,
+        createdAt: new Date("2026-07-01T00:00:01Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_resolved",
+        detail: "Issue resolved: UI check: new-marker issue",
+        actorId: 1,
+        createdAt: new Date("2026-07-01T00:00:02Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_reported",
+        detail: "Issue reported: Something else broke",
+        actorId: 2,
+        createdAt: new Date("2026-07-01T00:00:03Z"),
+      },
+    );
+    const admin = await loginAs(ADMIN);
+    const res = await admin.delete(`/issues/${issue.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Issue deleted");
+    expect(fakeDb.rows(tables.appIssuesTable)).toHaveLength(0);
+    const events = fakeDb.rows(tables.appActivityTable);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.detail).toBe("Issue reported: Something else broke");
   });
 });

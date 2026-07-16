@@ -9,7 +9,7 @@ Internal analytics and rostering operations dashboard for Sage Oak Charter Schoo
 
 - Frontend: React + Vite, amCharts 5, TanStack Query (generated hooks from OpenAPI)
 - Backend: Express 5, Drizzle ORM, PostgreSQL
-- Auth: local email/password (bcryptjs) with httpOnly cookie sessions (express-session + connect-pg-simple)
+- Auth: local email/password (bcryptjs) with httpOnly cookie sessions (express-session + connect-pg-simple), plus optional Google SSO for @sageoak.education staff
 
 ## Local development
 
@@ -31,6 +31,15 @@ Dev admin login (used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not set and n
 | `SESSION_SECRET` | prod: yes | Secret for signing session cookies |
 | `ADMIN_EMAIL` | prod: yes | Seeded admin account email |
 | `ADMIN_PASSWORD` | prod: yes | Seeded admin account password |
+| `GOOGLE_CLIENT_ID` | no | Google OAuth client ID — enables "Sign in with Google" |
+| `GOOGLE_CLIENT_SECRET` | no | Google OAuth client secret |
+| `GOOGLE_ALLOWED_DOMAIN` | no | Google Workspace domain allowed to sign in (default `sageoak.education`) |
+| `APP_BASE_URL` | with SSO: yes | Public HTTPS base URL of the app (e.g. `https://your-app.up.railway.app`) — used to build the OAuth callback URL behind proxies |
+| `SFTP_HOST` | no | Clever Reports SFTP host (`reports-sftp.clever.com`) — enables the daily automatic report sync |
+| `SFTP_PORT` | no | SFTP port (default `22`) |
+| `SFTP_USERNAME` | no | Clever SFTP username |
+| `SFTP_PASSWORD` | no | Clever SFTP password |
+| `SFTP_REMOTE_DIR` | no | Remote directory to scan for report CSVs (default `/`) |
 
 The server refuses to start in production without `SESSION_SECRET`, and will not seed an admin without `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 
@@ -44,11 +53,23 @@ This repo deploys as **one single service** (the API server also serves the buil
 4. Build and start commands come from `railway.json`:
    - Build: `corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build`
    - Start: `node artifacts/api-server/dist/index.mjs`
-5. Apply the schema once (Railway one-off shell, or a pre-deploy command). `--force` is needed because there is no interactive terminal:
-   ```bash
-   pnpm --filter @workspace/db run push-force
-   ```
-6. Deploy. The server binds to `PORT` and serves both the API and the web app at the root URL. On boot it creates the session table and seeds the admin user and the four school terms if missing.
+5. Deploy. The server binds to `PORT` and serves both the API and the web app at the root URL. On boot it applies the database schema automatically (bundled SQL migrations), then seeds the admin user and the four school terms if missing — no manual schema step is needed. (Optional fallback: `pnpm --filter @workspace/db run push-force` from a one-off shell if you ever need to force-sync the schema manually.)
+
+## Google SSO ("Sign in with Google")
+
+Staff with a `@sageoak.education` Google Workspace account can sign in without a password. On first Google sign-in a staff account is created automatically; if the email already belongs to an existing user (e.g. an admin), Google sign-in logs into that account and keeps its role. Accounts outside the allowed domain are rejected and never created. Password login keeps working alongside SSO.
+
+Setup in the [Google Cloud console](https://console.cloud.google.com/):
+
+1. Create (or pick) a project, then go to **APIs & Services → OAuth consent screen**. Choose **Internal** (available because the school has Google Workspace), set the app name, and save.
+2. Go to **APIs & Services → Credentials → Create credentials → OAuth client ID**, application type **Web application**.
+3. Add the **Authorized redirect URI** for each environment where the app runs:
+   - Railway production: `https://YOUR-APP.up.railway.app/api/auth/google/callback`
+   - Replit dev preview: `https://YOUR-REPL-DOMAIN/api/auth/google/callback`
+4. Copy the client ID and secret into the environment variables `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and set `APP_BASE_URL` to the matching public base URL (no trailing slash). Optionally set `GOOGLE_ALLOWED_DOMAIN` (defaults to `sageoak.education`).
+5. Restart/redeploy. The login page now shows a **Sign in with Google** button. With the variables unset, the button is hidden and nothing else changes.
+
+Note: because the dashboard can be embedded in an iframe and Google blocks OAuth inside iframes, the Google button navigates the top-level window (or opens a new tab) to run the sign-in flow.
 
 ## Embedding in another site (iframe)
 
@@ -61,6 +82,15 @@ The app sends no frame-blocking headers, so it can be embedded anywhere:
   title="Sage Oak App Dashboard"
 ></iframe>
 ```
+
+## Automatic Clever SFTP report sync
+
+If `SFTP_HOST`, `SFTP_USERNAME`, and `SFTP_PASSWORD` are set (Railway Variables / Replit secrets — never stored in the database), the server connects to Clever's Reports SFTP endpoint on startup and once a day, pulls any reports whose date is not yet in the import log, and imports them through the same pipeline as manual uploads (logged with source `sftp`). Already-imported snapshots are skipped, so the sync is safe to re-run. Admins can also click **Sync now** on the Upload Data page, which shows the last sync time, result, and any error. Manual upload keeps working unchanged.
+
+Two remote layouts are supported (verified against Clever's real server on 2026-07-16):
+
+- **Clever's real daily reports** — `daily-participation/` and `resource-usage/` directories containing raw per-user files named `YYYY-MM-DD-<report>-{students|teachers|staff}.csv`. Each day's files are aggregated (active users, logins, per-app and per-school unique users) into one snapshot keyed by the report date.
+- **Aggregated snapshot batches** — directories (or the root) containing `ExportProperties.csv` plus the analytics CSVs, keyed by `Export_date`. This matches the manual-upload format.
 
 ## Monthly data upload routine
 

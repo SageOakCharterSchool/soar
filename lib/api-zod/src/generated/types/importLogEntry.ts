@@ -5,6 +5,7 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { ImportLogEntrySource } from './importLogEntrySource';
 
 export interface ImportLogEntry {
   id: number;
@@ -12,6 +13,7 @@ export interface ImportLogEntry {
   uploadedByName: string;
   snapshotDate: string;
   filesIncluded: string[];
+  source: ImportLogEntrySource;
   rowsInserted: number;
   rowsUpdated: number;
 }

@@ -52,10 +52,22 @@ import {
 } from "@/components/ui/table";
 import { Pencil, Trash2, UserPlus } from "lucide-react";
 
+function parseTags(input: string): string[] {
+  return Array.from(
+    new Set(
+      input
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 function EditUserDialog({ user }: { user: User }) {
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [role, setRole] = useState<UserInputRole>(user.role);
+  const [tagsInput, setTagsInput] = useState(user.tags.join(", "));
   const [password, setPassword] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -68,6 +80,7 @@ function EditUserDialog({ user }: { user: User }) {
         data: {
           displayName,
           role,
+          tags: parseTags(tagsInput),
           ...(password ? { password } : {}),
         },
       },
@@ -110,6 +123,17 @@ function EditUserDialog({ user }: { user: User }) {
             </Select>
           </div>
           <div className="space-y-1.5">
+            <Label>Tags (comma-separated, e.g. IT)</Label>
+            <Input
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="IT"
+            />
+            <p className="text-xs text-muted-foreground">
+              Users tagged "IT" appear in the RACI member dropdown.
+            </p>
+          </div>
+          <div className="space-y-1.5">
             <Label>New password (leave blank to keep)</Label>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
@@ -138,18 +162,19 @@ export default function Users() {
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserInputRole>("staff");
+  const [tagsInput, setTagsInput] = useState("");
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
 
   const create = () =>
     createUser.mutate(
-      { data: { email, displayName, password, role } },
+      { data: { email, displayName, password, role, tags: parseTags(tagsInput) } },
       {
         onSuccess: () => {
           invalidate();
           setOpen(false);
-          setEmail(""); setDisplayName(""); setPassword(""); setRole("staff");
+          setEmail(""); setDisplayName(""); setPassword(""); setRole("staff"); setTagsInput("");
           toast({ title: "User created" });
         },
         onError: (err: any) =>
@@ -205,6 +230,14 @@ export default function Users() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Tags (comma-separated, e.g. IT)</Label>
+                <Input
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="IT"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
@@ -229,6 +262,7 @@ export default function Users() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Tags</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -243,6 +277,17 @@ export default function Users() {
                   <TableCell className="text-sm">{u.email}</TableCell>
                   <TableCell>
                     <Badge variant={u.role === "admin" ? "default" : "secondary"}>{u.role}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {u.tags.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        u.tags.map((t) => (
+                          <Badge key={t} variant="outline">{t}</Badge>
+                        ))
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(u.createdAt).toLocaleDateString()}

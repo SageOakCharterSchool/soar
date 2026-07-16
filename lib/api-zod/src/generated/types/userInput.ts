@@ -12,4 +12,5 @@ export interface UserInput {
   password: string;
   displayName: string;
   role: UserInputRole;
+  tags?: string[];
 }

@@ -1,0 +1,44 @@
+2026-07-15T22:12:54.381725063Z [inf]  Starting Container
+2026-07-15T22:12:55.614499478Z [inf]  Seeding failed
+2026-07-15T22:12:55.614516901Z [inf]  Server listening
+2026-07-15T22:12:55.614526831Z [inf]  Activity retention pruning failed
+2026-07-15T22:12:55.614549023Z [inf]  Serving web app
+2026-07-15T22:12:55.622145886Z [inf]  request completed
+2026-07-15T22:18:29.071064217Z [inf]  request completed
+2026-07-15T22:18:29.071070772Z [inf]  request completed
+2026-07-15T22:18:29.071077372Z [inf]  request completed
+2026-07-15T22:18:29.071271475Z [inf]  request completed
+2026-07-15T22:18:29.071277631Z [inf]  request completed
+2026-07-15T22:18:49.075518888Z [inf]  request errored
+2026-07-15T22:18:49.075524320Z [err]  Error: Failed query: select "id", "email", "password_hash", "display_name", "role", "created_at" from "users" where "users"."email" = $1
+2026-07-15T22:18:49.075530239Z [err]  params: bwilson@sageoak.education
+2026-07-15T22:18:49.075536795Z [err]      at NodePgPreparedQuery.queryWithCache (file:///app/artifacts/api-server/dist/index.mjs:49511:15)
+2026-07-15T22:18:49.075543034Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-07-15T22:18:49.075549461Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:49744:22
+2026-07-15T22:18:49.075556609Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:61737:18
+2026-07-15T22:18:53.816849578Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-07-15T22:18:53.816859865Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:49744:22
+2026-07-15T22:18:53.816869679Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:61737:18
+2026-07-15T22:18:53.816871918Z [inf]  request errored
+2026-07-15T22:18:53.816886028Z [err]  Error: Failed query: select "id", "email", "password_hash", "display_name", "role", "created_at" from "users" where "users"."email" = $1
+2026-07-15T22:18:53.816892988Z [err]  params: bwilson@sageoak.education
+2026-07-15T22:18:53.816898758Z [err]      at NodePgPreparedQuery.queryWithCache (file:///app/artifacts/api-server/dist/index.mjs:49511:15)
+2026-07-15T22:19:02.730601727Z [inf]  request completed
+2026-07-15T22:19:09.134795913Z [inf]  request completed
+2026-07-15T22:19:11.163286084Z [inf]  request errored
+2026-07-15T22:19:11.163291783Z [err]  Error: Failed query: select "id", "email", "password_hash", "display_name", "role", "created_at" from "users" where "users"."email" = $1
+2026-07-15T22:19:11.163296891Z [err]  params: bwilson@sageoak.education
+2026-07-15T22:19:11.163311469Z [err]      at NodePgPreparedQuery.queryWithCache (file:///app/artifacts/api-server/dist/index.mjs:49511:15)
+2026-07-15T22:19:11.163316785Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-07-15T22:19:11.163322146Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:49744:22
+2026-07-15T22:19:11.163399531Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:61737:18
+2026-07-15T22:19:31.293620637Z [inf]  request completed
+2026-07-15T22:19:31.293624542Z [inf]  request completed
+2026-07-15T22:19:33.268463999Z [inf]  request completed
+2026-07-15T22:19:37.076500799Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-07-15T22:19:37.076511911Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:49744:22
+2026-07-15T22:19:37.076528306Z [err]  Error: Failed query: select "id", "email", "password_hash", "display_name", "role", "created_at" from "users" where "users"."email" = $1
+2026-07-15T22:19:37.076538736Z [err]  params: bwilson@sageoak.education
+2026-07-15T22:19:37.076548451Z [err]      at NodePgPreparedQuery.queryWithCache (file:///app/artifacts/api-server/dist/index.mjs:49511:15)
+2026-07-15T22:19:37.076586895Z [inf]  request errored
+2026-07-15T22:19:37.076813823Z [err]      at async file:///app/artifacts/api-server/dist/index.mjs:61737:18

@@ -32,14 +32,12 @@ export const appTermStatusTable = pgTable(
     termId: integer("term_id")
       .notNull()
       .references(() => termsTable.id, { onDelete: "cascade" }),
-    studentSharingStatus: text("student_sharing_status", {
-      enum: ["not_started", "in_progress", "complete", "needs_review"],
-    })
+    // Values are validated at the API layer against the admin-configurable
+    // sharing status options in app_settings, so the column is plain text.
+    studentSharingStatus: text("student_sharing_status")
       .notNull()
       .default("not_started"),
-    staffSharingStatus: text("staff_sharing_status", {
-      enum: ["not_started", "in_progress", "complete", "needs_review"],
-    })
+    staffSharingStatus: text("staff_sharing_status")
       .notNull()
       .default("not_started"),
     syncMethod: text("sync_method"),
@@ -83,18 +81,20 @@ export const appIssuesTable = pgTable("app_issues", {
   comment: text("comment").notNull(),
   status: text("status", { enum: ["open", "resolved"] }).notNull().default("open"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
 
 export const appActivityTable = pgTable(
   "app_activity",
   {
     id: serial("id").primaryKey(),
-    applicationId: integer("application_id")
-      .notNull()
-      .references(() => applicationsTable.id, { onDelete: "cascade" }),
+    // Null for events not tied to a specific application (e.g. RACI changes).
+    applicationId: integer("application_id").references(() => applicationsTable.id, {
+      onDelete: "cascade",
+    }),
     termId: integer("term_id").references(() => termsTable.id, { onDelete: "cascade" }),
     eventType: text("event_type", {
-      enum: ["status_change", "app_added", "issue_reported", "issue_resolved"],
+      enum: ["status_change", "app_added", "issue_reported", "issue_resolved", "raci_change"],
     }).notNull(),
     detail: text("detail").notNull(),
     actorId: integer("actor_id").references(() => usersTable.id, { onDelete: "set null" }),
@@ -103,6 +103,30 @@ export const appActivityTable = pgTable(
   (t) => [
     index("app_activity_created_at_idx").on(t.createdAt.desc(), t.id.desc()),
     index("app_activity_term_created_at_idx").on(t.termId, t.createdAt.desc()),
+  ],
+);
+
+// Long-term audit archive for pruned activity rows. Denormalized (app/actor
+// names copied in) and without foreign keys so history survives app or user
+// deletion.
+export const appActivityArchiveTable = pgTable(
+  "app_activity_archive",
+  {
+    id: serial("id").primaryKey(),
+    originalId: integer("original_id").notNull(),
+    applicationId: integer("application_id"),
+    appName: text("app_name").notNull(),
+    termId: integer("term_id"),
+    eventType: text("event_type").notNull(),
+    detail: text("detail").notNull(),
+    actorId: integer("actor_id"),
+    actorName: text("actor_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("app_activity_archive_created_at_idx").on(t.createdAt.desc(), t.id.desc()),
+    uniqueIndex("app_activity_archive_original_id_idx").on(t.originalId),
   ],
 );
 
@@ -129,4 +153,5 @@ export type AppTermStatus = typeof appTermStatusTable.$inferSelect;
 export type AppUpvote = typeof appUpvotesTable.$inferSelect;
 export type AppIssue = typeof appIssuesTable.$inferSelect;
 export type AppActivity = typeof appActivityTable.$inferSelect;
+export type AppActivityArchive = typeof appActivityArchiveTable.$inferSelect;
 export type PageLastSeen = typeof pageLastSeenTable.$inferSelect;

@@ -1,0 +1,315 @@
+2026-07-15T22:46:33.282193703Z [inf]  scheduling build on Metal builder "builder-rwcpsx"
+2026-07-15T22:46:34.898888415Z [inf]  unpacking archive
+2026-07-15T22:46:34.981818432Z [inf]  uploading snapshot
+2026-07-15T22:46:35.031513614Z [inf]  using build driver railpack-v0.31.1
+2026-07-15T22:46:35.486614856Z [inf]                     
+2026-07-15T22:46:35.486629227Z [inf]  [38;2;125;86;243m╭─────────────────╮[0m
+2026-07-15T22:46:35.486630980Z [inf]  [38;2;125;86;243m│[0m Railpack 0.31.1 [38;2;125;86;243m│[0m
+2026-07-15T22:46:35.486632141Z [inf]  [38;2;125;86;243m╰─────────────────╯[0m
+2026-07-15T22:46:35.486632732Z [inf]  
+2026-07-15T22:46:35.486634445Z [inf]    [97m↳ Detected Node[0m
+2026-07-15T22:46:35.486636127Z [inf]    [97m↳ Custom start command detected, skipping Caddy start[0m
+2026-07-15T22:46:35.486637029Z [inf]    [97m↳ Custom start command detected, skipping Caddy start[0m
+2026-07-15T22:46:35.486639192Z [inf]    [97m↳ Using pnpm package manager[0m
+2026-07-15T22:46:35.486639843Z [inf]    [97m↳ Found workspace with 8 packages[0m
+2026-07-15T22:46:35.486640684Z [inf]    [97m↳ Custom start command detected, skipping Caddy start[0m
+2026-07-15T22:46:35.486642537Z [inf]    [97m↳ Installing pnpm@10.26.1 with Corepack[0m
+2026-07-15T22:46:35.486645191Z [inf]              
+2026-07-15T22:46:35.486646353Z [inf]    [1mPackages[0m  
+2026-07-15T22:46:35.486647805Z [inf]    [38;5;238m──────────[0m
+2026-07-15T22:46:35.486653594Z [inf]    [95mpnpm[0m  [38;5;238m│[0m  [96m10.26.1[0m  [38;5;238m│[0m  package.json > packageManager (10.26.1)
+2026-07-15T22:46:35.486655907Z [inf]    [95mnode[0m  [38;5;238m│[0m  [96m22.23.1[0m  [38;5;238m│[0m  package.json > engines > node (>=22)
+2026-07-15T22:46:35.486656828Z [inf]              
+2026-07-15T22:46:35.486657609Z [inf]    [1mSteps[0m     
+2026-07-15T22:46:35.486658491Z [inf]    [38;5;238m──────────[0m
+2026-07-15T22:46:35.486659322Z [inf]    [95m▸ install[0m
+2026-07-15T22:46:35.486660384Z [inf]      [38;5;245m$[0m [1mnpm i -g corepack@latest && corepack enable && corepack prepare --activate[0m
+2026-07-15T22:46:35.486661375Z [inf]      [38;5;245m$[0m [1mpnpm install --frozen-lockfile --prefer-offline[0m
+2026-07-15T22:46:35.486662207Z [inf]           
+2026-07-15T22:46:35.486662968Z [inf]    [95m▸ build[0m
+2026-07-15T22:46:35.486669888Z [inf]      [38;5;245m$[0m [1mcorepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build[0m
+2026-07-15T22:46:35.486670900Z [inf]              
+2026-07-15T22:46:35.486671761Z [inf]    [1mDeploy[0m    
+2026-07-15T22:46:35.486672823Z [inf]    [38;5;238m──────────[0m
+2026-07-15T22:46:35.486673864Z [inf]      [38;5;245m$[0m [1mnode artifacts/api-server/dist/index.mjs[0m
+2026-07-15T22:46:35.486674505Z [inf]  
+2026-07-15T22:46:35.596813467Z [inf]  resolve image config for docker-image://ghcr.io/railwayapp/railpack-frontend:v0.31.1
+2026-07-15T22:46:35.892647584Z [inf]  resolve image config for docker-image://ghcr.io/railwayapp/railpack-frontend:v0.31.1
+2026-07-15T22:46:35.892763608Z [inf]  docker-image://ghcr.io/railwayapp/railpack-frontend:v0.31.1@sha256:27d1e04bfae3b56b048a6e38fbbabf2917ea15f767dd32379acd1e3c0479928c
+2026-07-15T22:46:35.892776979Z [inf]  docker-image://ghcr.io/railwayapp/railpack-frontend:v0.31.1@sha256:27d1e04bfae3b56b048a6e38fbbabf2917ea15f767dd32379acd1e3c0479928c
+2026-07-15T22:46:35.904910393Z [inf]  docker-image://ghcr.io/railwayapp/railpack-frontend:v0.31.1@sha256:27d1e04bfae3b56b048a6e38fbbabf2917ea15f767dd32379acd1e3c0479928c
+2026-07-15T22:46:35.905309502Z [inf]  docker-image://ghcr.io/railwayapp/railpack-frontend:v0.31.1@sha256:27d1e04bfae3b56b048a6e38fbbabf2917ea15f767dd32379acd1e3c0479928c
+2026-07-15T22:46:36.043410027Z [inf]  load build definition from ./railpack-plan.json
+2026-07-15T22:46:36.043465861Z [inf]  load build definition from ./railpack-plan.json
+2026-07-15T22:46:36.043473603Z [inf]  load build definition from ./railpack-plan.json
+2026-07-15T22:46:36.043857869Z [inf]  load build definition from ./railpack-plan.json
+2026-07-15T22:46:36.179050562Z [inf]  load build definition from ./railpack-plan.json
+2026-07-15T22:46:36.368328733Z [inf]  copy /mise/shims
+2026-07-15T22:46:36.368331828Z [inf]  install mise packages: node
+2026-07-15T22:46:36.368333250Z [inf]  create mise config
+2026-07-15T22:46:36.368334201Z [inf]  mkdir /etc/mise
+2026-07-15T22:46:36.368334842Z [inf]  docker-image://ghcr.io/railwayapp/railpack-builder:mise-2026.7.6
+2026-07-15T22:46:36.368335653Z [inf]  install apt packages: libatomic1
+2026-07-15T22:46:36.368340841Z [inf]  docker-image://ghcr.io/railwayapp/railpack-runtime:mise-2026.7.6
+2026-07-15T22:46:36.368636195Z [inf]  copy .
+2026-07-15T22:46:36.368638798Z [inf]  copy / /app
+2026-07-15T22:46:36.368639620Z [inf]  copy /opt/corepack
+2026-07-15T22:46:36.368640511Z [inf]  copy package.json
+2026-07-15T22:46:36.368641182Z [inf]  copy /app
+2026-07-15T22:46:36.368641893Z [inf]  corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build
+2026-07-15T22:46:36.368642544Z [inf]  copy /root/.cache
+2026-07-15T22:46:36.368643215Z [inf]  loading .
+2026-07-15T22:46:36.368643896Z [inf]  copy /root/.local/state/mise
+2026-07-15T22:46:36.368644547Z [inf]  copy /etc/mise/config.toml
+2026-07-15T22:46:36.368645188Z [inf]  copy /usr/local/bin/mise
+2026-07-15T22:46:36.368645829Z [inf]  [railpack] secrets hash
+2026-07-15T22:46:36.368646490Z [inf]  copy /app/node_modules
+2026-07-15T22:46:36.368647141Z [inf]  copy / /app
+2026-07-15T22:46:36.368647872Z [inf]  copy /mise/installs
+2026-07-15T22:46:36.368648533Z [inf]  npm i -g corepack@latest && corepack enable && corepack prepare --activate
+2026-07-15T22:46:36.368649244Z [inf]  pnpm install --frozen-lockfile --prefer-offline
+2026-07-15T22:46:36.368649875Z [inf]  mkdir -p /app/node_modules/.cache
+2026-07-15T22:46:36.368671127Z [inf]  copy /mise/shims
+2026-07-15T22:46:36.368671898Z [inf]  copy /mise/installs
+2026-07-15T22:46:36.368899049Z [inf]  [railpack] secrets hash
+2026-07-15T22:46:36.368901212Z [inf]  loading .
+2026-07-15T22:46:36.369310596Z [inf]  docker-image://ghcr.io/railwayapp/railpack-runtime:mise-2026.7.6
+2026-07-15T22:46:36.369313280Z [inf]  docker-image://ghcr.io/railwayapp/railpack-builder:mise-2026.7.6
+2026-07-15T22:46:36.722885207Z [inf]  docker-image://ghcr.io/railwayapp/railpack-runtime:mise-2026.7.6
+2026-07-15T22:46:36.826261983Z [inf]  docker-image://ghcr.io/railwayapp/railpack-builder:mise-2026.7.6
+2026-07-15T22:46:36.832532642Z [inf]  loading .
+2026-07-15T22:46:36.832534545Z [inf]  [railpack] secrets hash
+2026-07-15T22:46:36.997713959Z [inf]  [railpack] secrets hash
+2026-07-15T22:46:37.062440303Z [inf]  loading .
+2026-07-15T22:46:37.111992301Z [inf]  mkdir /etc/mise
+2026-07-15T22:46:37.111994514Z [inf]  create mise config
+2026-07-15T22:46:37.111995416Z [inf]  install mise packages: node
+2026-07-15T22:46:37.112003959Z [inf]  install mise packages: node
+2026-07-15T22:46:37.112252561Z [inf]  copy / /app
+2026-07-15T22:46:37.282233650Z [inf]  copy / /app
+2026-07-15T22:46:37.305438336Z [inf]  copy package.json
+2026-07-15T22:46:37.534618266Z [inf]  copy package.json
+2026-07-15T22:46:37.553180197Z [inf]  npm i -g corepack@latest && corepack enable && corepack prepare --activate
+2026-07-15T22:46:38.227438189Z [inf]  npm warn config production Use `--omit=dev` instead.
+
+2026-07-15T22:46:38.925730322Z [inf]  
+changed 1 package in 737ms
+
+2026-07-15T22:46:38.957782763Z [inf]  Reshimming mise 22.23.1...
+
+2026-07-15T22:46:39.261073298Z [inf]  Preparing pnpm@10.26.1 for immediate activation...
+
+2026-07-15T22:46:40.107231849Z [inf]  npm i -g corepack@latest && corepack enable && corepack prepare --activate
+2026-07-15T22:46:40.125055642Z [inf]  mkdir -p /app/node_modules/.cache
+2026-07-15T22:46:40.369531992Z [inf]  mkdir -p /app/node_modules/.cache
+2026-07-15T22:46:40.387883387Z [inf]  pnpm install --frozen-lockfile --prefer-offline
+2026-07-15T22:46:41.105678672Z [inf]  Scope: all 9 workspace projects
+
+2026-07-15T22:46:41.171556575Z [inf]  Lockfile is up to date, resolution step is skipped
+
+2026-07-15T22:46:41.205870028Z [inf]  Progress: resolved 1, reused 0, downloaded 0, added 0
+
+2026-07-15T22:46:41.268335431Z [inf]  Packages: +607
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+2026-07-15T22:46:42.207326467Z [inf]  Progress: resolved 607, reused 607, downloaded 0, added 344
+
+2026-07-15T22:46:43.208162064Z [inf]  Progress: resolved 607, reused 607, downloaded 0, added 465
+
+2026-07-15T22:46:43.899578771Z [inf]  Progress: resolved 607, reused 607, downloaded 0, added 607, done
+
+2026-07-15T22:46:44.85461416Z [inf]  
+dependencies:
++ @replit/connectors-sdk 0.4.1
+
+devDependencies:
++ prettier 3.9.5
++ typescript 5.9.3
+
+
+2026-07-15T22:46:44.894224912Z [inf]  . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+
+2026-07-15T22:46:44.927660668Z [inf]  . preinstall: Done
+
+2026-07-15T22:46:45.15590165Z [inf]  Done in 4.4s using pnpm v10.26.1
+
+2026-07-15T22:46:45.398571931Z [inf]  pnpm install --frozen-lockfile --prefer-offline
+2026-07-15T22:46:45.415387721Z [inf]  copy / /app
+2026-07-15T22:46:45.787229159Z [inf]  copy / /app
+2026-07-15T22:46:45.801439921Z [inf]  copy .
+2026-07-15T22:46:46.008478431Z [inf]  copy .
+2026-07-15T22:46:46.026285729Z [inf]  corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build
+2026-07-15T22:46:46.491625822Z [inf]  Preparing pnpm@10.26.1 for immediate activation...
+
+2026-07-15T22:46:46.826667245Z [inf]  Scope: all 9 workspace projects
+
+2026-07-15T22:46:46.915705688Z [inf]  Lockfile is up to date, resolution step is skipped
+
+2026-07-15T22:46:46.968632489Z [inf]  Already up to date
+
+2026-07-15T22:46:47.922064663Z [inf]  
+2026-07-15T22:46:47.955555262Z [inf]  . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+
+2026-07-15T22:46:47.96974393Z [inf]  . preinstall: Done
+
+2026-07-15T22:46:48.089913031Z [inf]  Done in 1.5s using pnpm v10.26.1
+
+2026-07-15T22:46:48.438584576Z [inf]  
+> workspace@0.0.0 build /app
+> pnpm run typecheck && pnpm -r --if-present run build
+
+
+2026-07-15T22:46:48.749777087Z [inf]  
+> workspace@0.0.0 typecheck /app
+> pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+
+
+2026-07-15T22:46:49.060331641Z [inf]  
+> workspace@0.0.0 typecheck:libs /app
+> tsc --build
+
+
+2026-07-15T22:46:52.560564748Z [inf]  Scope: 4 of 9 workspace projects
+
+2026-07-15T22:46:52.567524069Z [inf]  artifacts/api-server typecheck$ tsc -p tsconfig.json --noEmit
+
+2026-07-15T22:46:52.56819077Z [inf]  artifacts/mockup-sandbox typecheck$ tsc -p tsconfig.json --noEmit
+
+2026-07-15T22:46:52.568626103Z [inf]  artifacts/sage-oak-dashboard typecheck$ tsc -p tsconfig.json --noEmit
+
+2026-07-15T22:46:52.569106744Z [inf]  scripts typecheck$ tsc -p tsconfig.json --noEmit
+
+2026-07-15T22:46:53.548718637Z [inf]  scripts typecheck: Done
+
+2026-07-15T22:46:55.633520961Z [inf]  artifacts/api-server typecheck: Done
+
+2026-07-15T22:46:57.205581551Z [inf]  artifacts/mockup-sandbox typecheck: Done
+
+2026-07-15T22:46:59.151302447Z [inf]  artifacts/sage-oak-dashboard typecheck: Done
+
+2026-07-15T22:46:59.578238109Z [inf]  Scope: 8 of 9 workspace projects
+
+2026-07-15T22:46:59.584720896Z [inf]  artifacts/mockup-sandbox build$ vite build
+
+2026-07-15T22:47:00.055951146Z [inf]  artifacts/mockup-sandbox build: [36mvite v7.3.6 [32mbuilding client environment for production...[36m[39m
+
+2026-07-15T22:47:00.156064205Z [inf]  artifacts/mockup-sandbox build: transforming...
+
+2026-07-15T22:47:01.036625614Z [inf]  artifacts/mockup-sandbox build: [32m✓[39m 30 modules transformed.
+
+2026-07-15T22:47:01.20151333Z [inf]  artifacts/mockup-sandbox build: rendering chunks...
+
+2026-07-15T22:47:01.211998512Z [inf]  artifacts/mockup-sandbox build: computing gzip size...
+
+2026-07-15T22:47:01.231263978Z [inf]  artifacts/mockup-sandbox build: [2mdist/[22m[32mindex.html                 [39m[1m[2m  4.42 kB[22m[1m[22m[2m │ gzip:  1.23 kB[22m
+
+2026-07-15T22:47:01.232075976Z [inf]  artifacts/mockup-sandbox build: [2mdist/[22m[2massets/[22m[35mindex-D3zZPnxY.css  [39m[1m[2m 88.21 kB[22m[1m[22m[2m │ gzip: 14.76 kB[22m
+
+2026-07-15T22:47:01.232739011Z [inf]  artifacts/mockup-sandbox build: [2mdist/[22m[2massets/[22m[36mindex-D4Ieq8L0.js   [39m[1m[2m187.72 kB[22m[1m[22m[2m │ gzip: 59.51 kB[22m
+
+2026-07-15T22:47:01.233102797Z [inf]  artifacts/mockup-sandbox build: [32m✓ built in 1.14s[39m
+
+2026-07-15T22:47:01.27688658Z [inf]  artifacts/mockup-sandbox build: Done
+
+2026-07-15T22:47:01.278619991Z [inf]  artifacts/api-server build$ node ./build.mjs
+
+2026-07-15T22:47:01.279267812Z [inf]  artifacts/sage-oak-dashboard build$ vite build --config vite.config.ts
+
+2026-07-15T22:47:01.576526067Z [inf]  artifacts/sage-oak-dashboard build: [36mvite v7.3.6 [32mbuilding client environment for production...[36m[39m
+
+2026-07-15T22:47:01.602774069Z [inf]  artifacts/api-server build:   dist/index.mjs                       2.4mb ⚠️
+
+2026-07-15T22:47:01.602838756Z [inf]  artifacts/api-server build:   dist/pino-worker.mjs               153.4kb
+
+2026-07-15T22:47:01.602928822Z [inf]  artifacts/api-server build:   dist/pino-file.mjs                 142.0kb
+
+2026-07-15T22:47:01.602977975Z [inf]  artifacts/api-server build:   dist/pino-pretty.mjs               114.4kb
+
+2026-07-15T22:47:01.60303453Z [inf]  artifacts/api-server build:   dist/thread-stream-worker.mjs        7.3kb
+
+2026-07-15T22:47:01.603163904Z [inf]  artifacts/api-server build:   dist/index.mjs.map                   4.1mb
+artifacts/api-server build:   dist/pino-worker.mjs.map           256.9kb
+artifacts/api-server build:   dist/pino-file.mjs.map             229.0kb
+
+2026-07-15T22:47:01.603189923Z [inf]  artifacts/api-server build:   dist/pino-pretty.mjs.map           203.6kb
+
+2026-07-15T22:47:01.603413899Z [inf]  artifacts/api-server build:   dist/thread-stream-worker.mjs.map   12.0kb
+
+2026-07-15T22:47:01.603431105Z [inf]  artifacts/api-server build: ⚡ Done in 245ms
+
+2026-07-15T22:47:01.623698774Z [inf]  artifacts/sage-oak-dashboard build: transforming...
+
+2026-07-15T22:47:01.62596169Z [inf]  artifacts/api-server build: Done
+
+2026-07-15T22:47:02.037211706Z [inf]  artifacts/sage-oak-dashboard build: [33msrc/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
+
+2026-07-15T22:47:02.546043585Z [inf]  artifacts/sage-oak-dashboard build: [33msrc/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
+
+2026-07-15T22:47:02.546304045Z [inf]  artifacts/sage-oak-dashboard build: [33msrc/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.[39m
+
+2026-07-15T22:47:05.725091868Z [inf]  artifacts/sage-oak-dashboard build: [32m✓[39m 2061 modules transformed.
+
+2026-07-15T22:47:06.355471635Z [inf]  artifacts/sage-oak-dashboard build: rendering chunks...
+
+2026-07-15T22:47:06.366974544Z [inf]  artifacts/sage-oak-dashboard build: computing gzip size...
+
+2026-07-15T22:47:06.430112025Z [inf]  artifacts/sage-oak-dashboard build: [2mdist/public/[22m[32mindex.html                 [39m[1m[2m  1.44 kB[22m[1m[22m[2m │ gzip:   0.56 kB[22m
+
+2026-07-15T22:47:06.430432336Z [inf]  artifacts/sage-oak-dashboard build: [2mdist/public/[22m[2massets/[22m[35mindex-D9F6MeTL.css  [39m[1m[2m 96.89 kB[22m[1m[22m[2m │ gzip:  16.16 kB[22m
+
+2026-07-15T22:47:06.430622531Z [inf]  artifacts/sage-oak-dashboard build: [2mdist/public/[22m[2massets/[22m[36mindex-Pgb5B-Mw.js   [39m[1m[33m971.62 kB[39m[22m[2m │ gzip: 277.60 kB[22m
+
+2026-07-15T22:47:06.43087523Z [inf]  artifacts/sage-oak-dashboard build: [33m
+
+2026-07-15T22:47:06.431023433Z [inf]  artifacts/sage-oak-dashboard build: (!) Some chunks are larger than 500 kB after minification. Consider:
+
+2026-07-15T22:47:06.431453558Z [inf]  artifacts/sage-oak-dashboard build: - Using dynamic import() to code-split the application
+
+2026-07-15T22:47:06.431579527Z [inf]  artifacts/sage-oak-dashboard build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+
+2026-07-15T22:47:06.43174098Z [inf]  artifacts/sage-oak-dashboard build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+
+2026-07-15T22:47:06.431997585Z [inf]  artifacts/sage-oak-dashboard build: [32m✓ built in 4.84s[39m
+
+2026-07-15T22:47:06.522856489Z [inf]  artifacts/sage-oak-dashboard build: Done
+
+2026-07-15T22:47:08.657375287Z [inf]  corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --frozen-lockfile && pnpm run build
+2026-07-15T22:47:16.890156217Z [inf]  install apt packages: libatomic1
+2026-07-15T22:47:16.890168826Z [inf]  copy /mise/shims
+2026-07-15T22:47:16.890170048Z [inf]  copy /mise/installs
+2026-07-15T22:47:16.890170539Z [inf]  copy /usr/local/bin/mise
+2026-07-15T22:47:16.890172251Z [inf]  copy /etc/mise/config.toml
+2026-07-15T22:47:16.890172882Z [inf]  copy /root/.local/state/mise
+2026-07-15T22:47:16.890177890Z [inf]  copy /app/node_modules
+2026-07-15T22:47:20.643391617Z [inf]  copy /app/node_modules
+2026-07-15T22:47:20.661477913Z [inf]  copy /root/.cache
+2026-07-15T22:47:21.079443306Z [inf]  copy /root/.cache
+2026-07-15T22:47:21.107489436Z [inf]  copy /app
+2026-07-15T22:47:21.375162631Z [inf]  copy /app
+2026-07-15T22:47:21.396106215Z [inf]  copy /opt/corepack
+2026-07-15T22:47:21.685726870Z [inf]  copy /opt/corepack
+2026-07-15T22:47:21.700862860Z [inf]  copy /mise/installs
+2026-07-15T22:47:23.905183828Z [inf]  copy /mise/installs
+2026-07-15T22:47:23.926775555Z [inf]  copy /mise/shims
+2026-07-15T22:47:24.117029620Z [inf]  copy /mise/shims
+2026-07-15T22:47:24.137380264Z [inf]  exporting to docker image format
+2026-07-15T22:47:31.036846007Z [inf]  exporting to docker image format
+2026-07-15T22:47:31.081512625Z [inf]  containerimage.descriptor: eyJtZWRpYVR5cGUiOiJhcHBsaWNhdGlvbi92bmQub2NpLmltYWdlLm1hbmlmZXN0LnYxK2pzb24iLCJkaWdlc3QiOiJzaGEyNTY6OWRjMTc0YWRkNzkyMmZjYzVhZDU0NzYwMjhjMzkyODQ1NmVkNGE2YjZmZmZiNzlkN2FjMzFiZWYyNGRiZGRmZCIsInNpemUiOjI5NTcsImFubm90YXRpb25zIjp7Im9yZy5vcGVuY29udGFpbmVycy5pbWFnZS5jcmVhdGVkIjoiMjAyNi0wNy0xNVQyMjo0NzoyOVoifSwicGxhdGZvcm0iOnsiYXJjaGl0ZWN0dXJlIjoiYW1kNjQiLCJvcyI6ImxpbnV4In19
+2026-07-15T22:47:31.081515910Z [inf]  containerimage.config.digest: sha256:69bfe6dd6fedb40273b063668afb0b75a7c3ff232fb32d29b88833165aaea5f4
+2026-07-15T22:47:31.081519165Z [inf]  containerimage.digest: sha256:9dc174add7922fcc5ad5476028c3928456ed4a6b6fffb79d7ac31bef24dbddfd
+2026-07-15T22:48:02.599699195Z [inf]  image push
+2026-07-15T22:49:11.748649876Z [inf]  image push
+2026-07-15T22:49:11.748753843Z [inf]  image push
+2026-07-15T22:49:21.035447805Z [inf]  
+2026-07-15T22:49:21.035450244Z [inf]  [35m====================
+Starting Healthcheck
+====================
+[0m
+2026-07-15T22:49:21.035450881Z [inf]  [37mPath: /[0m
+2026-07-15T22:49:21.035451510Z [inf]  [37mRetry window: 5m0s[0m
+2026-07-15T22:49:21.035452414Z [inf]  
+2026-07-15T22:49:31.104703617Z [inf]  [93mAttempt #1 failed with service unavailable. Continuing to retry for 4m49s[0m
+2026-07-15T22:49:42.144491966Z [inf]  [93mAttempt #2 failed with service unavailable. Continuing to retry for 4m38s[0m
+2026-07-15T22:49:54.186024044Z [inf]  [93mAttempt #3 failed with service unavailable. Continuing to retry for 4m26s[0m
+2026-07-15T22:50:08.224048213Z [inf]  [93mAttempt #4 failed with service unavailable. Continuing to retry for 4m12s[0m
+2026-07-15T22:50:26.265044072Z [inf]  [93mAttempt #5 failed with service unavailable. Continuing to retry for 3m54s[0m

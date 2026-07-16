@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
 import {
   db,
   applicationsTable,
@@ -7,21 +7,18 @@ import {
   appUpvotesTable,
   appIssuesTable,
   appActivityTable,
+  appActivityArchiveTable,
   pageLastSeenTable,
   usersTable,
   type User,
 } from "@workspace/db";
 import { UpdateAppTermStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
+import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
+import { getRaciPeopleByApp } from "../lib/raciPeople";
+import { readAppSettings } from "../lib/appSettings";
 
 const router: IRouter = Router();
-
-const STATUS_LABELS: Record<string, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  complete: "Complete",
-  needs_review: "Needs review",
-};
 
 router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> => {
   const termIdRaw = req.query.termId;
@@ -45,7 +42,8 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
       createdAt: appActivityTable.createdAt,
     })
     .from(appActivityTable)
-    .innerJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
+    // Left join: RACI change events may not be tied to an application.
+    .leftJoin(applicationsTable, eq(appActivityTable.applicationId, applicationsTable.id))
     .leftJoin(usersTable, eq(appActivityTable.actorId, usersTable.id))
     .orderBy(desc(appActivityTable.createdAt), desc(appActivityTable.id))
     .limit(limit);
@@ -57,8 +55,153 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
         )
       : await base;
 
-  res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      appName: r.appName ?? "RACI",
+      createdAt: r.createdAt.toISOString(),
+    })),
+  );
 });
+
+function csvEscape(value: unknown): string {
+  let s = value == null ? "" : String(value);
+  // Prevent CSV/formula injection: Excel and Google Sheets treat cells
+  // starting with =, +, -, @ (or tab/CR) as formulas. Prefix with a single
+  // quote so spreadsheets render the value as plain text.
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+  }
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Archived activity (rows older than the retention window). Admin-only.
+router.get(
+  "/rostering/activity/archive",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const limitRaw = parseInt(String(req.query.limit ?? "100"), 10);
+    const limit = Number.isNaN(limitRaw) ? 100 : Math.min(Math.max(limitRaw, 1), 1000);
+    const offsetRaw = parseInt(String(req.query.offset ?? "0"), 10);
+    const offset = Number.isNaN(offsetRaw) ? 0 : Math.max(offsetRaw, 0);
+    const format = String(req.query.format ?? "json");
+
+    const conditions = [];
+
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    if (search) {
+      const pattern = `%${search.replace(/[%_\\]/g, "\\$&")}%`;
+      conditions.push(
+        or(
+          ilike(appActivityArchiveTable.appName, pattern),
+          ilike(appActivityArchiveTable.actorName, pattern),
+          ilike(appActivityArchiveTable.detail, pattern),
+        ),
+      );
+    }
+
+    const appName = typeof req.query.appName === "string" ? req.query.appName.trim() : "";
+    if (appName) {
+      // Escaped pattern with no wildcards = case-insensitive exact match.
+      conditions.push(
+        ilike(appActivityArchiveTable.appName, appName.replace(/[%_\\]/g, "\\$&")),
+      );
+    }
+
+    const fromRaw = typeof req.query.from === "string" ? req.query.from.trim() : "";
+    if (fromRaw) {
+      const from = new Date(fromRaw);
+      if (Number.isNaN(from.getTime())) {
+        res.status(400).json({ message: "from must be a valid ISO 8601 date" });
+        return;
+      }
+      conditions.push(gte(appActivityArchiveTable.createdAt, from));
+    }
+
+    const toRaw = typeof req.query.to === "string" ? req.query.to.trim() : "";
+    if (toRaw) {
+      const to = new Date(toRaw);
+      if (Number.isNaN(to.getTime())) {
+        res.status(400).json({ message: "to must be a valid ISO 8601 date" });
+        return;
+      }
+      // A bare date like 2026-01-31 should include the whole day.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(toRaw)) {
+        to.setUTCHours(23, 59, 59, 999);
+      }
+      conditions.push(lte(appActivityArchiveTable.createdAt, to));
+    }
+
+    // Snapshot boundary: only rows archived at/before this instant are
+    // included. Paged exports pass the snapshot from the first page back on
+    // subsequent requests so rows archived mid-export can't shift offsets
+    // (which would silently duplicate or skip rows).
+    const archivedBeforeRaw =
+      typeof req.query.archivedBefore === "string" ? req.query.archivedBefore.trim() : "";
+    let snapshot: Date;
+    if (archivedBeforeRaw) {
+      snapshot = new Date(archivedBeforeRaw);
+      if (Number.isNaN(snapshot.getTime())) {
+        res.status(400).json({ message: "archivedBefore must be a valid ISO 8601 date" });
+        return;
+      }
+    } else {
+      snapshot = new Date();
+    }
+    conditions.push(lte(appActivityArchiveTable.archivedAt, snapshot));
+    res.setHeader("X-Archive-Snapshot", snapshot.toISOString());
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(appActivityArchiveTable)
+      .where(where);
+    res.setHeader("X-Total-Count", String(countRow?.count ?? 0));
+
+    const rows = await db
+      .select({
+        id: appActivityArchiveTable.id,
+        applicationId: appActivityArchiveTable.applicationId,
+        appName: appActivityArchiveTable.appName,
+        termId: appActivityArchiveTable.termId,
+        eventType: appActivityArchiveTable.eventType,
+        detail: appActivityArchiveTable.detail,
+        actorName: appActivityArchiveTable.actorName,
+        createdAt: appActivityArchiveTable.createdAt,
+        archivedAt: appActivityArchiveTable.archivedAt,
+      })
+      .from(appActivityArchiveTable)
+      .where(where)
+      .orderBy(desc(appActivityArchiveTable.createdAt), desc(appActivityArchiveTable.id))
+      .limit(limit)
+      .offset(offset);
+
+    const mapped = rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      archivedAt: r.archivedAt.toISOString(),
+    }));
+
+    if (format === "csv") {
+      const header = "app,event_type,detail,actor,occurred_at,archived_at";
+      const lines = mapped.map((r) =>
+        [r.appName, r.eventType, r.detail, r.actorName ?? "", r.createdAt, r.archivedAt]
+          .map(csvEscape)
+          .join(","),
+      );
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="activity-archive.csv"',
+      );
+      res.send([header, ...lines].join("\n") + "\n");
+      return;
+    }
+
+    res.json(mapped);
+  },
+);
 
 const ROSTERING_PAGE = "rostering";
 
@@ -71,6 +214,25 @@ router.get("/rostering/last-seen", requireAuth, async (req, res): Promise<void> 
       and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ROSTERING_PAGE)),
     );
   res.json({ lastSeenAt: row ? row.lastSeenAt.toISOString() : null });
+});
+
+router.get("/rostering/unseen-count", requireAuth, async (req, res): Promise<void> => {
+  const user = (req as Request & { user: User }).user;
+  const [row] = await db
+    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
+    .from(pageLastSeenTable)
+    .where(
+      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, ROSTERING_PAGE)),
+    );
+  const [result] = row
+    ? await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appActivityTable)
+        .where(gt(appActivityTable.createdAt, row.lastSeenAt))
+    : await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(appActivityTable);
+  res.json({ count: result?.count ?? 0 });
 });
 
 router.post("/rostering/last-seen", requireAuth, async (req, res): Promise<void> => {
@@ -89,6 +251,31 @@ router.post("/rostering/last-seen", requireAuth, async (req, res): Promise<void>
       set: { lastSeenAt: new Date() },
     });
   res.json({ lastSeenAt: previous ? previous.lastSeenAt.toISOString() : null });
+});
+
+// Server-sent events stream: pushes a short "activity" event whenever any
+// rostering activity row is created, so clients can refresh badge counts
+// immediately instead of waiting for the next poll.
+router.get("/rostering/events", requireAuth, (req, res): void => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  res.write("retry: 5000\n\n");
+
+  const unsubscribe = onRosteringActivity(() => {
+    res.write("event: activity\ndata: {}\n\n");
+  });
+  // Heartbeat keeps proxies from timing out the idle connection.
+  const heartbeat = setInterval(() => {
+    res.write(": ping\n\n");
+  }, 25_000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
 });
 
 router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
@@ -140,6 +327,11 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
     .groupBy(appIssuesTable.applicationId);
   const issueMap = new Map(issues.map((i) => [i.applicationId, i.count]));
 
+  // RACI people for each linked application (from the RACI matrix page).
+  const raciMap = await getRaciPeopleByApp([
+    ...new Set(rows.map((row) => row.applicationId)),
+  ]);
+
   res.json(
     rows.map((row) => ({
       ...row,
@@ -148,6 +340,7 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
       upvoteCount: upvoteMap.get(row.applicationId)?.count ?? 0,
       upvotedByMe: (upvoteMap.get(row.applicationId)?.mine ?? 0) > 0,
       openIssueCount: issueMap.get(row.applicationId) ?? 0,
+      raci: raciMap.get(row.applicationId) ?? [],
     })),
   );
 });
@@ -201,6 +394,29 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
     res.status(404).json({ message: "Status row not found" });
     return;
   }
+  // Sharing statuses are settings-driven: new values must be an *active*
+  // configured option, but keeping a row's existing (possibly deactivated)
+  // value is always allowed.
+  const settings = await readAppSettings();
+  const activeStatuses = new Set(
+    settings.sharingStatusOptions.filter((o) => o.active).map((o) => o.value),
+  );
+  for (const [field, current] of [
+    ["studentSharingStatus", before.studentSharingStatus],
+    ["staffSharingStatus", before.staffSharingStatus],
+  ] as const) {
+    const next = parsed.data[field];
+    if (next !== undefined && next !== current && !activeStatuses.has(next)) {
+      res.status(400).json({
+        message: `"${next}" is not an active sharing status option`,
+      });
+      return;
+    }
+  }
+  const statusLabels = new Map(
+    settings.sharingStatusOptions.map((o) => [o.value, o.label]),
+  );
+  const labelFor = (value: string) => statusLabels.get(value) ?? value;
   const [row] = await db
     .update(appTermStatusTable)
     .set({ ...parsed.data, updatedBy: user.id, updatedAt: new Date() })
@@ -213,12 +429,12 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
   const changes: string[] = [];
   if (before.studentSharingStatus !== row.studentSharingStatus) {
     changes.push(
-      `Student sharing: ${STATUS_LABELS[before.studentSharingStatus]} → ${STATUS_LABELS[row.studentSharingStatus]}`,
+      `Student sharing: ${labelFor(before.studentSharingStatus)} → ${labelFor(row.studentSharingStatus)}`,
     );
   }
   if (before.staffSharingStatus !== row.staffSharingStatus) {
     changes.push(
-      `Staff sharing: ${STATUS_LABELS[before.staffSharingStatus]} → ${STATUS_LABELS[row.staffSharingStatus]}`,
+      `Staff sharing: ${labelFor(before.staffSharingStatus)} → ${labelFor(row.staffSharingStatus)}`,
     );
   }
   if ((before.owner ?? null) !== (row.owner ?? null)) {
@@ -235,6 +451,7 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
       detail: changes.join("; "),
       actorId: user.id,
     });
+    emitRosteringActivity();
   }
   const [updater] = await db.select().from(usersTable).where(eq(usersTable.id, user.id));
   res.json({

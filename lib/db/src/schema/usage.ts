@@ -7,6 +7,7 @@ import {
   date,
   doublePrecision,
   uniqueIndex,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
@@ -86,6 +87,7 @@ export const usageAdditionalResourcesTable = pgTable(
     snapshotDate: date("snapshot_date", { mode: "string" }).notNull(),
     link: text("link").notNull(),
     uniqueUsers: integer("unique_users").notNull().default(0),
+    totalAccesses: integer("total_accesses").notNull().default(0),
   },
   (t) => [uniqueIndex("usage_additional_resources_idx").on(t.snapshotDate, t.link)],
 );
@@ -100,9 +102,7 @@ export const usageAppListTable = pgTable(
     studentPercent: doublePrecision("student_percent").notNull().default(0),
     teacherCount: integer("teacher_count").notNull().default(0),
     teacherPercent: doublePrecision("teacher_percent").notNull().default(0),
-    activeTimePerUserMinutes: doublePrecision("active_time_per_user_minutes")
-      .notNull()
-      .default(0),
+    activeTimePerUserMinutes: doublePrecision("active_time_per_user_minutes"),
   },
   (t) => [uniqueIndex("usage_applist_idx").on(t.snapshotDate, t.appName)],
 );
@@ -125,9 +125,21 @@ export const importLogTable = pgTable("import_log", {
   }),
   snapshotDate: date("snapshot_date", { mode: "string" }).notNull(),
   filesIncluded: text("files_included").array().notNull(),
+  source: text("source").notNull().default("upload"),
   rowsInserted: integer("rows_inserted").notNull().default(0),
   rowsUpdated: integer("rows_updated").notNull().default(0),
 });
 
+export const syncRunsTable = pgTable("sync_runs", {
+  id: serial("id").primaryKey(),
+  ranAt: timestamp("ran_at", { withTimezone: true }).notNull().defaultNow(),
+  ok: boolean("ok").notNull(),
+  importedSnapshots: text("imported_snapshots").array().notNull().default([]),
+  skippedSnapshots: text("skipped_snapshots").array().notNull().default([]),
+  warnings: text("warnings").array().notNull().default([]),
+  error: text("error"),
+});
+
 export type UsageKeyMetrics = typeof usageKeyMetricsTable.$inferSelect;
 export type ImportLogEntry = typeof importLogTable.$inferSelect;
+export type SyncRun = typeof syncRunsTable.$inferSelect;

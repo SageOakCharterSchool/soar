@@ -1,251 +1,14 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import type { Server } from "http";
+import { fakeDb, tables, state, resetFakeDb } from "../test/fakeDb";
 
-type Col = { name: string; table: string };
-type Cond =
-  | { type: "eq"; col: Col; val: unknown }
-  | { type: "gte"; col: Col; val: unknown }
-  | { type: "lte"; col: Col; val: unknown }
-  | { type: "and"; conds: Cond[] };
-
-const { fakeDb, tables, state } = vi.hoisted(() => {
-  type HCol = { name: string; table: string };
-  type HCond =
-    | { type: "eq"; col: HCol; val: unknown }
-    | { type: "gte"; col: HCol; val: unknown }
-    | { type: "lte"; col: HCol; val: unknown }
-    | { type: "and"; conds: HCond[] };
-  type Row = Record<string, unknown>;
-
-  function matches(row: Row, cond: HCond | undefined): boolean {
-    if (!cond) return true;
-    if (cond.type === "and") return cond.conds.every((c) => matches(row, c));
-    const v = row[cond.col.name] as string | number;
-    const val = cond.val as string | number;
-    if (cond.type === "eq") return v === val;
-    if (cond.type === "gte") return v >= val;
-    return v <= val;
-  }
-
-  function makeTable(label: string) {
-    return new Proxy(
-      { __label: label },
-      {
-        get(_target, prop: string) {
-          if (prop === "__label") return label;
-          return { name: prop, table: label };
-        },
-      },
-    );
-  }
-
-  const state = { idCounter: 0 };
-
-  type OrderSpec = { col: HCol; dir: "asc" | "desc" };
-
-  class Query implements PromiseLike<Row[]> {
-    constructor(
-      private db: FakeDb,
-      private table: object,
-      private fields?: Record<string, HCol>,
-    ) {}
-
-    private cond?: HCond;
-    private order: OrderSpec[] = [];
-    private max?: number;
-    private join?: { table: object; on: { left: HCol; right: HCol } };
-
-    where(cond: HCond | undefined) {
-      this.cond = cond;
-      return this;
-    }
-    orderBy(...specs: OrderSpec[]) {
-      this.order = specs;
-      return this;
-    }
-    limit(n: number) {
-      this.max = n;
-      return this;
-    }
-    leftJoin(table: object, on: { type: "eq"; col: HCol; val: HCol }) {
-      this.join = { table, on: { left: on.col, right: on.val } };
-      return this;
-    }
-
-    private run(): Row[] {
-      const label = (this.table as { __label: string }).__label;
-      let rows: { byTable: Record<string, Row | null>; base: Row }[] = this.db
-        .rows(this.table)
-        .map((r) => ({ base: r, byTable: { [label]: r } }));
-      if (this.join) {
-        const joinLabel = (this.join.table as { __label: string }).__label;
-        const joinRows = this.db.rows(this.join.table);
-        const { left, right } = this.join.on;
-        rows = rows.map((r) => {
-          const leftVal =
-            left.table === label ? r.base[left.name] : undefined;
-          const match =
-            joinRows.find((jr) =>
-              left.table === label
-                ? jr[right.name] === leftVal
-                : jr[left.name] === r.base[right.name],
-            ) ?? null;
-          return { ...r, byTable: { ...r.byTable, [joinLabel]: match } };
-        });
-      }
-      rows = rows.filter((r) => matches(r.base, this.cond));
-      for (const spec of [...this.order].reverse()) {
-        rows.sort((a, b) => {
-          const av = a.base[spec.col.name] as string | number;
-          const bv = b.base[spec.col.name] as string | number;
-          const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-          return spec.dir === "desc" ? -cmp : cmp;
-        });
-      }
-      if (this.max != null) rows = rows.slice(0, this.max);
-      return rows.map((r) => {
-        if (!this.fields) return r.base;
-        const out: Row = {};
-        for (const [key, col] of Object.entries(this.fields)) {
-          const src = r.byTable[col.table];
-          out[key] = src ? src[col.name] : null;
-        }
-        return out;
-      });
-    }
-
-    then<T1 = Row[], T2 = never>(
-      resolve?: ((rows: Row[]) => T1 | PromiseLike<T1>) | null,
-      reject?: ((e: unknown) => T2 | PromiseLike<T2>) | null,
-    ): PromiseLike<T1 | T2> {
-      return Promise.resolve(this.run()).then(resolve, reject);
-    }
-  }
-
-  class FakeDb {
-    store = new Map<object, Row[]>();
-
-    rows(table: object): Row[] {
-      if (!this.store.has(table)) this.store.set(table, []);
-      return this.store.get(table)!;
-    }
-
-    select(fields?: Record<string, HCol>) {
-      const self = this;
-      return {
-        from(table: object) {
-          return new Query(self, table, fields);
-        },
-      };
-    }
-
-    insert(table: object) {
-      const self = this;
-      return {
-        values: (vals: Row | Row[]) => {
-          const list = Array.isArray(vals) ? vals : [vals];
-          const apply = () =>
-            list.map((v) => {
-              const row: Row = { id: ++state.idCounter, ...v };
-              self.rows(table).push(row);
-              return row;
-            });
-          return {
-            then<T1, T2>(
-              resolve?: ((rows: Row[]) => T1 | PromiseLike<T1>) | null,
-              reject?: ((e: unknown) => T2 | PromiseLike<T2>) | null,
-            ) {
-              return Promise.resolve(apply()).then(resolve, reject);
-            },
-            returning: async (fields?: Record<string, HCol>) => {
-              const rows = apply();
-              if (!fields) return rows;
-              return rows.map((row) => {
-                const out: Row = {};
-                for (const [key, col] of Object.entries(fields)) {
-                  out[key] = row[col.name];
-                }
-                return out;
-              });
-            },
-          };
-        },
-      };
-    }
-
-    update(table: object) {
-      const self = this;
-      return {
-        set: (vals: Row) => ({
-          where: async (cond: HCond) => {
-            for (const row of self.rows(table)) {
-              if (matches(row, cond)) Object.assign(row, vals);
-            }
-          },
-        }),
-      };
-    }
-
-    async execute() {
-      return { rows: [] };
-    }
-  }
-
-  const fakeDb = new FakeDb();
-
-  const tables = {
-    usersTable: makeTable("users"),
-    termsTable: makeTable("terms"),
-    applicationsTable: makeTable("applications"),
-    appTermStatusTable: makeTable("appTermStatus"),
-    appActivityTable: makeTable("appActivity"),
-    appUpvotesTable: makeTable("appUpvotes"),
-    appIssuesTable: makeTable("appIssues"),
-    pageLastSeenTable: makeTable("pageLastSeen"),
-    usageKeyMetricsTable: makeTable("usageKeyMetrics"),
-    usageByAppTable: makeTable("usageByApp"),
-    usageBySchoolTable: makeTable("usageBySchool"),
-    usageByDeviceTable: makeTable("usageByDevice"),
-    usageByBrowserTable: makeTable("usageByBrowser"),
-    usageByLoginMethodTable: makeTable("usageByLoginMethod"),
-    usageAdditionalResourcesTable: makeTable("usageAdditionalResources"),
-    usageAppListTable: makeTable("usageAppList"),
-    usageDailyStudentTable: makeTable("usageDailyStudent"),
-    usageDailyTeacherTable: makeTable("usageDailyTeacher"),
-    importLogTable: makeTable("importLog"),
-    feedbackTable: makeTable("feedback"),
-  };
-
-  return { fakeDb, tables, state };
-});
-
-vi.mock("drizzle-orm", () => ({
-  eq: (col: Col, val: unknown): Cond => ({ type: "eq", col, val }),
-  gte: (col: Col, val: unknown): Cond => ({ type: "gte", col, val }),
-  lte: (col: Col, val: unknown): Cond => ({ type: "lte", col, val }),
-  and: (...conds: Cond[]): Cond => ({ type: "and", conds }),
-  asc: (col: Col) => ({ col, dir: "asc" }),
-  desc: (col: Col) => ({ col, dir: "desc" }),
-  sql: () => ({}),
-}));
-
-vi.mock("@workspace/db", () => ({
-  db: fakeDb,
-  ...tables,
-}));
-
-// Replace the Postgres-backed session store with express-session's in-memory
-// store so no database connection is needed. express-session itself (cookie
-// handling, session persistence across requests) stays fully real.
-vi.mock("connect-pg-simple", () => ({
-  default: (session: { MemoryStore: new () => object }) =>
-    class extends session.MemoryStore {
-      constructor(_opts: unknown) {
-        super();
-      }
-    },
-}));
+vi.mock("drizzle-orm", async () => (await import("../test/fakeDb")).drizzleOrmMock);
+vi.mock("@workspace/db", async () => (await import("../test/fakeDb")).dbModuleMock);
+vi.mock(
+  "connect-pg-simple",
+  async () => (await import("../test/fakeDb")).connectPgSimpleMock,
+);
 
 import app from "../app";
 
@@ -301,8 +64,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  fakeDb.store.clear();
-  state.idCounter = 0;
+  resetFakeDb();
   fakeDb.rows(tables.usersTable).push(
     {
       id: 1,
@@ -577,5 +339,53 @@ describe("key read endpoints", () => {
       { date: "2026-06-02", studentUsers: 110, teacherUsers: null },
       { date: "2026-06-03", studentUsers: null, teacherUsers: 12 },
     ]);
+  });
+
+  it("requires auth on additional-resources history", async () => {
+    const anon = new Client();
+    expect((await anon.get("/usage/additional-resources/history")).status).toBe(401);
+  });
+
+  it("returns empty history when there is no resource data", async () => {
+    const client = await loginAs(STAFF);
+    const res = await client.get("/usage/additional-resources/history");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ snapshotDates: [], resources: [] });
+  });
+
+  it("returns per-resource series across snapshots, sorted by latest users", async () => {
+    fakeDb.rows(tables.usageAdditionalResourcesTable).push(
+      { link: "Library", uniqueUsers: 5, totalAccesses: 8, snapshotDate: "2026-06-28" },
+      { link: "Library", uniqueUsers: 7, totalAccesses: 11, snapshotDate: "2026-06-29" },
+      { link: "Library", uniqueUsers: 9, totalAccesses: 14, snapshotDate: "2026-06-30" },
+      { link: "Portal", uniqueUsers: 20, totalAccesses: 30, snapshotDate: "2026-06-29" },
+      { link: "Portal", uniqueUsers: 25, totalAccesses: 40, snapshotDate: "2026-06-30" },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/usage/additional-resources/history");
+    expect(res.status).toBe(200);
+    expect(res.body.snapshotDates).toEqual(["2026-06-28", "2026-06-29", "2026-06-30"]);
+    expect(res.body.resources.map((r: { link: string }) => r.link)).toEqual([
+      "Portal",
+      "Library",
+    ]);
+    expect(res.body.resources[0].points).toEqual([
+      { snapshotDate: "2026-06-29", uniqueUsers: 20, totalAccesses: 30 },
+      { snapshotDate: "2026-06-30", uniqueUsers: 25, totalAccesses: 40 },
+    ]);
+    expect(res.body.resources[1].points).toHaveLength(3);
+  });
+
+  it("respects the limit query on history snapshots", async () => {
+    fakeDb.rows(tables.usageAdditionalResourcesTable).push(
+      { link: "Library", uniqueUsers: 5, totalAccesses: 8, snapshotDate: "2026-06-28" },
+      { link: "Library", uniqueUsers: 7, totalAccesses: 11, snapshotDate: "2026-06-29" },
+      { link: "Library", uniqueUsers: 9, totalAccesses: 14, snapshotDate: "2026-06-30" },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/usage/additional-resources/history?limit=2");
+    expect(res.status).toBe(200);
+    expect(res.body.snapshotDates).toEqual(["2026-06-29", "2026-06-30"]);
+    expect(res.body.resources[0].points).toHaveLength(2);
   });
 });

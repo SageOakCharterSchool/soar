@@ -217,7 +217,64 @@ router.get("/usage/additional-resources", requireAuth, async (_req, res): Promis
     .from(usageAdditionalResourcesTable)
     .where(eq(usageAdditionalResourcesTable.snapshotDate, snapshot))
     .orderBy(desc(usageAdditionalResourcesTable.uniqueUsers));
-  res.json(rows.map((r) => ({ link: r.link, uniqueUsers: r.uniqueUsers })));
+  res.json(
+    rows.map((r) => ({ link: r.link, uniqueUsers: r.uniqueUsers, totalAccesses: r.totalAccesses })),
+  );
 });
+
+router.get(
+  "/usage/additional-resources/history",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const rawLimit = Number(req.query.limit);
+    const limit =
+      Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 60) : 12;
+
+    const dateRows = await db
+      .selectDistinct({ d: usageAdditionalResourcesTable.snapshotDate })
+      .from(usageAdditionalResourcesTable)
+      .orderBy(desc(usageAdditionalResourcesTable.snapshotDate))
+      .limit(limit);
+    const dates = dateRows.map((r) => r.d).sort();
+    if (dates.length === 0) {
+      res.json({ snapshotDates: [], resources: [] });
+      return;
+    }
+
+    const rows = await db
+      .select()
+      .from(usageAdditionalResourcesTable)
+      .where(gte(usageAdditionalResourcesTable.snapshotDate, dates[0]))
+      .orderBy(asc(usageAdditionalResourcesTable.snapshotDate));
+
+    const byLink = new Map<
+      string,
+      Array<{ snapshotDate: string; uniqueUsers: number; totalAccesses: number }>
+    >();
+    for (const r of rows) {
+      let points = byLink.get(r.link);
+      if (!points) {
+        points = [];
+        byLink.set(r.link, points);
+      }
+      points.push({
+        snapshotDate: r.snapshotDate,
+        uniqueUsers: r.uniqueUsers,
+        totalAccesses: r.totalAccesses,
+      });
+    }
+
+    const latest = dates[dates.length - 1];
+    const resources = [...byLink.entries()]
+      .map(([link, points]) => ({ link, points }))
+      .sort((a, b) => {
+        const av = a.points.find((p) => p.snapshotDate === latest)?.uniqueUsers ?? -1;
+        const bv = b.points.find((p) => p.snapshotDate === latest)?.uniqueUsers ?? -1;
+        return bv - av;
+      });
+
+    res.json({ snapshotDates: dates, resources });
+  },
+);
 
 export default router;

@@ -1,0 +1,643 @@
+import { Router, type IRouter, type Request } from "express";
+import { and, asc, desc, eq } from "drizzle-orm";
+import {
+  db,
+  raciTeamsTable,
+  raciMembersTable,
+  raciRowsTable,
+  raciAssignmentsTable,
+  applicationsTable,
+  appActivityTable,
+  type User,
+} from "@workspace/db";
+import {
+  CreateRaciRowBody,
+  UpdateRaciRowBody,
+  CreateRaciMemberBody,
+  UpdateRaciMemberBody,
+  SetRaciCellBody,
+  RenameRaciCategoryBody,
+} from "@workspace/api-zod";
+import { requireAuth, requireAdmin } from "../lib/auth";
+import { emitRosteringActivity } from "../lib/activityEvents";
+import { readAppSettings } from "../lib/appSettings";
+
+const router: IRouter = Router();
+
+function parseId(raw: unknown): number | null {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const id = parseInt(String(value ?? ""), 10);
+  return Number.isNaN(id) ? null : id;
+}
+
+async function logRaciChange(
+  actorId: number,
+  detail: string,
+  applicationId: number | null = null,
+): Promise<void> {
+  await db.insert(appActivityTable).values({
+    applicationId,
+    eventType: "raci_change",
+    detail,
+    actorId,
+  });
+  emitRosteringActivity();
+}
+
+async function loadMatrix() {
+  const teams = await db
+    .select()
+    .from(raciTeamsTable)
+    .orderBy(asc(raciTeamsTable.sortOrder), asc(raciTeamsTable.id));
+  const members = await db
+    .select()
+    .from(raciMembersTable)
+    .orderBy(asc(raciMembersTable.sortOrder), asc(raciMembersTable.id));
+  const rows = await db
+    .select({
+      id: raciRowsTable.id,
+      teamId: raciRowsTable.teamId,
+      category: raciRowsTable.category,
+      name: raciRowsTable.name,
+      sortOrder: raciRowsTable.sortOrder,
+      applicationId: raciRowsTable.applicationId,
+      appName: applicationsTable.name,
+    })
+    .from(raciRowsTable)
+    .leftJoin(applicationsTable, eq(raciRowsTable.applicationId, applicationsTable.id))
+    .orderBy(asc(raciRowsTable.sortOrder), asc(raciRowsTable.id));
+  const assignments = await db.select().from(raciAssignmentsTable);
+
+  const cellsByRow = new Map<number, { memberId: number; value: string }[]>();
+  for (const a of assignments) {
+    if (!cellsByRow.has(a.rowId)) cellsByRow.set(a.rowId, []);
+    cellsByRow.get(a.rowId)!.push({ memberId: a.memberId, value: a.value });
+  }
+
+  return teams.map((team) => ({
+    id: team.id,
+    name: team.name,
+    sortOrder: team.sortOrder,
+    members: members
+      .filter((m) => m.teamId === team.id)
+      .map((m) => ({
+        id: m.id,
+        teamId: m.teamId,
+        name: m.name,
+        userId: m.userId ?? null,
+        sortOrder: m.sortOrder,
+      })),
+    rows: rows
+      .filter((r) => r.teamId === team.id)
+      .map((r) => ({
+        id: r.id,
+        teamId: r.teamId,
+        category: r.category ?? null,
+        name: r.name,
+        sortOrder: r.sortOrder,
+        applicationId: r.applicationId ?? null,
+        appName: r.appName ?? null,
+        assignments: cellsByRow.get(r.id) ?? [],
+      })),
+  }));
+}
+
+router.get("/raci", requireAuth, async (_req, res): Promise<void> => {
+  res.json({ teams: await loadMatrix() });
+});
+
+function csvEscape(value: unknown): string {
+  const s = value == null ? "" : String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// CSV export for one team section.
+router.get("/raci/teams/:id/export", requireAuth, async (req, res): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id == null) {
+    res.status(400).json({ message: "Invalid team id" });
+    return;
+  }
+  const teams = await loadMatrix();
+  const team = teams.find((t) => t.id === id);
+  if (!team) {
+    res.status(404).json({ message: "Team not found" });
+    return;
+  }
+  const header = ["Category", "Decision or Task", ...team.members.map((m) => m.name)];
+  const lines = team.rows.map((row) => {
+    const byMember = new Map(row.assignments.map((a) => [a.memberId, a.value]));
+    return [
+      row.category ?? "",
+      row.name,
+      ...team.members.map((m) => byMember.get(m.id) ?? ""),
+    ]
+      .map(csvEscape)
+      .join(",");
+  });
+  const safeName = team.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="raci-${safeName}.csv"`);
+  res.send([header.map(csvEscape).join(","), ...lines].join("\n") + "\n");
+});
+
+async function matchApplicationByName(name: string): Promise<number | null> {
+  const apps = await db
+    .select({ id: applicationsTable.id, name: applicationsTable.name })
+    .from(applicationsTable);
+  const target = name.trim().toLowerCase();
+  const match = apps.find((a) => a.name.trim().toLowerCase() === target);
+  return match?.id ?? null;
+}
+
+router.post("/raci/rows", requireAdmin, async (req, res): Promise<void> => {
+  const parsed = CreateRaciRowBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const { teamId, name, category } = parsed.data;
+  const [team] = await db.select().from(raciTeamsTable).where(eq(raciTeamsTable.id, teamId));
+  if (!team) {
+    res.status(400).json({ message: "Team not found" });
+    return;
+  }
+  const siblings = await db
+    .select({ sortOrder: raciRowsTable.sortOrder })
+    .from(raciRowsTable)
+    .where(eq(raciRowsTable.teamId, teamId));
+  const sortOrder = siblings.reduce((max, r) => Math.max(max, r.sortOrder), 0) + 1;
+  // Auto-link to an application whose name matches the new row's name.
+  const applicationId = await matchApplicationByName(name);
+  const [row] = await db
+    .insert(raciRowsTable)
+    .values({ teamId, name: name.trim(), category: category ?? null, sortOrder, applicationId })
+    .returning();
+  await logRaciChange(
+    user.id,
+    `RACI: added "${name.trim()}" to ${team.name}`,
+    applicationId,
+  );
+  res.json({
+    id: row!.id,
+    teamId,
+    category: row!.category ?? null,
+    name: row!.name,
+    sortOrder,
+    applicationId: applicationId ?? null,
+    appName: null,
+    assignments: [],
+  });
+});
+
+router.patch("/raci/rows/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id == null) {
+    res.status(400).json({ message: "Invalid row id" });
+    return;
+  }
+  const parsed = UpdateRaciRowBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const [before] = await db.select().from(raciRowsTable).where(eq(raciRowsTable.id, id));
+  if (!before) {
+    res.status(404).json({ message: "Row not found" });
+    return;
+  }
+  // Optimistic concurrency: if the client told us which name it last saw and
+  // the stored name has since changed, reject instead of silently overwriting
+  // another admin's concurrent rename.
+  if (
+    parsed.data.name !== undefined &&
+    parsed.data.expectedName !== undefined &&
+    parsed.data.expectedName !== before.name
+  ) {
+    res.status(409).json({
+      message: "This task was just renamed by another admin",
+      currentName: before.name,
+    });
+    return;
+  }
+  const updates: Partial<typeof before> = {};
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name.trim();
+  if (parsed.data.category !== undefined) updates.category = parsed.data.category;
+  if (parsed.data.applicationId !== undefined) {
+    if (parsed.data.applicationId != null) {
+      const [app] = await db
+        .select()
+        .from(applicationsTable)
+        .where(eq(applicationsTable.id, parsed.data.applicationId));
+      if (!app) {
+        res.status(400).json({ message: "Application not found" });
+        return;
+      }
+    }
+    updates.applicationId = parsed.data.applicationId;
+  }
+  const [row] = await db
+    .update(raciRowsTable)
+    .set(updates)
+    .where(eq(raciRowsTable.id, id))
+    .returning();
+  const changes: string[] = [];
+  if (updates.name !== undefined && updates.name !== before.name) {
+    changes.push(`renamed "${before.name}" to "${updates.name}"`);
+  }
+  if (updates.category !== undefined && updates.category !== before.category) {
+    changes.push(
+      `moved "${row!.name}" to category ${updates.category ?? "(none)"}`,
+    );
+  }
+  if (
+    updates.applicationId !== undefined &&
+    updates.applicationId !== before.applicationId
+  ) {
+    changes.push(
+      updates.applicationId != null
+        ? `linked "${row!.name}" to an application`
+        : `unlinked "${row!.name}" from its application`,
+    );
+  }
+  if (changes.length > 0) {
+    await logRaciChange(
+      user.id,
+      `RACI: ${changes.join("; ")}`,
+      row!.applicationId ?? null,
+    );
+  }
+  let appName: string | null = null;
+  if (row!.applicationId != null) {
+    const [app] = await db
+      .select({ name: applicationsTable.name })
+      .from(applicationsTable)
+      .where(eq(applicationsTable.id, row!.applicationId));
+    appName = app?.name ?? null;
+  }
+  const assignments = await db
+    .select({ memberId: raciAssignmentsTable.memberId, value: raciAssignmentsTable.value })
+    .from(raciAssignmentsTable)
+    .where(eq(raciAssignmentsTable.rowId, id));
+  res.json({
+    id: row!.id,
+    teamId: row!.teamId,
+    category: row!.category ?? null,
+    name: row!.name,
+    sortOrder: row!.sortOrder,
+    applicationId: row!.applicationId ?? null,
+    appName,
+    assignments,
+  });
+});
+
+router.delete("/raci/rows/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id == null) {
+    res.status(400).json({ message: "Invalid row id" });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const [row] = await db.select().from(raciRowsTable).where(eq(raciRowsTable.id, id));
+  if (!row) {
+    res.status(404).json({ message: "Row not found" });
+    return;
+  }
+  // Optimistic concurrency: if the client told us which name it last saw and
+  // the stored name has since changed, reject instead of destroying another
+  // admin's concurrent rename without warning.
+  const expectedName = req.query.expectedName;
+  if (typeof expectedName === "string" && expectedName !== row.name) {
+    res.status(409).json({
+      message: "This task was just renamed by another admin",
+      currentName: row.name,
+    });
+    return;
+  }
+  // Same idea for the row's cell assignments: if the client told us the
+  // assignment set it last saw (canonical "memberId=value" fingerprint) and
+  // it has since changed, reject instead of silently wiping another admin's
+  // concurrent R/A/C/I edits along with the row.
+  const expectedAssignments = req.query.expectedAssignments;
+  if (typeof expectedAssignments === "string") {
+    const current = await db
+      .select({
+        memberId: raciAssignmentsTable.memberId,
+        value: raciAssignmentsTable.value,
+      })
+      .from(raciAssignmentsTable)
+      .where(eq(raciAssignmentsTable.rowId, id));
+    const fingerprint = current
+      .map((a) => ({ memberId: a.memberId, value: a.value }))
+      .sort((a, b) => a.memberId - b.memberId)
+      .map((a) => `${a.memberId}=${a.value}`)
+      .join(",");
+    if (expectedAssignments !== fingerprint) {
+      res.status(409).json({
+        message: "This task's assignments were just changed by another admin",
+        currentName: row.name,
+      });
+      return;
+    }
+  }
+  await db.delete(raciAssignmentsTable).where(eq(raciAssignmentsTable.rowId, id));
+  await db.delete(raciRowsTable).where(eq(raciRowsTable.id, id));
+  await logRaciChange(user.id, `RACI: removed "${row.name}"`, row.applicationId ?? null);
+  res.json({ message: "Row removed" });
+});
+
+router.post("/raci/members", requireAdmin, async (req, res): Promise<void> => {
+  const parsed = CreateRaciMemberBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const { teamId, name } = parsed.data;
+  const [team] = await db.select().from(raciTeamsTable).where(eq(raciTeamsTable.id, teamId));
+  if (!team) {
+    res.status(400).json({ message: "Team not found" });
+    return;
+  }
+  const existing = await db
+    .select()
+    .from(raciMembersTable)
+    .where(eq(raciMembersTable.teamId, teamId));
+  if (existing.some((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase())) {
+    res.status(400).json({ message: "That member is already on this team" });
+    return;
+  }
+  const sortOrder = existing.reduce((max, m) => Math.max(max, m.sortOrder), 0) + 1;
+  const [member] = await db
+    .insert(raciMembersTable)
+    .values({ teamId, name: name.trim(), sortOrder })
+    .returning();
+  await logRaciChange(user.id, `RACI: added member ${name.trim()} to ${team.name}`);
+  res.json({
+    id: member!.id,
+    teamId,
+    name: member!.name,
+    userId: member!.userId ?? null,
+    sortOrder,
+  });
+});
+
+router.patch("/raci/members/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id == null) {
+    res.status(400).json({ message: "Invalid member id" });
+    return;
+  }
+  const parsed = UpdateRaciMemberBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const [before] = await db
+    .select()
+    .from(raciMembersTable)
+    .where(eq(raciMembersTable.id, id));
+  if (!before) {
+    res.status(404).json({ message: "Member not found" });
+    return;
+  }
+  // Optimistic concurrency: reject if the member was renamed by another admin
+  // since the client loaded it, instead of silently overwriting that rename.
+  if (
+    parsed.data.expectedName !== undefined &&
+    parsed.data.expectedName !== before.name
+  ) {
+    res.status(409).json({
+      message: "This member was just renamed by another admin",
+      currentName: before.name,
+    });
+    return;
+  }
+  const [member] = await db
+    .update(raciMembersTable)
+    .set({ name: parsed.data.name.trim() })
+    .where(eq(raciMembersTable.id, id))
+    .returning();
+  if (before.name !== member!.name) {
+    await logRaciChange(
+      user.id,
+      `RACI: renamed member ${before.name} to ${member!.name}`,
+    );
+  }
+  res.json({
+    id: member!.id,
+    teamId: member!.teamId,
+    name: member!.name,
+    userId: member!.userId ?? null,
+    sortOrder: member!.sortOrder,
+  });
+});
+
+router.delete("/raci/members/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id == null) {
+    res.status(400).json({ message: "Invalid member id" });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const [member] = await db
+    .select()
+    .from(raciMembersTable)
+    .where(eq(raciMembersTable.id, id));
+  if (!member) {
+    res.status(404).json({ message: "Member not found" });
+    return;
+  }
+  // Optimistic concurrency: if the client told us which name it last saw and
+  // the stored name has since changed, reject instead of destroying another
+  // admin's concurrent rename without warning.
+  const expectedName = req.query.expectedName;
+  if (typeof expectedName === "string" && expectedName !== member.name) {
+    res.status(409).json({
+      message: "This member was just renamed by another admin",
+      currentName: member.name,
+    });
+    return;
+  }
+  // Same idea for the member's column assignments: if the client told us the
+  // assignment set it last saw (canonical "rowId=value" fingerprint) and it
+  // has since changed, reject instead of silently wiping another admin's
+  // concurrent R/A/C/I edits along with the member.
+  const expectedAssignments = req.query.expectedAssignments;
+  if (typeof expectedAssignments === "string") {
+    const current = await db
+      .select({
+        rowId: raciAssignmentsTable.rowId,
+        value: raciAssignmentsTable.value,
+      })
+      .from(raciAssignmentsTable)
+      .where(eq(raciAssignmentsTable.memberId, id));
+    const fingerprint = current
+      .map((a) => ({ rowId: a.rowId, value: a.value }))
+      .sort((a, b) => a.rowId - b.rowId)
+      .map((a) => `${a.rowId}=${a.value}`)
+      .join(",");
+    if (expectedAssignments !== fingerprint) {
+      res.status(409).json({
+        message: "This member's assignments were just changed by another admin",
+        currentName: member.name,
+      });
+      return;
+    }
+  }
+  await db.delete(raciAssignmentsTable).where(eq(raciAssignmentsTable.memberId, id));
+  await db.delete(raciMembersTable).where(eq(raciMembersTable.id, id));
+  await logRaciChange(user.id, `RACI: removed member ${member.name}`);
+  res.json({ message: "Member removed" });
+});
+
+router.put("/raci/cells", requireAdmin, async (req, res): Promise<void> => {
+  const parsed = SetRaciCellBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const { rowId, memberId, value, expectedValue } = parsed.data;
+  // RACI values are settings-driven: new values must be an *active*
+  // configured option (clearing a cell with null is always allowed).
+  if (value != null) {
+    const settings = await readAppSettings();
+    if (
+      !settings.raciValueOptions.some((o) => o.active && o.value === value)
+    ) {
+      res
+        .status(400)
+        .json({ message: `"${value}" is not an active RACI value option` });
+      return;
+    }
+  }
+  const [row] = await db.select().from(raciRowsTable).where(eq(raciRowsTable.id, rowId));
+  if (!row) {
+    res.status(404).json({ message: "Row not found" });
+    return;
+  }
+  const [member] = await db
+    .select()
+    .from(raciMembersTable)
+    .where(eq(raciMembersTable.id, memberId));
+  if (!member || member.teamId !== row.teamId) {
+    res.status(404).json({ message: "Member not found on this row's team" });
+    return;
+  }
+  const cellCond = and(
+    eq(raciAssignmentsTable.rowId, rowId),
+    eq(raciAssignmentsTable.memberId, memberId),
+  );
+  const [existing] = await db.select().from(raciAssignmentsTable).where(cellCond);
+  const beforeValue = existing?.value ?? null;
+  // Optimistic concurrency: if the client told us what it last saw and the
+  // stored value has since changed, reject instead of silently overwriting
+  // another admin's concurrent edit.
+  if (expectedValue !== undefined && (expectedValue ?? null) !== beforeValue) {
+    res.status(409).json({
+      message: "This cell was just changed by another admin",
+      currentValue: beforeValue,
+    });
+    return;
+  }
+  if (value == null) {
+    await db.delete(raciAssignmentsTable).where(cellCond);
+  } else if (existing) {
+    await db.update(raciAssignmentsTable).set({ value }).where(cellCond);
+  } else {
+    await db.insert(raciAssignmentsTable).values({ rowId, memberId, value });
+  }
+  if (beforeValue !== (value ?? null)) {
+    await logRaciChange(
+      user.id,
+      `RACI: ${member.name} on "${row.name}" set to ${value ?? "blank"} (was ${beforeValue ?? "blank"})`,
+      row.applicationId ?? null,
+    );
+  }
+  res.json({ rowId, memberId, value: value ?? null });
+});
+
+router.post(
+  "/raci/teams/:id/rename-category",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const id = parseId(req.params.id);
+    if (id == null) {
+      res.status(400).json({ message: "Invalid team id" });
+      return;
+    }
+    const parsed = RenameRaciCategoryBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: parsed.error.message });
+      return;
+    }
+    const user = (req as Request & { user: User }).user;
+    const [team] = await db.select().from(raciTeamsTable).where(eq(raciTeamsTable.id, id));
+    if (!team) {
+      res.status(404).json({ message: "Team not found" });
+      return;
+    }
+    const updated = await db
+      .update(raciRowsTable)
+      .set({ category: parsed.data.to.trim() })
+      .where(
+        and(eq(raciRowsTable.teamId, id), eq(raciRowsTable.category, parsed.data.from)),
+      )
+      .returning();
+    if (updated.length === 0) {
+      // The "from" name doubles as an expected-previous-value check: if no
+      // rows carry it anymore, another admin renamed or removed the category
+      // after this client loaded the matrix. Try to discover what happened:
+      // renames are always logged, so follow the rename log entries to the
+      // category's latest name and check whether it still exists on the team.
+      const from = parsed.data.from;
+      const currentRows = await db
+        .select({ category: raciRowsTable.category })
+        .from(raciRowsTable)
+        .where(eq(raciRowsTable.teamId, id));
+      const existingCategories = new Set(
+        currentRows.map((r) => r.category).filter((c): c is string => c != null),
+      );
+      const renameLogs = await db
+        .select({ detail: appActivityTable.detail })
+        .from(appActivityTable)
+        .where(eq(appActivityTable.eventType, "raci_change"))
+        .orderBy(desc(appActivityTable.id))
+        .limit(200);
+      let name = from;
+      for (let hops = 0; hops < 5 && !existingCategories.has(name); hops++) {
+        const prefix = `RACI: renamed category "${name}" to "`;
+        const suffix = `" in ${team.name}`;
+        const hit = renameLogs.find(
+          (l) => l.detail.startsWith(prefix) && l.detail.endsWith(suffix),
+        );
+        if (!hit) break;
+        name = hit.detail.slice(prefix.length, hit.detail.length - suffix.length);
+      }
+      if (name !== from && existingCategories.has(name)) {
+        res.status(409).json({
+          message: `This category was just renamed by another admin. It is now called "${name}".`,
+          removed: false,
+          currentName: name,
+        });
+      } else {
+        res.status(409).json({
+          message: "This category was just removed by another admin",
+          removed: true,
+        });
+      }
+      return;
+    }
+    await logRaciChange(
+      user.id,
+      `RACI: renamed category "${parsed.data.from}" to "${parsed.data.to.trim()}" in ${team.name}`,
+    );
+    res.json({ message: "Category renamed" });
+  },
+);
+
+export default router;

@@ -12,5 +12,5 @@ export interface AppEngagementRow {
   studentPercent: number;
   teacherCount: number;
   teacherPercent: number;
-  activeTimePerUserMinutes: number;
+  activeTimePerUserMinutes: number | null;
 }

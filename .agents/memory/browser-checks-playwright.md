@@ -1,0 +1,12 @@
+---
+name: Browser checks via playwright-core
+description: How to run scripted browser-level checks in this Replit env without Playwright's downloaded browsers
+---
+Playwright's own browser downloads don't fit NixOS here. Instead:
+- Install `playwright-core` (no browser download) in `@workspace/scripts`, plus Nix system dependency `chromium`.
+- Launch with `chromium.launch({ executablePath: execSync("which chromium"), args: ["--no-sandbox", "--disable-dev-shm-usage"] })` and `ignoreHTTPSErrors: true` against `https://$REPLIT_DEV_DOMAIN`.
+**Why:** validation-registered browser checks (e.g. staff-access) must run headless from a shell command, not via the testing subagent.
+**How to apply:** see `scripts/src/staff-ui-check.ts` as the working pattern; retry logins on 5xx since workflows may still be restarting when validations run.
+
+## networkidle never fires with SSE
+The dashboard keeps a server-sent events stream (`/api/rostering/events`) open for live badge updates, so Playwright's `waitUntil: "networkidle"` hangs forever. Use `waitUntil: "load"` plus explicit element `waitFor` calls in any scripted UI check against this app.

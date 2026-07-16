@@ -12,5 +12,6 @@ export interface User {
   email: string;
   displayName: string;
   role: UserRole;
+  tags: string[];
   createdAt: string;
 }

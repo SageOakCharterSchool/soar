@@ -1,0 +1,45 @@
+2026-07-15T22:49:21.336080647Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:21.336139728Z [inf]  Serving web app
+2026-07-15T22:49:21.336145177Z [inf]  Applying database migrations
+2026-07-15T22:49:21.336149887Z [inf]  Database migration failed
+2026-07-15T22:49:21.413805965Z [inf]  Starting Container
+2026-07-15T22:49:21.593363437Z [inf]  Serving web app
+2026-07-15T22:49:21.593367067Z [inf]  Applying database migrations
+2026-07-15T22:49:21.593370937Z [inf]  Database migration failed
+2026-07-15T22:49:21.593374177Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:22.485717661Z [inf]  Serving web app
+2026-07-15T22:49:22.490276530Z [inf]  Applying database migrations
+2026-07-15T22:49:22.490282380Z [inf]  Database migration failed
+2026-07-15T22:49:22.490285920Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:23.392769672Z [inf]  Serving web app
+2026-07-15T22:49:23.392773302Z [inf]  Applying database migrations
+2026-07-15T22:49:23.392783302Z [inf]  Database migration failed
+2026-07-15T22:49:23.392787272Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:24.212833691Z [inf]  Serving web app
+2026-07-15T22:49:24.218069304Z [inf]  Applying database migrations
+2026-07-15T22:49:24.219246665Z [inf]  Database migration failed
+2026-07-15T22:49:24.219251635Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:25.058118615Z [inf]  Serving web app
+2026-07-15T22:49:25.058678180Z [inf]  Applying database migrations
+2026-07-15T22:49:25.060330885Z [inf]  Database migration failed
+2026-07-15T22:49:25.060335155Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:25.846047501Z [inf]  Serving web app
+2026-07-15T22:49:25.846052331Z [inf]  Applying database migrations
+2026-07-15T22:49:25.902797753Z [inf]  Database migration failed
+2026-07-15T22:49:25.902800993Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:26.778692283Z [inf]  Serving web app
+2026-07-15T22:49:26.783114684Z [inf]  Applying database migrations
+2026-07-15T22:49:26.783973776Z [inf]  Database migration failed
+2026-07-15T22:49:26.783979766Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:27.589474415Z [inf]  Serving web app
+2026-07-15T22:49:27.594224653Z [inf]  Applying database migrations
+2026-07-15T22:49:27.594231273Z [inf]  Database migration failed
+2026-07-15T22:49:27.594235293Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:28.443927876Z [inf]  Serving web app
+2026-07-15T22:49:28.449121570Z [inf]  Applying database migrations
+2026-07-15T22:49:28.499828326Z [inf]  Database migration failed
+2026-07-15T22:49:28.499833446Z [inf]  Refusing to start in production after migration failure.
+2026-07-15T22:49:29.524260997Z [inf]  Serving web app
+2026-07-15T22:49:29.524263607Z [inf]  Applying database migrations
+2026-07-15T22:49:29.524265937Z [inf]  Database migration failed
+2026-07-15T22:49:29.524268517Z [inf]  Refusing to start in production after migration failure.

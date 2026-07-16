@@ -9,4 +9,5 @@
 export interface ResourceUsageRow {
   link: string;
   uniqueUsers: number;
+  totalAccesses: number;
 }

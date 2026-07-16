@@ -5,12 +5,83 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+export interface DropdownOption {
+  value: string;
+  label: string;
+  active: boolean;
+}
+
+export interface SyncScheduleSettings {
+  enabled: boolean;
+  /** Time of day (server time) in HH:MM 24-hour format. */
+  time: string;
+}
+
+export interface BrandingSettings {
+  appName: string;
+  /** @nullable */
+  logoDataUrl: string | null;
+  /**
+     * Hex color like "#4a7c67", or null for the default theme.
+     * @nullable
+     */
+  accentColor: string | null;
+}
+
+export interface NotificationSettings {
+  syncFailureBannerEnabled: boolean;
+  alertOnSyncWarnings: boolean;
+  recipients: string[];
+}
+
+export interface AppSettings {
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  staleOpenDays: number;
+  sharingStatusOptions: DropdownOption[];
+  raciValueOptions: DropdownOption[];
+  syncSchedule: SyncScheduleSettings;
+  branding: BrandingSettings;
+  notifications: NotificationSettings;
+}
+
+export interface PublicAppSettings {
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  staleOpenDays: number;
+  sharingStatusOptions: DropdownOption[];
+  raciValueOptions: DropdownOption[];
+  branding: BrandingSettings;
+  syncFailureBannerEnabled: boolean;
+}
+
+export interface AppSettingsUpdate {
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  staleOpenDays?: number;
+  sharingStatusOptions?: DropdownOption[];
+  raciValueOptions?: DropdownOption[];
+  syncSchedule?: SyncScheduleSettings;
+  branding?: BrandingSettings;
+  notifications?: NotificationSettings;
+}
+
 export interface HealthStatus {
   status: string;
 }
 
 export interface ApiMessage {
   message: string;
+}
+
+export interface AuthConfig {
+  googleEnabled: boolean;
 }
 
 export interface LoginInput {
@@ -31,7 +102,23 @@ export interface User {
   email: string;
   displayName: string;
   role: UserRole;
+  tags: string[];
   createdAt: string;
+}
+
+export type UserOptionRole = typeof UserOptionRole[keyof typeof UserOptionRole];
+
+
+export const UserOptionRole = {
+  admin: 'admin',
+  staff: 'staff',
+} as const;
+
+export interface UserOption {
+  id: number;
+  displayName: string;
+  role: UserOptionRole;
+  tags: string[];
 }
 
 export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
@@ -47,6 +134,7 @@ export interface UserInput {
   password: string;
   displayName: string;
   role: UserInputRole;
+  tags?: string[];
 }
 
 export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
@@ -61,6 +149,7 @@ export interface UserUpdate {
   displayName?: string;
   role?: UserUpdateRole;
   password?: string;
+  tags?: string[];
 }
 
 export type TermTermType = typeof TermTermType[keyof typeof TermTermType];
@@ -122,32 +211,12 @@ export interface TermCopyInput {
   sourceTermId: number;
 }
 
-export type AppTermStatusStudentSharingStatus = typeof AppTermStatusStudentSharingStatus[keyof typeof AppTermStatusStudentSharingStatus];
-
-
-export const AppTermStatusStudentSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type AppTermStatusStaffSharingStatus = typeof AppTermStatusStaffSharingStatus[keyof typeof AppTermStatusStaffSharingStatus];
-
-
-export const AppTermStatusStaffSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
 export interface AppTermStatus {
   id: number;
   applicationId: number;
   termId: number;
-  studentSharingStatus: AppTermStatusStudentSharingStatus;
-  staffSharingStatus: AppTermStatusStaffSharingStatus;
+  studentSharingStatus: string;
+  staffSharingStatus: string;
   /** @nullable */
   syncMethod?: string | null;
   /** @nullable */
@@ -160,26 +229,6 @@ export interface AppTermStatus {
   /** @nullable */
   updatedByName?: string | null;
 }
-
-export type AppTermStatusUpdateStudentSharingStatus = typeof AppTermStatusUpdateStudentSharingStatus[keyof typeof AppTermStatusUpdateStudentSharingStatus];
-
-
-export const AppTermStatusUpdateStudentSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type AppTermStatusUpdateStaffSharingStatus = typeof AppTermStatusUpdateStaffSharingStatus[keyof typeof AppTermStatusUpdateStaffSharingStatus];
-
-
-export const AppTermStatusUpdateStaffSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
 
 /**
  * @nullable
@@ -195,8 +244,8 @@ export const AppTermStatusUpdateSyncMethod = {
 } as const;
 
 export interface AppTermStatusUpdate {
-  studentSharingStatus?: AppTermStatusUpdateStudentSharingStatus;
-  staffSharingStatus?: AppTermStatusUpdateStaffSharingStatus;
+  studentSharingStatus?: string;
+  staffSharingStatus?: string;
   /** @nullable */
   syncMethod?: AppTermStatusUpdateSyncMethod;
   /** @nullable */
@@ -207,25 +256,12 @@ export interface AppTermStatusUpdate {
   notes?: string | null;
 }
 
-export type BoardRowStudentSharingStatus = typeof BoardRowStudentSharingStatus[keyof typeof BoardRowStudentSharingStatus];
+export type RaciValue = string;
 
-
-export const BoardRowStudentSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
-
-export type BoardRowStaffSharingStatus = typeof BoardRowStaffSharingStatus[keyof typeof BoardRowStaffSharingStatus];
-
-
-export const BoardRowStaffSharingStatus = {
-  not_started: 'not_started',
-  in_progress: 'in_progress',
-  complete: 'complete',
-  needs_review: 'needs_review',
-} as const;
+export interface RaciBoardPerson {
+  name: string;
+  value: RaciValue;
+}
 
 export interface BoardRow {
   applicationId: number;
@@ -233,8 +269,8 @@ export interface BoardRow {
   /** @nullable */
   category?: string | null;
   statusId: number;
-  studentSharingStatus: BoardRowStudentSharingStatus;
-  staffSharingStatus: BoardRowStaffSharingStatus;
+  studentSharingStatus: string;
+  staffSharingStatus: string;
   /** @nullable */
   syncMethod?: string | null;
   /** @nullable */
@@ -250,6 +286,118 @@ export interface BoardRow {
   upvoteCount: number;
   upvotedByMe: boolean;
   openIssueCount: number;
+  raci: RaciBoardPerson[];
+}
+
+export interface RaciAssignment {
+  memberId: number;
+  value: RaciValue;
+}
+
+export interface RaciMember {
+  id: number;
+  teamId: number;
+  name: string;
+  /** @nullable */
+  userId?: number | null;
+  sortOrder: number;
+}
+
+export interface RaciRow {
+  id: number;
+  teamId: number;
+  /** @nullable */
+  category?: string | null;
+  name: string;
+  sortOrder: number;
+  /** @nullable */
+  applicationId?: number | null;
+  /** @nullable */
+  appName?: string | null;
+  assignments: RaciAssignment[];
+}
+
+export interface RaciTeamData {
+  id: number;
+  name: string;
+  sortOrder: number;
+  members: RaciMember[];
+  rows: RaciRow[];
+}
+
+export interface RaciMatrix {
+  teams: RaciTeamData[];
+}
+
+export interface RaciRowInput {
+  teamId: number;
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  category?: string | null;
+}
+
+export interface RaciRowUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** The row name the client last saw. When provided with a rename and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin's rename is not silently overwritten. */
+  expectedName?: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  applicationId?: number | null;
+}
+
+export interface RaciMemberInput {
+  teamId: number;
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface RaciMemberUpdate {
+  /** @minLength 1 */
+  name: string;
+  /** The member name the client last saw. When provided and it no longer matches the stored name, the update is rejected with 409 so a concurrent admin's rename is not silently overwritten. */
+  expectedName?: string;
+}
+
+export interface RaciNameConflict {
+  message: string;
+  currentName: string;
+}
+
+export interface RaciCellInput {
+  rowId: number;
+  memberId: number;
+  value: RaciValue | null;
+  /** The cell value the client last saw. When provided and it no longer matches the stored value, the update is rejected with 409 so a concurrent admin's edit is not silently overwritten. */
+  expectedValue?: RaciValue | null;
+}
+
+export interface RaciCellConflict {
+  message: string;
+  currentValue: RaciValue | null;
+}
+
+export interface RaciCategoryRenameConflict {
+  message: string;
+  /** True when the category no longer exists on the team */
+  removed: boolean;
+  /** The category's current name, when it could be discovered */
+  currentName?: string;
+}
+
+export interface RaciCellState {
+  rowId: number;
+  memberId: number;
+  value: RaciValue | null;
+}
+
+export interface RaciCategoryRename {
+  /** @minLength 1 */
+  from: string;
+  /** @minLength 1 */
+  to: string;
 }
 
 export interface RosteringSummary {
@@ -268,11 +416,13 @@ export const ActivityEventEventType = {
   app_added: 'app_added',
   issue_reported: 'issue_reported',
   issue_resolved: 'issue_resolved',
+  raci_change: 'raci_change',
 } as const;
 
 export interface ActivityEvent {
   id: number;
-  applicationId: number;
+  /** @nullable */
+  applicationId: number | null;
   appName: string;
   /** @nullable */
   termId?: number | null;
@@ -283,9 +433,28 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export interface ArchivedActivityEvent {
+  id: number;
+  /** @nullable */
+  applicationId: number | null;
+  appName: string;
+  /** @nullable */
+  termId?: number | null;
+  eventType: string;
+  detail: string;
+  /** @nullable */
+  actorName?: string | null;
+  createdAt: string;
+  archivedAt: string;
+}
+
 export interface RosteringLastSeen {
   /** @nullable */
   lastSeenAt: string | null;
+}
+
+export interface RosteringUnseenCount {
+  count: number;
 }
 
 export interface UpvoteState {
@@ -316,6 +485,8 @@ export interface Issue {
   comment: string;
   status: IssueStatus;
   createdAt: string;
+  resolvedAt?: string | null;
+  raci: RaciBoardPerson[];
 }
 
 export type IssueUpdateStatus = typeof IssueUpdateStatus[keyof typeof IssueUpdateStatus];
@@ -393,12 +564,29 @@ export interface AppEngagementRow {
   studentPercent: number;
   teacherCount: number;
   teacherPercent: number;
-  activeTimePerUserMinutes: number;
+  activeTimePerUserMinutes: number | null;
 }
 
 export interface ResourceUsageRow {
   link: string;
   uniqueUsers: number;
+  totalAccesses: number;
+}
+
+export interface ResourceUsagePoint {
+  snapshotDate: string;
+  uniqueUsers: number;
+  totalAccesses: number;
+}
+
+export interface ResourceUsageSeries {
+  link: string;
+  points: ResourceUsagePoint[];
+}
+
+export interface ResourceUsageHistory {
+  snapshotDates: string[];
+  resources: ResourceUsageSeries[];
 }
 
 export interface UploadFile {
@@ -418,14 +606,63 @@ export interface ImportResult {
   warnings: string[];
 }
 
+export type ImportLogEntrySource = typeof ImportLogEntrySource[keyof typeof ImportLogEntrySource];
+
+
+export const ImportLogEntrySource = {
+  upload: 'upload',
+  sftp: 'sftp',
+} as const;
+
 export interface ImportLogEntry {
   id: number;
   uploadedAt: string;
   uploadedByName: string;
   snapshotDate: string;
   filesIncluded: string[];
+  source: ImportLogEntrySource;
   rowsInserted: number;
   rowsUpdated: number;
+}
+
+export interface SftpSyncSummary {
+  importedSnapshots: string[];
+  skippedSnapshots: string[];
+  warnings: string[];
+}
+
+export interface SftpSyncRun {
+  id: number;
+  ranAt: string;
+  ok: boolean;
+  importedSnapshots: string[];
+  skippedSnapshots: string[];
+  warnings: string[];
+  /** @nullable */
+  error: string | null;
+}
+
+export interface SftpSyncStatus {
+  configured: boolean;
+  running: boolean;
+  scheduleEnabled: boolean;
+  scheduleTime: string;
+  /** @nullable */
+  nextRunAt: string | null;
+  /** @nullable */
+  lastRunAt: string | null;
+  lastResult: SftpSyncSummary | null;
+  /** @nullable */
+  lastError: string | null;
+  recentRuns: SftpSyncRun[];
+}
+
+export interface SyncAlert {
+  id: number;
+  message: string;
+  occurrences: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
 }
 
 export type GetRosteringBoardParams = {
@@ -440,6 +677,40 @@ export type GetRosteringActivityParams = {
 termId?: number;
 limit?: number;
 };
+
+export type GetRosteringActivityArchiveParams = {
+limit?: number;
+offset?: number;
+/**
+ * Case-insensitive match against app name, actor, or detail
+ */
+search?: string;
+/**
+ * Case-insensitive exact app name filter
+ */
+appName?: string;
+/**
+ * Only events occurring on/after this date (ISO 8601)
+ */
+from?: string;
+/**
+ * Only events occurring on/before this date (ISO 8601)
+ */
+to?: string;
+/**
+ * Snapshot boundary (ISO 8601): only include rows archived at or before this instant. Pass the X-Archive-Snapshot header value from the first page on subsequent pages to keep paged exports consistent while archiving runs.
+ */
+archivedBefore?: string;
+format?: GetRosteringActivityArchiveFormat;
+};
+
+export type GetRosteringActivityArchiveFormat = typeof GetRosteringActivityArchiveFormat[keyof typeof GetRosteringActivityArchiveFormat];
+
+
+export const GetRosteringActivityArchiveFormat = {
+  json: 'json',
+  csv: 'csv',
+} as const;
 
 export type ListIssuesParams = {
 status?: ListIssuesStatus;
@@ -457,5 +728,36 @@ export const ListIssuesStatus = {
 export type GetDailyUsageParams = {
 startDate?: string;
 endDate?: string;
+};
+
+export type GetAdditionalResourcesHistoryParams = {
+/**
+ * How many recent snapshot dates to include (default 12)
+ * @minimum 1
+ * @maximum 60
+ */
+limit?: number;
+};
+
+export type DeleteRaciRowParams = {
+/**
+ * The row name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin's rename is not silently destroyed.
+ */
+expectedName?: string;
+/**
+ * Canonical fingerprint of the row's cell assignments the client last saw: "memberId=value" pairs sorted by memberId and joined with commas (empty string when the row had no assignments). When provided and it no longer matches the stored assignments, the delete is rejected with 409 so a concurrent admin's assignment changes are not silently destroyed.
+ */
+expectedAssignments?: string;
+};
+
+export type DeleteRaciMemberParams = {
+/**
+ * The member name the client last saw. When provided and it no longer matches the stored name, the delete is rejected with 409 so a concurrent admin's rename is not silently destroyed.
+ */
+expectedName?: string;
+/**
+ * Canonical fingerprint of the member's column assignments the client last saw: "rowId=value" pairs sorted by rowId and joined with commas (empty string when the member had no assignments). When provided and it no longer matches the stored assignments, the delete is rejected with 409 so a concurrent admin's assignment changes are not silently destroyed.
+ */
+expectedAssignments?: string;
 };
 

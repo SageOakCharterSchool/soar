@@ -11,6 +11,7 @@ Internal analytics + rostering operations dashboard for Sage Oak Charter Schools
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL`; production also needs `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
 - Dev admin login: `admin@sageoak.org` / `sageoak-admin`
+- Post-publish checks: `pnpm --filter @workspace/scripts run prod-login-check -- <url>` (login/session) and `pnpm --filter @workspace/scripts run sse-stream-check -- <url>` (live-badge SSE stream through the production proxy; needs SMOKE_EMAIL/SMOKE_PASSWORD admin creds; SSE_TRIGGER=0 for a read-only run)
 
 ## Stack
 
@@ -55,6 +56,7 @@ Internal analytics + rostering operations dashboard for Sage Oak Charter Schools
 - `ExportProperties.csv` is required in every upload batch (provides `Export_date`).
 - After editing `lib/api-spec/openapi.yaml`, run codegen before touching frontend hooks.
 - amCharts 5 Roots must be disposed on unmount.
+- The Rostering live badge uses SSE (`GET /api/rostering/events`, heartbeat every 25s, `X-Accel-Buffering: no`, no compression middleware). If a production proxy still buffers/kills the stream, the badge silently degrades to 60s polling + refetch-on-focus — it never breaks. Activity events are in-process, so on multi-instance autoscale a change on another instance reaches clients via the polling fallback.
 
 ## Pointers
 

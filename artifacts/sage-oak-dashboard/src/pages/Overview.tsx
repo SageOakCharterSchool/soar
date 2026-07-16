@@ -7,6 +7,7 @@ import {
   useGetUsageBySchool,
   useGetAppEngagement,
   useGetAdditionalResources,
+  useGetAdditionalResourcesHistory,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
 import { MixDonut } from "@/components/charts/MixDonut";
+import { ResourceSparkline, ResourceTrendBadge } from "@/components/charts/ResourceSparkline";
+import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
 import { ArrowUpDown, UploadCloud } from "lucide-react";
 
 function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -35,6 +45,15 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
         {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
       </CardContent>
     </Card>
+  );
+}
+
+function HiddenColumnsNote({ hiddenColumns }: { hiddenColumns: string[] }) {
+  if (hiddenColumns.length === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground mt-2" data-testid="hidden-columns-note">
+      Hidden: {hiddenColumns.join(", ")} — no data in this snapshot.
+    </p>
   );
 }
 
@@ -54,13 +73,92 @@ export default function Overview() {
   const { data: bySchool } = useGetUsageBySchool();
   const { data: engagement } = useGetAppEngagement();
   const { data: resources } = useGetAdditionalResources();
+  const { data: resourceHistory } = useGetAdditionalResourcesHistory();
+
+  const historyByLink = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof resourceHistory>["resources"][number]["points"]>();
+    for (const r of resourceHistory?.resources ?? []) m.set(r.link, r.points);
+    return m;
+  }, [resourceHistory]);
+
+  // Prefer the latest snapshot's rows; if the newest snapshot has no resource
+  // data (e.g. a partial import), fall back to the most recent values from the
+  // usage history so trends stay visible.
+  const displayResources = useMemo(() => {
+    if (resources && resources.length > 0) return resources;
+    return (resourceHistory?.resources ?? [])
+      .map((r) => {
+        const last = r.points[r.points.length - 1];
+        return last
+          ? { link: r.link, uniqueUsers: last.uniqueUsers, totalAccesses: last.totalAccesses }
+          : null;
+      })
+      .filter((r): r is NonNullable<typeof r> => r != null);
+  }, [resources, resourceHistory]);
 
   const [appMetric, setAppMetric] = useState<"uniqueUsers" | "adoptionPct">("uniqueUsers");
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
   const [engSort, setEngSort] = useState<EngagementSort>("studentPercent");
 
+  const hasActiveTime = useMemo(
+    () => (engagement ?? []).some((e) => e.activeTimePerUserMinutes != null),
+    [engagement],
+  );
+
+  const schoolCols = useMemo(
+    () => ({
+      uniqueUsers: (bySchool ?? []).some((s) => s.uniqueUsers != null),
+      scopedUsers: (bySchool ?? []).some((s) => s.scopedUsers != null),
+      adoptionPct: (bySchool ?? []).some((s) => s.adoptionPct != null),
+    }),
+    [bySchool],
+  );
+
+  const resourceStats = useMemo(
+    () => ({
+      uniqueUsers: displayResources.some((r) => r.uniqueUsers != null),
+      totalAccesses: displayResources.some((r) => r.totalAccesses != null),
+    }),
+    [displayResources],
+  );
+
+  const hiddenSchoolCols =
+    (bySchool?.length ?? 0) > 0
+      ? (
+          [
+            [schoolCols.uniqueUsers, "Unique users"],
+            [schoolCols.scopedUsers, "Rostered"],
+            [schoolCols.adoptionPct, "Adoption"],
+          ] as const
+        )
+          .filter(([shown]) => !shown)
+          .map(([, label]) => label)
+      : [];
+
+  const hiddenResourceStats =
+    displayResources.length > 0
+      ? (
+          [
+            [resourceStats.uniqueUsers, "Users"],
+            [resourceStats.totalAccesses, "Opens"],
+          ] as const
+        )
+          .filter(([shown]) => !shown)
+          .map(([, label]) => label)
+      : [];
+
+  const effectiveEngSort: EngagementSort =
+    engSort === "activeTimePerUserMinutes" && !hasActiveTime
+      ? "studentPercent"
+      : engSort;
+
   const sortedEngagement = useMemo(
-    () => [...(engagement ?? [])].sort((a, b) => b[engSort] - a[engSort]),
-    [engagement, engSort],
+    () =>
+      [...(engagement ?? [])].sort(
+        (a, b) =>
+          (b[effectiveEngSort] ?? -Infinity) - (a[effectiveEngSort] ?? -Infinity),
+      ),
+    [engagement, effectiveEngSort],
   );
 
   if (isLoading) {
@@ -165,38 +263,122 @@ export default function Overview() {
               <TableHeader>
                 <TableRow>
                   <TableHead>School</TableHead>
-                  <TableHead className="text-right">Unique users</TableHead>
-                  <TableHead className="text-right">Rostered</TableHead>
-                  <TableHead className="text-right">Adoption</TableHead>
+                  {schoolCols.uniqueUsers && <TableHead className="text-right">Unique users</TableHead>}
+                  {schoolCols.scopedUsers && <TableHead className="text-right">Rostered</TableHead>}
+                  {schoolCols.adoptionPct && <TableHead className="text-right">Adoption</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(bySchool ?? []).map((s) => (
                   <TableRow key={s.school}>
                     <TableCell className="font-medium">{s.school}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(s.uniqueUsers)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(s.scopedUsers)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{pct(s.adoptionPct)}</TableCell>
+                    {schoolCols.uniqueUsers && (
+                      <TableCell className="text-right tabular-nums">{fmt(s.uniqueUsers)}</TableCell>
+                    )}
+                    {schoolCols.scopedUsers && (
+                      <TableCell className="text-right tabular-nums">{fmt(s.scopedUsers)}</TableCell>
+                    )}
+                    {schoolCols.adoptionPct && (
+                      <TableCell className="text-right tabular-nums">{pct(s.adoptionPct)}</TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            {resources && resources.length > 0 && (
+            <HiddenColumnsNote hiddenColumns={hiddenSchoolCols} />
+            {displayResources.length > 0 && (
               <div className="mt-6">
                 <h4 className="text-sm font-medium mb-2">Additional resources</h4>
                 <ul className="space-y-1">
-                  {resources.map((r) => (
-                    <li key={r.link} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{r.link}</span>
-                      <span className="tabular-nums">{fmt(r.uniqueUsers)} users</span>
-                    </li>
-                  ))}
+                  {displayResources.map((r) => {
+                    const points = historyByLink.get(r.link) ?? [];
+                    return (
+                      <li key={r.link}>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedResource(r.link)}
+                          className="w-full flex items-center justify-between gap-2 text-sm rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left cursor-pointer"
+                          title="Click to see full usage history"
+                          data-testid={`resource-row-${r.link}`}
+                        >
+                          <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
+                          <span className="flex items-center gap-3 shrink-0">
+                            <ResourceSparkline points={points} />
+                            <ResourceTrendBadge points={points} />
+                            {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
+                              <span className="tabular-nums whitespace-nowrap">
+                                {[
+                                  resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
+                                  resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
+                {hiddenResourceStats.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2" data-testid="hidden-resource-stats-note">
+                    Hidden stats: {hiddenResourceStats.join(", ")} — no data in this snapshot.
+                  </p>
+                )}
+                {resourceHistory && resourceHistory.snapshotDates.length > 1 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Trend of unique users across the last {resourceHistory.snapshotDates.length} snapshots
+                    ({resourceHistory.snapshotDates[0]} – {resourceHistory.snapshotDates[resourceHistory.snapshotDates.length - 1]})
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={expandedResource != null}
+        onOpenChange={(open) => {
+          if (!open) setExpandedResource(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="break-all pr-6">{expandedResource}</DialogTitle>
+            <DialogDescription>
+              Usage history across snapshots — unique users and total opens.
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            if (!expandedResource) return null;
+            const points = historyByLink.get(expandedResource) ?? [];
+            if (points.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground py-10 text-center">
+                  No usage history recorded for this resource yet.
+                </p>
+              );
+            }
+            if (points.length === 1) {
+              const p = points[0];
+              return (
+                <div className="py-8 text-center space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Only one snapshot so far ({p.snapshotDate}) — a trend chart will appear
+                    once more history is available.
+                  </p>
+                  <p className="text-sm tabular-nums">
+                    {p.uniqueUsers.toLocaleString()} users · {p.totalAccesses.toLocaleString()} opens
+                  </p>
+                </div>
+              );
+            }
+            return <ResourceHistoryChart points={points} />;
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <div className="grid md:grid-cols-3 gap-4">
         {[
@@ -240,11 +422,13 @@ export default function Overview() {
                     % of teachers <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </TableHead>
-                <TableHead className="text-right">
-                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("activeTimePerUserMinutes")}>
-                    Active min/user <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
+                {hasActiveTime && (
+                  <TableHead className="text-right">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("activeTimePerUserMinutes")}>
+                      Active min/user <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -255,18 +439,23 @@ export default function Overview() {
                   <TableCell className="text-right tabular-nums">{pct(e.studentPercent)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmt(e.teacherCount)}</TableCell>
                   <TableCell className="text-right tabular-nums">{pct(e.teacherPercent)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{e.activeTimePerUserMinutes}</TableCell>
+                  {hasActiveTime && (
+                    <TableCell className="text-right tabular-nums">{fmt(e.activeTimePerUserMinutes)}</TableCell>
+                  )}
                 </TableRow>
               ))}
               {sortedEngagement.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={hasActiveTime ? 6 : 5} className="text-center text-muted-foreground py-8">
                     No engagement data in this snapshot.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          <HiddenColumnsNote
+            hiddenColumns={sortedEngagement.length > 0 && !hasActiveTime ? ["Active min/user"] : []}
+          />
         </CardContent>
       </Card>
     </div>

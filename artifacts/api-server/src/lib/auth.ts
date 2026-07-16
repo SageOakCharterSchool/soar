@@ -9,10 +9,13 @@ import { logger } from "./logger";
 declare module "express-session" {
   interface SessionData {
     userId?: number;
+    oauthState?: string;
   }
 }
 
 const isProduction = process.env.NODE_ENV === "production";
+
+export const DEFAULT_DEV_ADMIN_PASSWORD = "sageoak-admin";
 
 export function buildSessionMiddleware(): RequestHandler {
   const PgStore = connectPgSimple(session);
@@ -83,6 +86,7 @@ export function toUserDto(user: {
   email: string;
   displayName: string;
   role: "admin" | "staff";
+  tags: string[];
   createdAt: Date;
 }) {
   return {
@@ -90,6 +94,7 @@ export function toUserDto(user: {
     email: user.email,
     displayName: user.displayName,
     role: user.role,
+    tags: user.tags,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -149,7 +154,20 @@ export async function seed(): Promise<void> {
 
   const adminEmail = process.env.ADMIN_EMAIL ?? (isProduction ? null : "admin@sageoak.org");
   const adminPassword =
-    process.env.ADMIN_PASSWORD ?? (isProduction ? null : "sageoak-admin");
+    process.env.ADMIN_PASSWORD ?? (isProduction ? null : DEFAULT_DEV_ADMIN_PASSWORD);
+
+  if (isProduction) {
+    if (!process.env.ADMIN_PASSWORD) {
+      throw new Error(
+        "ADMIN_PASSWORD environment variable is required in production. Refusing to start without a real admin password.",
+      );
+    }
+    if (process.env.ADMIN_PASSWORD === DEFAULT_DEV_ADMIN_PASSWORD) {
+      throw new Error(
+        "ADMIN_PASSWORD is set to the well-known development default. Set a real, secret admin password for production.",
+      );
+    }
+  }
 
   if (adminEmail && adminPassword) {
     const [existing] = await db

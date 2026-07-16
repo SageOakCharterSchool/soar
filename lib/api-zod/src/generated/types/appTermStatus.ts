@@ -5,15 +5,13 @@
  * Sage Oak App Dashboard API
  * OpenAPI spec version: 0.1.0
  */
-import type { AppTermStatusStaffSharingStatus } from './appTermStatusStaffSharingStatus';
-import type { AppTermStatusStudentSharingStatus } from './appTermStatusStudentSharingStatus';
 
 export interface AppTermStatus {
   id: number;
   applicationId: number;
   termId: number;
-  studentSharingStatus: AppTermStatusStudentSharingStatus;
-  staffSharingStatus: AppTermStatusStaffSharingStatus;
+  studentSharingStatus: string;
+  staffSharingStatus: string;
   /** @nullable */
   syncMethod?: string | null;
   /** @nullable */

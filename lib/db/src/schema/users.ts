@@ -5,9 +5,13 @@ import { z } from "zod/v4";
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  // Null for Google-only accounts (no password login until one is set).
+  passwordHash: text("password_hash"),
+  googleId: text("google_id").unique(),
   displayName: text("display_name").notNull(),
   role: text("role", { enum: ["admin", "staff"] }).notNull().default("staff"),
+  // Free-form labels like "IT" used to filter user pickers (e.g. RACI members).
+  tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

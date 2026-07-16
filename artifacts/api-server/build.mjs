@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, cp } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -11,7 +11,12 @@ globalThis.require = createRequire(import.meta.url);
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
 async function buildAll() {
-  const distDir = path.resolve(artifactDir, "dist");
+  // API_SERVER_DIST_DIR lets callers (e.g. the migration verifier) build to a
+  // private directory so parallel checks spawning ./dist/index.mjs don't race
+  // against the `rm` below wiping the shared dist mid-run.
+  const distDir = process.env.API_SERVER_DIST_DIR
+    ? path.resolve(process.env.API_SERVER_DIST_DIR)
+    : path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
@@ -117,6 +122,13 @@ globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
 globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
+  });
+
+  // Copy drizzle SQL migrations next to the bundle so the server can apply
+  // them at startup (the bundle resolves ./migrations relative to itself).
+  const migrationsSrc = path.resolve(artifactDir, "../../lib/db/migrations");
+  await cp(migrationsSrc, path.join(distDir, "migrations"), {
+    recursive: true,
   });
 }
 

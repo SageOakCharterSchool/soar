@@ -4,6 +4,8 @@ import { db, importLogTable, usersTable, type User } from "@workspace/db";
 import { UploadUsageDataBody } from "@workspace/api-zod";
 import { requireAdmin } from "../lib/auth";
 import { runImport } from "../lib/importer";
+import { getSftpSyncStatus, runSftpSync } from "../lib/sftpSync";
+import { dismissSyncAlert, listActiveSyncAlerts } from "../lib/syncAlerts";
 
 const router: IRouter = Router();
 
@@ -34,6 +36,7 @@ router.get("/uploads/log", requireAdmin, async (_req, res): Promise<void> => {
       uploadedByName: usersTable.displayName,
       snapshotDate: importLogTable.snapshotDate,
       filesIncluded: importLogTable.filesIncluded,
+      source: importLogTable.source,
       rowsInserted: importLogTable.rowsInserted,
       rowsUpdated: importLogTable.rowsUpdated,
     })
@@ -44,9 +47,55 @@ router.get("/uploads/log", requireAdmin, async (_req, res): Promise<void> => {
     rows.map((r) => ({
       ...r,
       uploadedAt: r.uploadedAt.toISOString(),
-      uploadedByName: r.uploadedByName ?? "Unknown",
+      uploadedByName:
+        r.uploadedByName ?? (r.source === "sftp" ? "SFTP sync" : "Unknown"),
     })),
   );
 });
+
+router.get("/uploads/sftp/status", requireAdmin, async (_req, res): Promise<void> => {
+  res.json(await getSftpSyncStatus());
+});
+
+router.post("/uploads/sftp/sync", requireAdmin, async (_req, res): Promise<void> => {
+  const result = await runSftpSync();
+  if (!result.ok) {
+    const code = result.error === "SFTP is not configured" ? 400 : 409;
+    res.status(code).json({ message: result.error });
+    return;
+  }
+  res.json(result.summary);
+});
+
+router.get("/uploads/sftp/alerts", requireAdmin, async (_req, res): Promise<void> => {
+  const alerts = await listActiveSyncAlerts();
+  res.json(
+    alerts.map((a) => ({
+      id: a.id,
+      message: a.message,
+      occurrences: a.occurrences,
+      firstSeenAt: a.firstSeenAt.toISOString(),
+      lastSeenAt: a.lastSeenAt.toISOString(),
+    })),
+  );
+});
+
+router.post(
+  "/uploads/sftp/alerts/:id/dismiss",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const id = Number(req.params["id"]);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ message: "Invalid alert id" });
+      return;
+    }
+    const dismissed = await dismissSyncAlert(id);
+    if (!dismissed) {
+      res.status(404).json({ message: "Alert not found or already resolved" });
+      return;
+    }
+    res.json({ message: "Alert dismissed" });
+  },
+);
 
 export default router;

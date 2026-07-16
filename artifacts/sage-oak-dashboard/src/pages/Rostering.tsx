@@ -6,19 +6,25 @@ import {
   useToggleUpvote,
   useReportIssue,
   useUpdateAppTermStatus,
+  useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
   useCopyTermStatuses,
   useGetRosteringActivity,
   useMarkRosteringSeen,
+  getGetRosteringUnseenCountQueryKey,
   type ActivityEvent,
+  type ArchivedActivityEvent,
+  useGetPublicAppSettings,
   type BoardRow,
   type Term,
   type AppTermStatusUpdate,
+  type DropdownOption,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { RaciChips } from "@/components/RaciChips";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -26,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -50,18 +57,62 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2 } from "lucide-react";
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-  not_started: { label: "Not started", className: "bg-muted text-muted-foreground" },
-  in_progress: { label: "In progress", className: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200" },
-  complete: { label: "Complete", className: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200" },
-  needs_review: { label: "Needs review", className: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200" },
+// Fallback options used until the settings-driven list loads. Colors for the
+// well-known status values stay stable; custom values get palette colors.
+const DEFAULT_STATUS_OPTIONS: DropdownOption[] = [
+  { value: "not_started", label: "Not started", active: true },
+  { value: "in_progress", label: "In progress", active: true },
+  { value: "complete", label: "Complete", active: true },
+  { value: "needs_review", label: "Needs review", active: true },
+];
+
+const STATUS_CLASSNAMES: Record<string, string> = {
+  not_started: "bg-muted text-muted-foreground",
+  in_progress: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
+  complete: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
+  needs_review: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200",
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] ?? STATUS_META.not_started;
-  return <Badge variant="outline" className={`border-transparent ${meta.className}`}>{meta.label}</Badge>;
+const STATUS_PALETTE = [
+  "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200",
+  "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-200",
+  "bg-teal-100 text-teal-900 dark:bg-teal-900/40 dark:text-teal-200",
+  "bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200",
+  "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200",
+];
+
+type StatusMeta = Record<string, { label: string; className: string }>;
+
+function buildStatusMeta(options: DropdownOption[]): StatusMeta {
+  const meta: StatusMeta = {};
+  options.forEach((o, i) => {
+    meta[o.value] = {
+      label: o.label,
+      className:
+        STATUS_CLASSNAMES[o.value] ?? STATUS_PALETTE[i % STATUS_PALETTE.length]!,
+    };
+  });
+  return meta;
+}
+
+/** Settings-driven sharing status options with color metadata. */
+function useStatusOptions() {
+  const { data: settings } = useGetPublicAppSettings();
+  return useMemo(() => {
+    const options = settings?.sharingStatusOptions ?? DEFAULT_STATUS_OPTIONS;
+    return {
+      options,
+      activeOptions: options.filter((o) => o.active),
+      meta: buildStatusMeta(options),
+    };
+  }, [settings]);
+}
+
+function StatusBadge({ status, meta }: { status: string; meta: StatusMeta }) {
+  const m = meta[status] ?? { label: status, className: "bg-muted text-muted-foreground" };
+  return <Badge variant="outline" className={`border-transparent ${m.className}`}>{m.label}</Badge>;
 }
 
 function termRelativeLabel(term: Term, terms: Term[]): string | null {
@@ -109,6 +160,7 @@ const EVENT_META: Record<
   app_added: { label: "New app", Icon: PlusCircle, cls: "text-sky-600 dark:text-sky-400" },
   issue_reported: { label: "Issue reported", Icon: Flag, cls: "text-red-600 dark:text-red-400" },
   issue_resolved: { label: "Issue resolved", Icon: CheckCircle2, cls: "text-emerald-600 dark:text-emerald-400" },
+  raci_change: { label: "RACI change", Icon: Users2, cls: "text-violet-600 dark:text-violet-400" },
 };
 
 function RecentActivity({ termId }: { termId: number }) {
@@ -122,16 +174,20 @@ function RecentActivity({ termId }: { termId: number }) {
   // last-seen time, which we keep for the rest of the visit so the "new"
   // markers stay visible until the next page view.
   const markSeen = useMarkRosteringSeen();
+  const queryClient = useQueryClient();
   const [lastSeenAt, setLastSeenAt] = useState<string | null | undefined>(undefined);
   const markedRef = useRef(false);
   useEffect(() => {
     if (markedRef.current) return;
     markedRef.current = true;
     markSeen.mutate(undefined, {
-      onSuccess: (res) => setLastSeenAt(res.lastSeenAt ?? null),
+      onSuccess: (res) => {
+        setLastSeenAt(res.lastSeenAt ?? null);
+        queryClient.invalidateQueries({ queryKey: getGetRosteringUnseenCountQueryKey() });
+      },
       onError: () => setLastSeenAt(null),
     });
-  }, [markSeen]);
+  }, [markSeen, queryClient]);
 
   const events = (activity ?? []) as ActivityEvent[];
   if (events.length === 0) return null;
@@ -210,12 +266,392 @@ function RecentActivity({ termId }: { termId: number }) {
   );
 }
 
+export function splitCsvRecords(text: string): string[] {
+  const records: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+    } else if (ch === "\n" && !inQuotes) {
+      if (current.length > 0) records.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) records.push(current);
+  return records;
+}
+
+export function ArchiveDialog() {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [fetchedCount, setFetchedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const PAGE_SIZE = 500;
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: [
+      "rostering-activity-archive",
+      { search: debouncedSearch, from: fromDate, to: toDate },
+    ],
+    queryFn: async ({ pageParam, signal }) => {
+      const { offset, snapshot } = pageParam;
+      const qs = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (debouncedSearch) qs.set("search", debouncedSearch);
+      if (fromDate) qs.set("from", fromDate);
+      if (toDate) qs.set("to", toDate);
+      // Pin later pages to the snapshot the server took on the first page so
+      // rows archived while browsing can't shift offsets (duplicates/gaps).
+      // If the header is missing (proxy stripped it / older server), we
+      // deliberately fall back to unpinned offsets so browsing keeps working.
+      if (snapshot) qs.set("archivedBefore", snapshot);
+      const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
+        credentials: "include",
+        signal,
+      });
+      if (!res.ok) {
+        throw new Error(`Could not load archived history (${res.status})`);
+      }
+      return {
+        rows: (await res.json()) as ArchivedActivityEvent[],
+        snapshot: snapshot ?? res.headers.get("X-Archive-Snapshot"),
+      };
+    },
+    initialPageParam: { offset: 0, snapshot: null as string | null },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.rows.length === PAGE_SIZE
+        ? {
+            offset: allPages.reduce((sum, page) => sum + page.rows.length, 0),
+            snapshot: lastPage.snapshot,
+          }
+        : undefined,
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!isError || !error) return;
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    toast({
+      variant: "destructive",
+      title: "Could not load archived history",
+      description: error instanceof Error ? error.message : "Please try again.",
+    });
+  }, [isError, error, toast]);
+
+  const rows = useMemo(
+    () => data?.pages.flatMap((page) => page.rows) ?? [],
+    [data],
+  );
+  const hasMore = Boolean(hasNextPage);
+  const loadingMore = isFetchingNextPage;
+
+  const loadMore = () => {
+    if (isFetchingNextPage || isLoading) return;
+    void fetchNextPage();
+  };
+
+  const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
+
+  // Denominator guards against the total shrinking or growing mid-export
+  // (rows can be archived while pages are being fetched).
+  const exportPercent =
+    totalCount != null
+      ? Math.min(
+          100,
+          Math.round(
+            (fetchedCount / Math.max(totalCount, fetchedCount, 1)) * 100,
+          ),
+        )
+      : 0;
+
+  const cancelDownload = () => {
+    abortRef.current?.abort();
+  };
+
+  const downloadCsv = async () => {
+    if (downloading) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setDownloading(true);
+    setFetchedCount(0);
+    setTotalCount(null);
+    try {
+      const pageSize = 1000;
+      const parts: string[] = [];
+      let offset = 0;
+      let rowCount = 0;
+      // Snapshot taken by the server on the first page; passing it back on
+      // later pages keeps offsets stable even if the nightly retention job
+      // archives new rows mid-export (otherwise rows could be duplicated or
+      // skipped).
+      let snapshot: string | null = null;
+      // Deliberate degraded mode: if the header is missing (stripped by a
+      // proxy, or an older server build), the export still runs to completion
+      // with unpinned offsets, and we warn the user that rows archived
+      // mid-export could shift pages (rare duplicates/gaps).
+      let warnedMissingSnapshot = false;
+      for (;;) {
+        const qs = new URLSearchParams({
+          format: "csv",
+          limit: String(pageSize),
+          offset: String(offset),
+        });
+        if (debouncedSearch) qs.set("search", debouncedSearch);
+        if (fromDate) qs.set("from", fromDate);
+        if (toDate) qs.set("to", toDate);
+        if (snapshot) qs.set("archivedBefore", snapshot);
+        const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          throw new Error(`Export failed (${res.status})`);
+        }
+        if (!snapshot) {
+          snapshot = res.headers.get("X-Archive-Snapshot");
+          if (!snapshot && !warnedMissingSnapshot) {
+            warnedMissingSnapshot = true;
+            toast({
+              title: "Export running without a consistency snapshot",
+              description:
+                "The server did not provide a snapshot marker, so rows archived during the export could be duplicated or skipped. The download will still complete.",
+            });
+          }
+        }
+        const totalHeader = res.headers.get("X-Total-Count");
+        if (totalHeader != null) {
+          const total = parseInt(totalHeader, 10);
+          if (!Number.isNaN(total)) setTotalCount(total);
+        }
+        const text = await res.text();
+        const records = splitCsvRecords(text);
+        // First record of every page is the header; keep it only once.
+        const dataRecords = records.slice(1);
+        if (parts.length === 0 && records.length > 0) parts.push(records[0]);
+        parts.push(...dataRecords);
+        rowCount += dataRecords.length;
+        setFetchedCount(rowCount);
+        if (dataRecords.length < pageSize) break;
+        offset += pageSize;
+      }
+      if (controller.signal.aborted) return;
+      const blob = new Blob([parts.join("\n") + "\n"], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "activity-archive.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      toast({
+        variant: "destructive",
+        title: "Download failed",
+        description:
+          err instanceof Error ? err.message : "Could not export the archive. Please try again.",
+      });
+    } finally {
+      abortRef.current = null;
+      setDownloading(false);
+      setFetchedCount(0);
+      setTotalCount(null);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Archive className="h-4 w-4 mr-1.5" />
+          Archived history
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Archived activity history</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Changes older than 12 months are moved here so the recent feed stays fast
+          while the full audit trail is preserved.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <Input
+              placeholder="Search by app, actor, or detail…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground" htmlFor="archive-from">
+                From
+              </label>
+              <Input
+                id="archive-from"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground" htmlFor="archive-to">
+                To
+              </label>
+              <Input
+                id="archive-to"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            {hasFilters && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSearch("");
+                  setFromDate("");
+                  setToDate("");
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            {hasFilters
+              ? "No archived events match your filters."
+              : "Nothing archived yet. Events appear here once they age past 12 months."}
+          </p>
+        ) : (
+          <>
+            <div className="max-h-96 overflow-y-auto pr-1">
+              <ul className="space-y-2">
+                {rows.map((e) => (
+                  <li key={e.id} className="flex items-start gap-2 text-sm">
+                    <History className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <span className="font-medium">{e.appName}</span>
+                      <span className="text-muted-foreground"> — {e.detail}</span>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(e.createdAt).toLocaleDateString()}
+                        {e.actorName ? ` · ${e.actorName}` : ""}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {hasMore && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </Button>
+                </div>
+              )}
+              {hasMore && !loadingMore && (
+                <p className="text-center text-xs text-muted-foreground pb-1">
+                  Showing {rows.length.toLocaleString()} events — more available
+                </p>
+              )}
+            </div>
+            <DialogFooter className="items-center gap-2 sm:gap-2">
+              {downloading && (
+                <div className="flex flex-1 items-center gap-2 min-w-0">
+                  {totalCount != null && (
+                    <Progress
+                      value={exportPercent}
+                      className="h-2 flex-1 min-w-16"
+                      aria-label="Export progress"
+                    />
+                  )}
+                  <span
+                    className="text-xs text-muted-foreground whitespace-nowrap"
+                    aria-live="polite"
+                  >
+                    {totalCount != null
+                      ? `${fetchedCount.toLocaleString()} of ${Math.max(totalCount, fetchedCount).toLocaleString()} rows fetched…`
+                      : `${fetchedCount.toLocaleString()} rows fetched…`}
+                  </span>
+                </div>
+              )}
+              {downloading && (
+                <Button size="sm" variant="ghost" onClick={cancelDownload}>
+                  Cancel
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={downloadCsv}
+                disabled={downloading}
+              >
+                <Download className="h-4 w-4 mr-1.5" />
+                {downloading ? "Exporting…" : "Download CSV"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const NO_OWNER = "__none__";
+
 function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<AppTermStatusUpdate>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
+  const { data: userOptions = [] } = useListUserOptions();
+  const { options: statusOptions, activeOptions } = useStatusOptions();
 
   const openWith = () =>
     setForm({
@@ -243,22 +679,32 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const statusSelect = (
     field: "studentSharingStatus" | "staffSharingStatus",
     label: string,
-  ) => (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Select
-        value={form[field] ?? "not_started"}
-        onValueChange={(v) => setForm((f) => ({ ...f, [field]: v as any }))}
-      >
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {Object.entries(STATUS_META).map(([value, meta]) => (
-            <SelectItem key={value} value={value}>{meta.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+  ) => {
+    const current = form[field];
+    // Show active options, plus the row's current value if it was deactivated
+    // so the picker still displays it (the server allows keeping it).
+    const choices = [...activeOptions];
+    if (current && !choices.some((o) => o.value === current)) {
+      const existing = statusOptions.find((o) => o.value === current);
+      choices.push(existing ?? { value: current, label: current, active: false });
+    }
+    return (
+      <div className="space-y-1.5">
+        <Label>{label}</Label>
+        <Select
+          value={current ?? activeOptions[0]?.value ?? "not_started"}
+          onValueChange={(v) => setForm((f) => ({ ...f, [field]: v as any }))}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {choices.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) openWith(); }}>
@@ -298,11 +744,25 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label>Owner</Label>
-            <Input
-              value={form.owner ?? ""}
-              placeholder="Who is responsible?"
-              onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value || null }))}
-            />
+            <Select
+              value={form.owner ?? NO_OWNER}
+              onValueChange={(v) => setForm((f) => ({ ...f, owner: v === NO_OWNER ? null : v }))}
+            >
+              <SelectTrigger><SelectValue placeholder="Who is responsible?" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_OWNER}>
+                  <span className="text-muted-foreground">No owner</span>
+                </SelectItem>
+                {form.owner && !userOptions.some((u) => u.displayName === form.owner) && (
+                  <SelectItem value={form.owner}>{form.owner} (not a dashboard user)</SelectItem>
+                )}
+                {userOptions.map((u) => (
+                  <SelectItem key={u.id} value={u.displayName}>
+                    {u.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label>Notes</Label>
@@ -518,6 +978,7 @@ export default function Rostering() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { options: statusOptions, meta: statusMeta } = useStatusOptions();
 
   const { data: terms } = useListTerms();
   const sortedTerms = useMemo(
@@ -582,7 +1043,10 @@ export default function Rostering() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-2xl font-bold tracking-tight">Rostering Status Board</h2>
-        {isAdmin && sortedTerms.length > 0 && <TermAdminDialog terms={sortedTerms} />}
+        <div className="flex items-center gap-2">
+          {isAdmin && <ArchiveDialog />}
+          {isAdmin && sortedTerms.length > 0 && <TermAdminDialog terms={sortedTerms} />}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -631,11 +1095,11 @@ export default function Rostering() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-40" data-testid="select-status-filter"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            {Object.entries(STATUS_META).map(([value, meta]) => (
-              <SelectItem key={value} value={value}>{meta.label}</SelectItem>
+            {statusOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -701,9 +1165,10 @@ export default function Rostering() {
                       {row.category && (
                         <div className="text-xs text-muted-foreground">{row.category}</div>
                       )}
+                      <RaciChips people={row.raci} applicationId={row.applicationId} />
                     </TableCell>
-                    <TableCell><StatusBadge status={row.studentSharingStatus} /></TableCell>
-                    <TableCell><StatusBadge status={row.staffSharingStatus} /></TableCell>
+                    <TableCell><StatusBadge status={row.studentSharingStatus} meta={statusMeta} /></TableCell>
+                    <TableCell><StatusBadge status={row.staffSharingStatus} meta={statusMeta} /></TableCell>
                     <TableCell className="text-sm">
                       {row.syncMethod ?? <span className="text-muted-foreground">—</span>}
                       {row.lastSyncedAt && (
