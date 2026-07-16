@@ -338,9 +338,12 @@ async function verifySeededRowsSurvived(dbUrl: string) {
       }
     }
     const status = await client.query(
-      `SELECT student_sharing_status, staff_sharing_status, notes
+      `SELECT ats.student_sharing_status, ats.staff_sharing_status, ats.notes,
+              t.label AS term_label, u.email AS updated_by_email
          FROM app_term_status ats
          JOIN applications a ON a.id = ats.application_id
+         LEFT JOIN terms t ON t.id = ats.term_id
+         LEFT JOIN users u ON u.id = ats.updated_by
         WHERE a.name = 'Seed App One'`,
     );
     const row = status.rows[0];
@@ -348,7 +351,9 @@ async function verifySeededRowsSurvived(dbUrl: string) {
       !row ||
       row.student_sharing_status !== "complete" ||
       row.staff_sharing_status !== "in_progress" ||
-      row.notes !== "seeded row"
+      row.notes !== "seeded row" ||
+      row.term_label !== "Fall 2025" ||
+      row.updated_by_email !== "seed-admin@example.invalid"
     ) {
       throw new Error(
         `[pushed-db] Data corruption detected: app_term_status seeded values changed after migration: ${JSON.stringify(row)}`,
