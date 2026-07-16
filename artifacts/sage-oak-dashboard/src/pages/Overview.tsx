@@ -58,12 +58,23 @@ export default function Overview() {
   const [appMetric, setAppMetric] = useState<"uniqueUsers" | "adoptionPct">("uniqueUsers");
   const [engSort, setEngSort] = useState<EngagementSort>("studentPercent");
 
+  const hasActiveTime = useMemo(
+    () => (engagement ?? []).some((e) => e.activeTimePerUserMinutes != null),
+    [engagement],
+  );
+
+  const effectiveEngSort: EngagementSort =
+    engSort === "activeTimePerUserMinutes" && !hasActiveTime
+      ? "studentPercent"
+      : engSort;
+
   const sortedEngagement = useMemo(
     () =>
       [...(engagement ?? [])].sort(
-        (a, b) => (b[engSort] ?? -Infinity) - (a[engSort] ?? -Infinity),
+        (a, b) =>
+          (b[effectiveEngSort] ?? -Infinity) - (a[effectiveEngSort] ?? -Infinity),
       ),
-    [engagement, engSort],
+    [engagement, effectiveEngSort],
   );
 
   if (isLoading) {
@@ -245,11 +256,13 @@ export default function Overview() {
                     % of teachers <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </TableHead>
-                <TableHead className="text-right">
-                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("activeTimePerUserMinutes")}>
-                    Active min/user <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
+                {hasActiveTime && (
+                  <TableHead className="text-right">
+                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("activeTimePerUserMinutes")}>
+                      Active min/user <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -260,12 +273,14 @@ export default function Overview() {
                   <TableCell className="text-right tabular-nums">{pct(e.studentPercent)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmt(e.teacherCount)}</TableCell>
                   <TableCell className="text-right tabular-nums">{pct(e.teacherPercent)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmt(e.activeTimePerUserMinutes)}</TableCell>
+                  {hasActiveTime && (
+                    <TableCell className="text-right tabular-nums">{fmt(e.activeTimePerUserMinutes)}</TableCell>
+                  )}
                 </TableRow>
               ))}
               {sortedEngagement.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={hasActiveTime ? 6 : 5} className="text-center text-muted-foreground py-8">
                     No engagement data in this snapshot.
                   </TableCell>
                 </TableRow>
