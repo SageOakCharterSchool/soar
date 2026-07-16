@@ -209,6 +209,38 @@ async function runChecks() {
       fail(`${resolveButtons} resolve/reopen button(s) visible to staff`);
     }
 
+    console.log("\nRACI page (must be read-only for staff):");
+    await page.goto(`${appBase}/raci`, { waitUntil: "load" });
+    await page.getByText("RACI Matrix").first().waitFor({ timeout: 15000 });
+    // Admin cell buttons carry aria-labels like "Alice on Task X: R".
+    if ((await page.locator('table button[aria-label*=": "]').count()) === 0) {
+      pass("matrix cells are not clickable");
+    } else {
+      fail("clickable matrix cell buttons are visible to staff");
+    }
+    if ((await page.getByRole("button", { name: "Member", exact: true }).count()) === 0) {
+      pass(`"Member" (add member) control is hidden`);
+    } else {
+      fail(`"Member" (add member) control is visible to staff`);
+    }
+    if ((await page.getByRole("button", { name: /^Add task/ }).count()) === 0) {
+      pass("add-task controls are hidden");
+    } else {
+      fail("add-task controls are visible to staff");
+    }
+    const renameDeleteControls =
+      (await page.locator('button[aria-label^="Rename "]').count()) +
+      (await page.locator('button[aria-label^="Delete "]').count()) +
+      (await page.locator('button[aria-label^="Remove "]').count()) +
+      (await page.locator('button[title="Rename member"]').count()) +
+      (await page.locator('button[title="Rename category"]').count()) +
+      (await page.locator('button[aria-label^="Add task under"]').count());
+    if (renameDeleteControls === 0) {
+      pass("no rename/delete/add controls on members, rows, or categories");
+    } else {
+      fail(`${renameDeleteControls} rename/delete/add control(s) visible to staff on RACI page`);
+    }
+
     console.log("\nAdmin API endpoints from the staff browser session:");
     const apiChecks: Array<[string, string]> = [
       ["GET", "/users"],
