@@ -259,10 +259,15 @@ function TeamMatrix({
         onSuccess: invalidate,
         onError: (err: any) => {
           if (err?.status === 409) {
+            const currentValue = err?.data?.currentValue;
             toast({
               title: "Cell changed by another admin",
               description:
-                "This cell was just updated by someone else. The matrix has been refreshed — click again to change it.",
+                currentValue !== undefined
+                  ? `This cell was just updated by someone else. It is now ${
+                      currentValue == null ? "empty" : `"${currentValue}"`
+                    }. The matrix has been refreshed — click again to change it.`
+                  : "This cell was just updated by someone else. The matrix has been refreshed — click again to change it.",
             });
             invalidate();
             return;

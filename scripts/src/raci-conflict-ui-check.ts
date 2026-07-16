@@ -302,6 +302,19 @@ async function runChecks(fixture: Fixture) {
     } else {
       fail("B did NOT get the conflict toast after clicking a stale cell");
     }
+    // The toast must also say what the cell's current value is (A set it to
+    // "A" while B was stale), so B knows whether a retry is still needed.
+    const gotDetail = await pageB
+      .getByText('It is now "A"')
+      .first()
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (gotDetail) {
+      pass(`B's conflict toast shows the current value ("A")`);
+    } else {
+      fail("B's conflict toast did NOT show the cell's current value");
+    }
 
     console.log("\nStep 4: both sessions must converge on the same value:");
     // Release B's held refresh requests; the conflict handler invalidated
