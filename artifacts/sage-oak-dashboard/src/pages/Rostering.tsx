@@ -287,6 +287,8 @@ export function ArchiveDialog() {
       if (toDate) qs.set("to", toDate);
       // Pin later pages to the snapshot the server took on the first page so
       // rows archived while browsing can't shift offsets (duplicates/gaps).
+      // If the header is missing (proxy stripped it / older server), we
+      // deliberately fall back to unpinned offsets so browsing keeps working.
       if (snapshot) qs.set("archivedBefore", snapshot);
       const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
         credentials: "include",
@@ -369,6 +371,11 @@ export function ArchiveDialog() {
       // archives new rows mid-export (otherwise rows could be duplicated or
       // skipped).
       let snapshot: string | null = null;
+      // Deliberate degraded mode: if the header is missing (stripped by a
+      // proxy, or an older server build), the export still runs to completion
+      // with unpinned offsets, and we warn the user that rows archived
+      // mid-export could shift pages (rare duplicates/gaps).
+      let warnedMissingSnapshot = false;
       for (;;) {
         const qs = new URLSearchParams({
           format: "csv",
@@ -386,7 +393,17 @@ export function ArchiveDialog() {
         if (!res.ok) {
           throw new Error(`Export failed (${res.status})`);
         }
-        if (!snapshot) snapshot = res.headers.get("X-Archive-Snapshot");
+        if (!snapshot) {
+          snapshot = res.headers.get("X-Archive-Snapshot");
+          if (!snapshot && !warnedMissingSnapshot) {
+            warnedMissingSnapshot = true;
+            toast({
+              title: "Export running without a consistency snapshot",
+              description:
+                "The server did not provide a snapshot marker, so rows archived during the export could be duplicated or skipped. The download will still complete.",
+            });
+          }
+        }
         const totalHeader = res.headers.get("X-Total-Count");
         if (totalHeader != null) {
           const total = parseInt(totalHeader, 10);

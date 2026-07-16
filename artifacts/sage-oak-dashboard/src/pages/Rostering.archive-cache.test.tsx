@@ -2,6 +2,9 @@
  * Regression tests: the archive dialog uses useInfiniteQuery so previously
  * loaded pages stay cached. Re-applying the same filters must reuse cached
  * data instead of refetching, and loaded pages must survive filter toggles.
+ *
+ * The dialog talks to the server with raw fetch (it needs response headers
+ * for snapshot pinning), so these tests stub global fetch.
  */
 import * as React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -14,32 +17,9 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const archiveCalls: Array<Record<string, unknown>> = [];
+import { ArchiveDialog } from "@/pages/Rostering";
 
-vi.mock("@workspace/api-client-react", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@workspace/api-client-react")>();
-  return {
-    ...actual,
-    getRosteringActivityArchive: vi.fn(
-      async (params: { search?: string; offset?: number; limit?: number }) => {
-        archiveCalls.push({ ...params });
-        const offset = Number(params.offset ?? 0);
-        const limit = Number(params.limit ?? 500);
-        if (params.search) {
-          return [
-            makeRow(9000, `Filtered ${params.search}`),
-          ];
-        }
-        // Full first page so "Load more" appears; short second page ends it.
-        const count = offset === 0 ? limit : 3;
-        return Array.from({ length: count }, (_, i) =>
-          makeRow(offset + i, `App ${offset + i}`),
-        );
-      },
-    ),
-  };
-});
+const archiveCalls: Array<Record<string, string>> = [];
 
 function makeRow(id: number, appName: string) {
   return {
@@ -51,7 +31,35 @@ function makeRow(id: number, appName: string) {
   };
 }
 
-import { ArchiveDialog } from "@/pages/Rostering";
+function installFetchMock() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      const params = Object.fromEntries(url.searchParams.entries());
+      archiveCalls.push(params);
+      const offset = Number(params.offset ?? 0);
+      const limit = Number(params.limit ?? 500);
+      let rows;
+      if (params.search) {
+        rows = [makeRow(9000, `Filtered ${params.search}`)];
+      } else {
+        // Full first page so "Load more" appears; short second page ends it.
+        const count = offset === 0 ? limit : 3;
+        rows = Array.from({ length: count }, (_, i) =>
+          makeRow(offset + i, `App ${offset + i}`),
+        );
+      }
+      return new Response(JSON.stringify(rows), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Archive-Snapshot": "2026-07-01T00:00:00.000Z",
+        },
+      });
+    }),
+  );
+}
 
 function renderDialog() {
   const client = new QueryClient({
@@ -75,10 +83,12 @@ function searchInput() {
 
 beforeEach(() => {
   archiveCalls.length = 0;
+  installFetchMock();
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe("ArchiveDialog caching", () => {
@@ -120,7 +130,7 @@ describe("ArchiveDialog caching", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     await screen.findByText("App 500");
     expect(archiveCalls.length).toBe(2);
-    expect(archiveCalls[1].offset).toBe(500);
+    expect(archiveCalls[1].offset).toBe("500");
 
     // Toggle a filter on…
     fireEvent.change(searchInput(), { target: { value: "zeta" } });
