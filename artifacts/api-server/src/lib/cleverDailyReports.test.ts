@@ -26,6 +26,8 @@ const RES_STUDENTS = [
 const RES_TEACHERS = [
   "date,sis_id,clever_user_id,clever_school_id,school_name,resource_type,resource_name,resource_id,num_access",
   "2026-07-15,441,t1,s1,School A,app,Canvas,r2,2",
+  "2026-07-15,441,t1,s1,School A,link,Some Link,r3,1",
+  "2026-07-15,441,t1,s1,School A,link,Other Link,r4,1",
 ].join("\n");
 
 function build() {
@@ -113,6 +115,17 @@ describe("buildSnapshotFiles", () => {
     // School A: u1 + t1 active of 3 scoped; School B: u3 active of 2 scoped.
     expect(bySchool.content).toContain("School A,2,3");
     expect(bySchool.content).toContain("School B,1,2");
+  });
+
+  it("aggregates non-app resources into UsageByAdditionalResources", () => {
+    const files = build();
+    const extras = files.find((f) => classifyFile(f.name) === "additionalResources")!;
+    expect(extras).toBeDefined();
+    // Some Link: u3 + t1 = 2 unique users; Other Link: t1 = 1.
+    expect(extras.content).toContain("Some Link,2");
+    expect(extras.content).toContain("Other Link,1");
+    // App rows are excluded from the additional-resources file.
+    expect(extras.content).not.toContain("Canvas");
   });
 
   it("tolerates missing files", () => {

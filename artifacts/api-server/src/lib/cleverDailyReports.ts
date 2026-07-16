@@ -228,5 +228,34 @@ export function buildSnapshotFiles(date: string, files: CleverRawFile[]): Upload
     });
   }
 
+  // --- Additional resources (non-app resource types, e.g. links) ---
+  const extras = new Map<string, Set<string>>();
+  for (const rows of resources.values()) {
+    for (const row of rows) {
+      const type = (row["resource_type"] ?? "").trim().toLowerCase();
+      if (!type || type === "app") continue;
+      const name = (row["resource_name"] ?? "").trim();
+      const user = (row["clever_user_id"] ?? "").trim();
+      if (!name || !user) continue;
+      let users = extras.get(name);
+      if (!users) {
+        users = new Set();
+        extras.set(name, users);
+      }
+      users.add(user);
+    }
+  }
+  if (extras.size > 0) {
+    out.push({
+      name: `${date}-UsageByAdditionalResources.csv`,
+      content: Papa.unparse({
+        fields: ["Resource", "Unique_users"],
+        data: [...extras.entries()]
+          .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
+          .map(([name, users]) => [name, String(users.size)]),
+      }),
+    });
+  }
+
   return out;
 }
