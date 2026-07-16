@@ -377,6 +377,14 @@ export interface RaciCellConflict {
   currentValue: RaciValue | null;
 }
 
+export interface RaciCategoryRenameConflict {
+  message: string;
+  /** True when the category no longer exists on the team */
+  removed: boolean;
+  /** The category's current name, when it could be discovered */
+  currentName?: string;
+}
+
 export interface RaciCellState {
   rowId: number;
   memberId: number;

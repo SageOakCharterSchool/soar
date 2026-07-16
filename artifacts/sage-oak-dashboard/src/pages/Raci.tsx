@@ -186,11 +186,14 @@ function TeamMatrix({
   const onRenameError = (close: () => void) => (err: any) => {
     if (err?.status === 409) {
       const currentName = err?.data?.currentName;
+      const removed = err?.data?.removed === true;
       toast({
         title: "Changed by another admin",
-        description: currentName
-          ? `This was just renamed by someone else. It is now called "${currentName}". The matrix has been refreshed — try again if you still want to change it.`
-          : "This was just renamed by someone else. The matrix has been refreshed — try again if you still want to change it.",
+        description: removed
+          ? "This was just removed by someone else. The matrix has been refreshed."
+          : currentName
+            ? `This was just renamed by someone else. It is now called "${currentName}". The matrix has been refreshed — try again if you still want to change it.`
+            : "This was just renamed by someone else. The matrix has been refreshed — try again if you still want to change it.",
       });
       invalidate();
       close();

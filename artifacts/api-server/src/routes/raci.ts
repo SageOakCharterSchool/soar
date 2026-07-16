@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import {
   db,
   raciTeamsTable,
@@ -525,11 +525,45 @@ router.post(
     if (updated.length === 0) {
       // The "from" name doubles as an expected-previous-value check: if no
       // rows carry it anymore, another admin renamed or removed the category
-      // after this client loaded the matrix.
-      res.status(409).json({
-        message:
-          "This category was just renamed or removed by another admin",
-      });
+      // after this client loaded the matrix. Try to discover what happened:
+      // renames are always logged, so follow the rename log entries to the
+      // category's latest name and check whether it still exists on the team.
+      const from = parsed.data.from;
+      const currentRows = await db
+        .select({ category: raciRowsTable.category })
+        .from(raciRowsTable)
+        .where(eq(raciRowsTable.teamId, id));
+      const existingCategories = new Set(
+        currentRows.map((r) => r.category).filter((c): c is string => c != null),
+      );
+      const renameLogs = await db
+        .select({ detail: appActivityTable.detail })
+        .from(appActivityTable)
+        .where(eq(appActivityTable.eventType, "raci_change"))
+        .orderBy(desc(appActivityTable.id))
+        .limit(200);
+      let name = from;
+      for (let hops = 0; hops < 5 && !existingCategories.has(name); hops++) {
+        const prefix = `RACI: renamed category "${name}" to "`;
+        const suffix = `" in ${team.name}`;
+        const hit = renameLogs.find(
+          (l) => l.detail.startsWith(prefix) && l.detail.endsWith(suffix),
+        );
+        if (!hit) break;
+        name = hit.detail.slice(prefix.length, hit.detail.length - suffix.length);
+      }
+      if (name !== from && existingCategories.has(name)) {
+        res.status(409).json({
+          message: `This category was just renamed by another admin. It is now called "${name}".`,
+          removed: false,
+          currentName: name,
+        });
+      } else {
+        res.status(409).json({
+          message: "This category was just removed by another admin",
+          removed: true,
+        });
+      }
       return;
     }
     await logRaciChange(

@@ -1057,7 +1057,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiMessage"
+                $ref: "#/components/schemas/RaciCategoryRenameConflict"
 components:
   schemas:
     HealthStatus:
@@ -1380,6 +1380,17 @@ components:
           oneOf:
             - $ref: "#/components/schemas/RaciValue"
             - type: "null"
+    RaciCategoryRenameConflict:
+      type: object
+      required: [message, removed]
+      properties:
+        message: { type: string }
+        removed:
+          type: boolean
+          description: True when the category no longer exists on the team
+        currentName:
+          type: string
+          description: The category's current name, when it could be discovered
     RaciCellState:
       type: object
       required: [rowId, memberId, value]

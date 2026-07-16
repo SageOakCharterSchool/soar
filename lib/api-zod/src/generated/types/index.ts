@@ -49,6 +49,7 @@ export * from './mixSlice';
 export * from './raciAssignment';
 export * from './raciBoardPerson';
 export * from './raciCategoryRename';
+export * from './raciCategoryRenameConflict';
 export * from './raciCellConflict';
 export * from './raciCellInput';
 export * from './raciCellState';

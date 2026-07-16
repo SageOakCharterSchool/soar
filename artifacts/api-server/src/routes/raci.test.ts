@@ -491,19 +491,53 @@ describe("POST /raci/teams/:id/rename-category", () => {
     ).toBe("FINANCE");
   });
 
-  it("409s when the category no longer exists (renamed by another admin)", async () => {
+  it("409s as removed when the category is gone with no rename trail", async () => {
     const c = await loginAdmin();
     const res = await c.post("/raci/teams/10/rename-category", {
       from: "NOPE",
       to: "X",
     });
     expect(res.status).toBe(409);
-    expect(res.body.message).toContain("another admin");
+    expect(res.body.message).toContain("removed by another admin");
+    expect(res.body.removed).toBe(true);
+    expect(res.body.currentName).toBeUndefined();
     // No rows were touched and nothing was logged.
     expect(
       fakeDb.rows(tables.raciRowsTable).find((r) => r.id === 30)!.category,
     ).toBe("BUDGET");
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+  });
+
+  it("409s with the current name when the category was renamed by another admin", async () => {
+    const c = await loginAdmin();
+    // Another admin renames BUDGET -> FINANCE (logged), then this client,
+    // still holding the stale name, tries to rename BUDGET.
+    const first = await c.post("/raci/teams/10/rename-category", {
+      from: "BUDGET",
+      to: "FINANCE",
+    });
+    expect(first.status).toBe(200);
+    const res = await c.post("/raci/teams/10/rename-category", {
+      from: "BUDGET",
+      to: "MONEY",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.removed).toBe(false);
+    expect(res.body.currentName).toBe("FINANCE");
+    expect(res.body.message).toContain('now called "FINANCE"');
+  });
+
+  it("follows a chain of renames to the latest name", async () => {
+    const c = await loginAdmin();
+    await c.post("/raci/teams/10/rename-category", { from: "BUDGET", to: "FINANCE" });
+    await c.post("/raci/teams/10/rename-category", { from: "FINANCE", to: "MONEY" });
+    const res = await c.post("/raci/teams/10/rename-category", {
+      from: "BUDGET",
+      to: "X",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.removed).toBe(false);
+    expect(res.body.currentName).toBe("MONEY");
   });
 });
 

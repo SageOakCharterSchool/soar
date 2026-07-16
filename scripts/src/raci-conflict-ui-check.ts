@@ -553,6 +553,21 @@ async function runChecks(fixture: Fixture) {
     } else {
       fail("B did NOT get the conflict toast after a stale category rename");
     }
+    const categoryToastNamesCurrent = await pageB
+      .getByText(`It is now called "${CATEGORY_NAME_A}"`)
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (categoryToastNamesCurrent) {
+      pass(
+        `the category conflict toast names the current name "${CATEGORY_NAME_A}"`,
+      );
+    } else {
+      fail(
+        `the category conflict toast did not include the current name "${CATEGORY_NAME_A}"`,
+      );
+    }
     if (await dialogHidden(pageB)) {
       pass("B's category rename dialog closed after the conflict");
     } else {

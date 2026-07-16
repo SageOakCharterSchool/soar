@@ -47,6 +47,7 @@ import type {
   ListIssuesParams,
   LoginInput,
   RaciCategoryRename,
+  RaciCategoryRenameConflict,
   RaciCellConflict,
   RaciCellInput,
   RaciCellState,
@@ -3993,7 +3994,7 @@ export const renameRaciCategory = async (id: number,
 
 
 
-export const getRenameRaciCategoryMutationOptions = <TError = ErrorType<ApiMessage>,
+export const getRenameRaciCategoryMutationOptions = <TError = ErrorType<ApiMessage | RaciCategoryRenameConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameRaciCategory>>, TError,{id: number;data: BodyType<RaciCategoryRename>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof renameRaciCategory>>, TError,{id: number;data: BodyType<RaciCategoryRename>}, TContext> => {
 
@@ -4022,12 +4023,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RenameRaciCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof renameRaciCategory>>>
     export type RenameRaciCategoryMutationBody = BodyType<RaciCategoryRename>
-    export type RenameRaciCategoryMutationError = ErrorType<ApiMessage>
+    export type RenameRaciCategoryMutationError = ErrorType<ApiMessage | RaciCategoryRenameConflict>
 
     /**
  * @summary Rename a category within a team (admin)
  */
-export const useRenameRaciCategory = <TError = ErrorType<ApiMessage>,
+export const useRenameRaciCategory = <TError = ErrorType<ApiMessage | RaciCategoryRenameConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameRaciCategory>>, TError,{id: number;data: BodyType<RaciCategoryRename>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof renameRaciCategory>>,
