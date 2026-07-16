@@ -212,11 +212,39 @@ async function runChecks() {
     console.log("\nRACI page (must be read-only for staff):");
     await page.goto(`${appBase}/raci`, { waitUntil: "load" });
     await page.getByText("RACI Matrix").first().waitFor({ timeout: 15000 });
-    // Admin cell buttons carry aria-labels like "Alice on Task X: R".
-    if ((await page.locator('table button[aria-label*=": "]').count()) === 0) {
-      pass("matrix cells are not clickable");
+    // Guard against a vacuous pass: only assert cells aren't clickable if the
+    // matrix actually rendered rows. On a fresh/empty environment, require the
+    // explicit empty state instead and log a skip.
+    // Data loads async after the title renders — wait for either a matrix row
+    // or the empty-state message before counting.
+    await Promise.any([
+      page.locator("table tbody tr").first().waitFor({ timeout: 15000 }),
+      page
+        .getByText("No tasks yet for this team.")
+        .first()
+        .waitFor({ timeout: 15000 }),
+    ]).catch(() => {});
+    const matrixRowCount = await page.locator("table tbody tr").count();
+    if (matrixRowCount === 0) {
+      const emptyStateShown =
+        (await page.getByText("No tasks yet for this team.").count()) > 0;
+      if (emptyStateShown) {
+        console.log(
+          "  SKIP: RACI matrix is empty (no rows) — cell clickability check skipped; empty state rendered correctly",
+        );
+      } else {
+        fail(
+          "RACI matrix rendered no rows and no empty-state message — page may be broken for staff",
+        );
+      }
     } else {
-      fail("clickable matrix cell buttons are visible to staff");
+      pass(`matrix rendered ${matrixRowCount} row(s)`);
+      // Admin cell buttons carry aria-labels like "Alice on Task X: R".
+      if ((await page.locator('table button[aria-label*=": "]').count()) === 0) {
+        pass("matrix cells are not clickable");
+      } else {
+        fail("clickable matrix cell buttons are visible to staff");
+      }
     }
     if ((await page.getByRole("button", { name: "Member", exact: true }).count()) === 0) {
       pass(`"Member" (add member) control is hidden`);
