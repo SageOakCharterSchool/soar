@@ -20,7 +20,12 @@
   <body>
     <script>
       try {
-        if (localStorage.getItem("sageoak-theme") === "dark") {
+        var stored = localStorage.getItem("sageoak-theme");
+        var dark =
+          stored === "dark" ||
+          (stored !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) {
           document.documentElement.classList.add("dark");
         }
       } catch (e) {}
