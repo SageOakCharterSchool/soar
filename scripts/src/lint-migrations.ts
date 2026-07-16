@@ -107,6 +107,47 @@ export function hasUpdateWithoutWhere(cleanedSql: string): boolean {
   return false;
 }
 
+/**
+ * True when the (comment/string-stripped) SQL contains a PL/pgSQL EXECUTE with
+ * dynamically built SQL inside a dollar-quoted body (e.g. a DO block).
+ *
+ * After stripping, a constant string literal becomes exactly '' — so
+ * `EXECUTE 'CREATE INDEX ...'` reduces to `EXECUTE ''` and is treated as
+ * constant (constant strings are visible verbatim in the raw SQL, so a
+ * reviewer can see exactly what they run).
+ * Anything else after EXECUTE (format(...), concatenation with || , a
+ * variable) means the SQL is assembled at runtime, where destructive
+ * statements can hide from this lint.
+ *
+ * `EXECUTE FUNCTION` / `EXECUTE PROCEDURE` (trigger definitions) and
+ * `GRANT/REVOKE ... EXECUTE` are not dynamic SQL and are ignored.
+ *
+ * Scope: this intentionally covers ALL dollar-quoted procedural bodies, not
+ * just DO blocks — dynamic SQL inside CREATE FUNCTION bodies shipped by a
+ * migration is just as capable of hiding destructive statements.
+ */
+export function hasDynamicExecute(cleanedSql: string): boolean {
+  const bodyRe = /\$([A-Za-z_0-9]*)\$([\s\S]*?)\$\1\$/g;
+  let bodyMatch: RegExpExecArray | null;
+  while ((bodyMatch = bodyRe.exec(cleanedSql)) !== null) {
+    const body = bodyMatch[2];
+    const execRe = /\bEXECUTE\b/gi;
+    let m: RegExpExecArray | null;
+    while ((m = execRe.exec(body)) !== null) {
+      const before = body.slice(0, m.index);
+      if (/\b(GRANT|REVOKE)\b[^;]*$/i.test(before)) continue;
+      const rest = body.slice(m.index + m[0].length).trimStart();
+      if (/^(FUNCTION|PROCEDURE)\b/i.test(rest)) continue;
+      // Constant: a single string literal (stripped single-quoted '' or a
+      // dollar-quoted literal) followed by end of statement or INTO/USING.
+      if (/^''\s*(;|INTO\b|USING\b|$)/i.test(rest)) continue;
+      if (/^\$([A-Za-z_0-9]*)\$[\s\S]*?\$\1\$\s*(;|INTO\b|USING\b|$)/i.test(rest)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 const RULES: Rule[] = [
   {
     name: "DROP TABLE",
@@ -138,6 +179,12 @@ const RULES: Rule[] = [
     name: "UPDATE without WHERE",
     check: hasUpdateWithoutWhere,
     message: "UPDATE without a WHERE clause overwrites every row in the table.",
+  },
+  {
+    name: "Dynamic EXECUTE",
+    check: hasDynamicExecute,
+    message:
+      "EXECUTE with dynamically built SQL (format(), ||, variables) inside a DO block can hide destructive operations from this lint.",
   },
   {
     name: "DROP SCHEMA/DATABASE",

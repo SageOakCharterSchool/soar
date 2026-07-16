@@ -336,6 +336,133 @@ describe("comments and string literals do not cause false positives", () => {
   });
 });
 
+describe("dynamic EXECUTE inside DO blocks", () => {
+  it("flags EXECUTE format(...) inside a DO block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ DECLARE tbl text := 'users'; BEGIN EXECUTE format('DELETE FROM %I', tbl); END $$;",
+      }),
+    ).toEqual(["Dynamic EXECUTE"]);
+  });
+
+  it("flags EXECUTE with string concatenation", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ DECLARE t text := 'sessions'; BEGIN EXECUTE 'TRUNCATE ' || t; END $$;",
+      }),
+    ).toEqual(["Dynamic EXECUTE"]);
+  });
+
+  it("flags EXECUTE of a variable", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ DECLARE stmt text; BEGIN stmt := 'DROP TABLE ' || 'users'; EXECUTE stmt; END $$;",
+      }),
+    ).toEqual(["Dynamic EXECUTE"]);
+  });
+
+  it("flags dynamic EXECUTE inside tagged dollar quotes", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $body$ BEGIN EXECUTE format('ALTER TABLE %I DISABLE TRIGGER ALL', 'users'); END $body$;",
+      }),
+    ).toEqual(["Dynamic EXECUTE"]);
+  });
+
+  it("allows dynamic EXECUTE carrying a -- destructive: marker", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "-- destructive: dropping legacy per-tenant tables, data archived\nDO $$ DECLARE tbl text; BEGIN FOR tbl IN SELECT tablename FROM pg_tables WHERE tablename LIKE 'legacy_%' LOOP EXECUTE format('DROP TABLE %I', tbl); END LOOP; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags dynamic EXECUTE inside a CREATE FUNCTION body", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "CREATE FUNCTION purge(tbl text) RETURNS void AS $$ BEGIN EXECUTE format('DELETE FROM %I', tbl); END $$ LANGUAGE plpgsql;",
+      }),
+    ).toEqual(["Dynamic EXECUTE"]);
+  });
+
+  it("does not flag EXECUTE with a constant dollar-quoted literal", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE $q$ CREATE INDEX IF NOT EXISTS idx_users_name ON users (name) $q$; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag EXECUTE with a constant string literal", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE 'CREATE INDEX IF NOT EXISTS idx_users_name ON users (name)'; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag EXECUTE constant with USING parameters", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN EXECUTE 'INSERT INTO settings (key, value) VALUES ($1, $2)' USING 'k', 'v'; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag EXECUTE constant with INTO", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ DECLARE n int; BEGIN EXECUTE 'SELECT count(*) FROM users' INTO n; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag a plain conditional-CREATE DO block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role') THEN CREATE TYPE role AS ENUM ('admin', 'user'); END IF; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag CREATE TRIGGER ... EXECUTE FUNCTION inside a DO block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN CREATE TRIGGER trg BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION touch_updated_at(); END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag GRANT EXECUTE inside a DO block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DO $$ BEGIN GRANT EXECUTE ON FUNCTION touch_updated_at() TO app_user; END $$;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag EXECUTE outside a dollar-quoted body", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": "GRANT EXECUTE ON FUNCTION touch_updated_at() TO app_user;",
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("multi-file behavior", () => {
   it("only scans .sql files and reports the file name", () => {
     const findings = lintMigrationsDir(
