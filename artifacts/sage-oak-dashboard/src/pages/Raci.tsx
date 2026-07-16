@@ -48,6 +48,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 
 const VALUE_META: Record<string, { label: string; className: string }> = {
@@ -747,6 +748,29 @@ function GroupRows({
   );
 }
 
+function MissingRowNotice({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div
+      role="status"
+      data-testid="raci-missing-row-notice"
+      className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+    >
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <span className="flex-1">
+        That application no longer has a RACI row — it may have been removed
+        from the matrix.
+      </span>
+      <button
+        className="rounded p-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+        aria-label="Dismiss notice"
+        onClick={onDismiss}
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export default function Raci() {
   const { data, isLoading } = useGetRaciMatrix();
   // Live-update the matrix when another admin edits it (RACI changes are
@@ -771,6 +795,21 @@ export default function Raci() {
   const team = teams.find((t) => t.id === teamId);
   const effectiveHighlight =
     highlightTeam != null && highlightTeam.id === teamId ? highlightAppId : null;
+
+  // If the chip's application has no matrix row anymore (e.g. an admin deleted
+  // it between render and click), tell staff instead of silently showing the
+  // first team with no highlight. Dismissal is keyed on the param so a new
+  // chip click re-shows the notice.
+  const [dismissedNoticeFor, setDismissedNoticeFor] = useState<string | null>(
+    null,
+  );
+  const showMissingRowNotice =
+    !isLoading &&
+    data != null &&
+    appParam != null &&
+    Number.isFinite(highlightAppId) &&
+    highlightTeam == null &&
+    dismissedNoticeFor !== appParam;
 
   return (
     <div className="space-y-4">
@@ -797,6 +836,11 @@ export default function Raci() {
         </Card>
       ) : (
         <>
+          {showMissingRowNotice && (
+            <MissingRowNotice
+              onDismiss={() => setDismissedNoticeFor(appParam)}
+            />
+          )}
           <div className="flex flex-wrap gap-1.5">
             {teams.map((t) => (
               <Button
