@@ -83,14 +83,16 @@ export default function Issues() {
   const dividerBeforeId =
     newCount > 0 && firstOldIdx > 0 ? (issues ?? [])[firstOldIdx]?.id : null;
 
-  const resolvedDurations = (issues ?? [])
-    .filter((i) => i.status === "resolved" && i.resolvedAt)
+  const resolvedIssues = (issues ?? []).filter((i) => i.status === "resolved");
+  const resolvedDurations = resolvedIssues
+    .filter((i) => i.resolvedAt)
     .map((i) => turnaroundDays(i.createdAt, i.resolvedAt!))
     .filter((d): d is number => d !== null);
   const avgTurnaround =
     resolvedDurations.length > 0
       ? resolvedDurations.reduce((a, b) => a + b, 0) / resolvedDurations.length
       : null;
+  const excludedFromAvg = resolvedIssues.length - resolvedDurations.length;
 
   const now = Date.now();
 
@@ -119,6 +121,8 @@ export default function Issues() {
           {avgTurnaround !== null && (
             <Badge variant="outline" className="text-muted-foreground">
               Avg turnaround: {formatTurnaround(avgTurnaround)}
+              {excludedFromAvg > 0 &&
+                ` (based on ${resolvedDurations.length} of ${resolvedIssues.length} resolved issues; ${excludedFromAvg} older ${excludedFromAvg === 1 ? "issue has" : "issues have"} no recorded date)`}
             </Badge>
           )}
           {newCount > 0 && (
@@ -208,16 +212,19 @@ export default function Issues() {
                   <p className="text-xs text-muted-foreground">
                     Reported by {issue.reporterName} on{" "}
                     {new Date(issue.createdAt).toLocaleDateString()}
-                    {issue.status === "resolved" && issue.resolvedAt && (
-                      <>
-                        {" · Resolved on "}
-                        {new Date(issue.resolvedAt).toLocaleDateString()}
-                        {(() => {
-                          const d = turnaroundDays(issue.createdAt, issue.resolvedAt);
-                          return d !== null ? ` · Resolved in ${formatTurnaround(d)}` : null;
-                        })()}
-                      </>
-                    )}
+                    {issue.status === "resolved" &&
+                      (issue.resolvedAt ? (
+                        <>
+                          {" · Resolved on "}
+                          {new Date(issue.resolvedAt).toLocaleDateString()}
+                          {(() => {
+                            const d = turnaroundDays(issue.createdAt, issue.resolvedAt);
+                            return d !== null ? ` · Resolved in ${formatTurnaround(d)}` : null;
+                          })()}
+                        </>
+                      ) : (
+                        " · Resolved (date not recorded — resolved before dates were tracked)"
+                      ))}
                   </p>
                 </div>
                 {isAdmin && (
