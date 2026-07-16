@@ -491,12 +491,23 @@ async function verifyBulkRowValues(client: pg.Client) {
       }
     }
 
-    // app_activity: detail text, event_type, and created_at derived from gs
+    // app_activity: detail text, event_type, and created_at derived from gs.
+    // Also join through the foreign-key columns (actor_id, application_id,
+    // term_id) and compare the referenced rows' identifying values — a
+    // migration that re-points or nulls these references would keep the row
+    // itself intact but attribute the activity to the wrong person/app/term.
     {
       const res = await client.query(
-        `SELECT event_type, created_at::text AS created_at,
-                (created_at = ('2030-01-01T00:00:00Z'::timestamptz + ($2 || ' minutes')::interval)) AS created_at_ok
-           FROM app_activity WHERE detail = $1`,
+        `SELECT aa.event_type, aa.created_at::text AS created_at,
+                (aa.created_at = ('2030-01-01T00:00:00Z'::timestamptz + ($2 || ' minutes')::interval)) AS created_at_ok,
+                u.email AS actor_email,
+                a.name AS application_name,
+                t.label AS term_label
+           FROM app_activity aa
+           LEFT JOIN users u ON u.id = aa.actor_id
+           LEFT JOIN applications a ON a.id = aa.application_id
+           LEFT JOIN terms t ON t.id = aa.term_id
+          WHERE aa.detail = $1`,
         [`bulk seeded activity row #${gs}`, gs],
       );
       const row = res.rows[0];
@@ -505,6 +516,15 @@ async function verifyBulkRowValues(client: pg.Client) {
       if (row.event_type !== expectedType) fail("app_activity", gs, "event_type", expectedType, row.event_type);
       if (row.created_at_ok !== true) {
         fail("app_activity", gs, "created_at", `2030-01-01T00:00:00Z + ${gs}min`, row.created_at);
+      }
+      if (row.actor_email !== "seed-admin@example.invalid") {
+        fail("app_activity", gs, "actor_id -> users.email", "seed-admin@example.invalid", row.actor_email);
+      }
+      if (row.application_name !== "Seed App One") {
+        fail("app_activity", gs, "application_id -> applications.name", "Seed App One", row.application_name);
+      }
+      if (row.term_label !== "Fall 2025") {
+        fail("app_activity", gs, "term_id -> terms.label", "Fall 2025", row.term_label);
       }
     }
   }
