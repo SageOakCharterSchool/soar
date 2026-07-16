@@ -20,12 +20,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
 import { MixDonut } from "@/components/charts/MixDonut";
 import { ResourceSparkline } from "@/components/charts/ResourceSparkline";
+import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
 import { ArrowUpDown, UploadCloud } from "lucide-react";
 
 function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -80,6 +88,7 @@ export default function Overview() {
   }, [resources, resourceHistory]);
 
   const [appMetric, setAppMetric] = useState<"uniqueUsers" | "adoptionPct">("uniqueUsers");
+  const [expandedResource, setExpandedResource] = useState<string | null>(null);
   const [engSort, setEngSort] = useState<EngagementSort>("studentPercent");
 
   const hasActiveTime = useMemo(
@@ -249,24 +258,29 @@ export default function Overview() {
                   {displayResources.map((r) => {
                     const points = historyByLink.get(r.link) ?? [];
                     return (
-                      <li
-                        key={r.link}
-                        className="flex items-center justify-between gap-2 text-sm"
-                      >
-                        <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
-                        <span className="flex items-center gap-3 shrink-0">
-                          <ResourceSparkline points={points} />
-                          {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
-                            <span className="tabular-nums whitespace-nowrap">
-                              {[
-                                resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
-                                resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </span>
-                          )}
-                        </span>
+                      <li key={r.link}>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedResource(r.link)}
+                          className="w-full flex items-center justify-between gap-2 text-sm rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left cursor-pointer"
+                          title="Click to see full usage history"
+                          data-testid={`resource-row-${r.link}`}
+                        >
+                          <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
+                          <span className="flex items-center gap-3 shrink-0">
+                            <ResourceSparkline points={points} />
+                            {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
+                              <span className="tabular-nums whitespace-nowrap">
+                                {[
+                                  resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
+                                  resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                        </button>
                       </li>
                     );
                   })}
@@ -282,6 +296,48 @@ export default function Overview() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={expandedResource != null}
+        onOpenChange={(open) => {
+          if (!open) setExpandedResource(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="break-all pr-6">{expandedResource}</DialogTitle>
+            <DialogDescription>
+              Usage history across snapshots — unique users and total opens.
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            if (!expandedResource) return null;
+            const points = historyByLink.get(expandedResource) ?? [];
+            if (points.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground py-10 text-center">
+                  No usage history recorded for this resource yet.
+                </p>
+              );
+            }
+            if (points.length === 1) {
+              const p = points[0];
+              return (
+                <div className="py-8 text-center space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Only one snapshot so far ({p.snapshotDate}) — a trend chart will appear
+                    once more history is available.
+                  </p>
+                  <p className="text-sm tabular-nums">
+                    {p.uniqueUsers.toLocaleString()} users · {p.totalAccesses.toLocaleString()} opens
+                  </p>
+                </div>
+              );
+            }
+            return <ResourceHistoryChart points={points} />;
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <div className="grid md:grid-cols-3 gap-4">
         {[
