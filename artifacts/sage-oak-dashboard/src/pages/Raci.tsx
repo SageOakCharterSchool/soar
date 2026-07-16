@@ -664,8 +664,8 @@ function GroupRows({
             data-highlighted={highlighted || undefined}
             className={
               highlighted
-                ? "bg-sky-100/80 hover:bg-sky-100/80 dark:bg-sky-900/40 dark:hover:bg-sky-900/40"
-                : undefined
+                ? "bg-sky-100/80 hover:bg-sky-100/80 dark:bg-sky-900/40 dark:hover:bg-sky-900/40 transition-colors duration-1000"
+                : "transition-colors duration-1000"
             }
           >
             <TableCell>
@@ -782,8 +782,24 @@ export default function Raci() {
   // ?app=<applicationId> (from a RACI chip on Issues/Rostering) jumps to the
   // row for that application: pick the team that contains it and highlight it.
   const search = useSearch();
+  const [location, setLocation] = useLocation();
   const appParam = new URLSearchParams(search).get("app");
   const highlightAppId = appParam != null ? Number(appParam) : null;
+
+  // The highlight is a "flash to show you where the row is", not a persistent
+  // selection: a few seconds after arriving, strip ?app from the URL (replace,
+  // so Back still works) which fades the highlight out and makes sure a
+  // refresh doesn't bring back a stale highlight.
+  useEffect(() => {
+    if (appParam == null) return;
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(search);
+      params.delete("app");
+      const rest = params.toString();
+      setLocation(rest ? `${location}?${rest}` : location, { replace: true });
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [appParam, search, location, setLocation]);
   const highlightTeam =
     highlightAppId != null && Number.isFinite(highlightAppId)
       ? teams.find((t) =>
