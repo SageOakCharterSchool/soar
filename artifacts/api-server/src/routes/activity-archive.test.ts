@@ -318,6 +318,94 @@ describe("GET /api/rostering/activity/archive", () => {
     expect(lines[1]).toContain("Zoom");
   });
 
+  // Splits raw CSV text into records, respecting quoted fields that contain
+  // newlines. A naive split("\n") would corrupt multiline records, which is
+  // exactly the regression this guards against.
+  function splitCsvRecords(text: string): string[] {
+    const records: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i]!;
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        current += ch;
+      } else if (ch === "\n" && !inQuotes) {
+        records.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    if (current.length > 0) records.push(current);
+    return records;
+  }
+
+  it("paged CSV export reassembles to exactly the full set, in order, with multiline and quoted details", async () => {
+    // Seed 3 pages' worth (limit=10, 25 rows) with awkward detail values and
+    // deliberate createdAt ties so ordering must fall back to id desc.
+    const seeded: ReturnType<typeof seedArchive>[] = [];
+    for (let i = 0; i < 25; i++) {
+      seeded.push(
+        seedArchive({
+          // Adjacent pairs share a timestamp to force id-desc tiebreaks.
+          createdAt: new Date(Date.UTC(2023, 0, 1 + Math.floor(i / 2))),
+          detail:
+            i % 3 === 0
+              ? `Line one for row ${i}\nline "two", with comma\nline three`
+              : i % 3 === 1
+                ? `Plain detail ${i}`
+                : `Has "quotes" and, commas ${i}`,
+          appName: `App ${i}`,
+        }),
+      );
+    }
+
+    const admin = await loginAs(ADMIN);
+
+    // Full export in one request = source of truth.
+    const full = await admin.getRaw("/rostering/activity/archive?format=csv&limit=1000");
+    expect(full.status).toBe(200);
+    const fullRecords = splitCsvRecords(full.text);
+    const header = fullRecords[0]!;
+    expect(header).toBe("app,event_type,detail,actor,occurred_at,archived_at");
+    expect(fullRecords).toHaveLength(1 + seeded.length);
+
+    // Page through with limit/offset and concatenate the data records.
+    const pageSize = 10;
+    const paged: string[] = [];
+    for (let offset = 0; offset < seeded.length; offset += pageSize) {
+      const page = await admin.getRaw(
+        `/rostering/activity/archive?format=csv&limit=${pageSize}&offset=${offset}`,
+      );
+      expect(page.status).toBe(200);
+      expect(page.headers.get("x-total-count")).toBe(String(seeded.length));
+      const records = splitCsvRecords(page.text);
+      expect(records[0]).toBe(header);
+      expect(records.length).toBeLessThanOrEqual(1 + pageSize);
+      paged.push(...records.slice(1));
+    }
+
+    // Concatenated pages must equal the full export exactly: no dropped,
+    // duplicated, or reordered rows.
+    expect(paged).toEqual(fullRecords.slice(1));
+
+    // And the full export must contain every seeded row exactly once, in
+    // createdAt desc / id desc order.
+    const expectedOrder = [...seeded]
+      .sort(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+      )
+      .map((r) => r.appName);
+    const exportedApps = fullRecords.slice(1).map((rec) => rec.split(",")[0]!);
+    expect(exportedApps).toEqual(expectedOrder);
+
+    // Multiline details survive quoting: raw text has more newlines than
+    // records, and quoted embedded newlines are present.
+    expect(full.text).toContain('"Line one for row 0\nline ""two"", with comma\nline three"');
+  });
+
   it("exports CSV with format=csv", async () => {
     seedArchive({ detail: 'Has "quotes", and commas' });
     const admin = await loginAs(ADMIN);
