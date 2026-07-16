@@ -12,3 +12,4 @@
 - [Validation dist rebuild race](validation-dist-rebuild-race.md) — google-sso check flakes when verify-migrations rebuilds api-server dist concurrently; rerun in isolation, and start dev workflows first.
 - [Orval query-param name collision](orval-query-param-name-collision.md) — query params on an op with path params collide in api-zod's barrel; fix with explicit re-export, single-quoted index lines.
 - [RACI empty-state UI checks](raci-empty-state-check.md) — in-table empty-state messages are tbody rows, so "no rows" guards based on tr counts never fire; exclude them first.
+- [Count-based toast waits are flaky](toast-count-waits-flaky.md) — TOAST_LIMIT caps visible count and toasts auto-dismiss ~5s; wait on unique toast text started before the action instead.

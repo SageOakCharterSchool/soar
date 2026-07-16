@@ -53,13 +53,14 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "sageoak-admin";
 const ROW_NAME = "E2E Conflict Check Task";
 const ROW_NAME_A = "E2E Conflict Check Task (renamed by A)";
 const ROW_NAME_B = "E2E Conflict Check Task (renamed by B)";
+const ROW_NAME_A2 = "E2E Conflict Check Task (renamed again by A)";
 const MEMBER_NAME = "E2E Conflict Tester";
 const MEMBER_NAME_A = "E2E Conflict Tester (renamed by A)";
 const MEMBER_NAME_B = "E2E Conflict Tester (renamed by B)";
 const CATEGORY_NAME = "E2E Conflict Category";
 const CATEGORY_NAME_A = "E2E Conflict Category (renamed by A)";
 const CATEGORY_NAME_B = "E2E Conflict Category (renamed by B)";
-const ROW_NAMES = [ROW_NAME, ROW_NAME_A, ROW_NAME_B];
+const ROW_NAMES = [ROW_NAME, ROW_NAME_A, ROW_NAME_B, ROW_NAME_A2];
 const MEMBER_NAMES = [MEMBER_NAME, MEMBER_NAME_A, MEMBER_NAME_B];
 
 let failures = 0;
@@ -598,6 +599,116 @@ async function runChecks(fixture: Fixture) {
       pass("B's rejected category name is nowhere in the matrix");
     } else {
       fail(`B's stale category rename "${CATEGORY_NAME_B}" ended up in the matrix`);
+    }
+
+    // ---- Delete conflict flow ----
+    console.log(
+      "\nStep 14: B goes stale while A renames the task, then B tries to delete it:",
+    );
+    // Hold B's matrix refetches so B keeps showing the old task name.
+    let holdDelete = true;
+    const heldDeleteRoutes: Array<() => void> = [];
+    await contextB.route(
+      (url) => isMatrixGet(url),
+      (route) => {
+        if (holdDelete && route.request().method() === "GET") {
+          heldDeleteRoutes.push(() => void route.continue());
+        } else {
+          void route.continue();
+        }
+      },
+    );
+    const releaseDeleteRoutes = () => {
+      holdDelete = false;
+      for (const release of heldDeleteRoutes.splice(0)) release();
+    };
+
+    await renameButton(pageA, ROW_NAME_A).click();
+    await dialogInput(pageA).waitFor({ timeout: 15000 });
+    await dialogInput(pageA).fill(ROW_NAME_A2);
+    await dialogSave(pageA).click();
+    if (await waitForRow(pageA, ROW_NAME_A2)) {
+      pass(`A renamed the task to "${ROW_NAME_A2}"`);
+    } else {
+      fail("A's second rename did not take effect");
+    }
+    // Give the SSE event a moment to reach B (its refetch is held).
+    await pageB.waitForTimeout(1500);
+    const bStillStale =
+      (await pageB.locator(`button[aria-label="Delete ${ROW_NAME_A}"]`).count()) >
+      0;
+    if (bStillStale) {
+      pass(`B still shows the stale name "${ROW_NAME_A}" (refresh blocked)`);
+    } else {
+      fail(`B was expected to still show "${ROW_NAME_A}" but does not`);
+    }
+
+    console.log("\nStep 15: B's stale delete must get the conflict toast:");
+    // Accept the window.confirm "Remove ... from the matrix?" dialog.
+    pageB.once("dialog", (dialog) => void dialog.accept());
+    // Earlier rename-conflict toasts share the same title and toasts
+    // auto-dismiss after a few seconds, so a count-based wait is unreliable
+    // here. The delete-conflict toast has a unique description — start
+    // waiting for it (and for the DELETE response) before clicking.
+    const deleteResponsePromise = pageB
+      .waitForResponse(
+        (res) =>
+          res.request().method() === "DELETE" &&
+          res.url().includes(`/api/raci/rows/${fixture.rowId}`),
+        { timeout: 15000 },
+      )
+      .then((res) => res.status())
+      .catch(() => -1);
+    const deleteToastPromise = pageB
+      .getByText("This was just renamed by someone else", { exact: false })
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    await pageB.locator(`button[aria-label="Delete ${ROW_NAME_A}"]`).click();
+    const deleteStatus = await deleteResponsePromise;
+    if (deleteStatus === 409) {
+      pass("B's stale delete request was rejected with HTTP 409");
+    } else {
+      fail(
+        `B's stale delete request returned HTTP ${deleteStatus} (expected 409; -1 means no DELETE was sent — confirm dialog not accepted?)`,
+      );
+    }
+    if (await deleteToastPromise) {
+      pass(
+        `B got the "Changed by another admin" delete-conflict toast (explains the item was just renamed)`,
+      );
+    } else {
+      fail("B did NOT get the delete-conflict toast after a stale delete");
+    }
+
+    console.log("\nStep 16: the task must survive with A's new name on both pages:");
+    releaseDeleteRoutes();
+    if (await waitForRow(pageB, ROW_NAME_A2)) {
+      pass(`B refreshed and shows the surviving task "${ROW_NAME_A2}"`);
+    } else {
+      fail(`B did not converge to the surviving task "${ROW_NAME_A2}"`);
+    }
+    if (await waitForRow(pageA, ROW_NAME_A2)) {
+      pass(`A still shows "${ROW_NAME_A2}" (B's stale delete was rejected)`);
+    } else {
+      fail(`A no longer shows "${ROW_NAME_A2}" — B's stale delete removed it?`);
+    }
+    const rowStillExists = await api(
+      await adminLoginCookie(),
+      "GET",
+      "/raci",
+    ).then(async (res) => {
+      if (!res.ok) return false;
+      const { teams } = (await res.json()) as {
+        teams: Array<{ rows: Array<{ id: number }> }>;
+      };
+      return teams.some((t) => t.rows.some((r) => r.id === fixture.rowId));
+    });
+    if (rowStillExists) {
+      pass("the task row still exists on the server");
+    } else {
+      fail("the task row was deleted on the server despite the conflict");
     }
   } finally {
     await browser.close();
