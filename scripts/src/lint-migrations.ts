@@ -31,8 +31,41 @@ const ALLOW_MARKER = /--[ \t]*destructive:[ \t]*\S+/i;
 
 interface Rule {
   name: string;
-  pattern: RegExp;
   message: string;
+  pattern?: RegExp;
+  check?: (cleanedSql: string) => boolean;
+}
+
+/**
+ * True when the (comment/string-stripped) SQL contains a DELETE FROM whose own
+ * statement has no top-level WHERE clause. Splits on semicolons so a later
+ * statement's WHERE cannot mask an earlier unqualified DELETE, and ignores
+ * WHERE clauses nested inside parentheses (subqueries), which do not qualify
+ * the outer DELETE.
+ */
+export function hasDeleteWithoutWhere(cleanedSql: string): boolean {
+  for (const statement of cleanedSql.split(";")) {
+    const deleteMatch = /\bDELETE\s+FROM\b/i.exec(statement);
+    if (!deleteMatch) continue;
+    const rest = statement.slice(deleteMatch.index + deleteMatch[0].length);
+    let depth = 0;
+    let topLevelWhere = false;
+    for (let i = 0; i < rest.length; i++) {
+      const ch = rest[i];
+      if (ch === "(") depth++;
+      else if (ch === ")") depth = Math.max(0, depth - 1);
+      else if (
+        depth === 0 &&
+        /^where\b/i.test(rest.slice(i, i + 6)) &&
+        (i === 0 || /[\s)]/.test(rest[i - 1]))
+      ) {
+        topLevelWhere = true;
+        break;
+      }
+    }
+    if (!topLevelWhere) return true;
+  }
+  return false;
 }
 
 const RULES: Rule[] = [
@@ -59,7 +92,7 @@ const RULES: Rule[] = [
   },
   {
     name: "DELETE without WHERE",
-    pattern: /\bDELETE\s+FROM\s+(?:(?!\bWHERE\b)[\s\S])*$/i,
+    check: hasDeleteWithoutWhere,
     message: "DELETE FROM without a WHERE clause removes every row in the table.",
   },
   {
@@ -104,7 +137,8 @@ export function lintMigrationsDir(migrationsDir = defaultMigrationsDir): LintFin
       const allowed = ALLOW_MARKER.test(rawStmt);
       const cleaned = stripCommentsAndStrings(stmt);
       for (const rule of RULES) {
-        if (rule.pattern.test(cleaned)) {
+        const matched = rule.check ? rule.check(cleaned) : rule.pattern!.test(cleaned);
+        if (matched) {
           if (allowed) continue;
           findings.push({
             file,

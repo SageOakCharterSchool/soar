@@ -68,6 +68,42 @@ describe("lintMigrationsDir destructive patterns", () => {
     ]);
   });
 
+  it("flags DELETE without WHERE followed by another statement with WHERE in the same block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          'DELETE FROM "sessions";\nUPDATE "users" SET active = false WHERE last_login < now();',
+      }),
+    ).toEqual(["DELETE without WHERE"]);
+  });
+
+  it("flags DELETE without WHERE followed by a qualified DELETE in the same block", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          'DELETE FROM "sessions";\nDELETE FROM "tokens" WHERE expires_at < now();',
+      }),
+    ).toEqual(["DELETE without WHERE"]);
+  });
+
+  it("flags DELETE whose only WHERE is inside a subquery", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          'DELETE FROM "sessions" USING (SELECT id FROM "users" WHERE banned) u;',
+      }),
+    ).toEqual(["DELETE without WHERE"]);
+  });
+
+  it("flags DELETE whose only WHERE is in a subquery in the target list", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DELETE FROM sessions RETURNING (SELECT name FROM users WHERE users.id = sessions.user_id);",
+      }),
+    ).toEqual(["DELETE without WHERE"]);
+  });
+
   it("flags DROP SCHEMA", () => {
     expect(rulesFound({ "0001_a.sql": 'DROP SCHEMA "old" CASCADE;' })).toEqual([
       "DROP SCHEMA/DATABASE",
@@ -118,6 +154,38 @@ describe("non-destructive statements are not flagged", () => {
     expect(
       rulesFound({ "0001_a.sql": "DELETE FROM sessions WHERE expires_at < now();" }),
     ).toEqual([]);
+  });
+
+  it("does not flag a multi-line DELETE with a top-level WHERE", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql": 'DELETE FROM "sessions"\nWHERE expires_at < now()\n  AND user_id IS NULL;',
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag DELETE with WHERE ... IN (subquery)", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE banned);",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not flag DELETE USING with a top-level WHERE after the subquery", () => {
+    expect(
+      rulesFound({
+        "0001_a.sql":
+          "DELETE FROM sessions USING (SELECT id FROM users WHERE banned) u WHERE sessions.user_id = u.id;",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not treat an identifier containing 'where' as a WHERE clause", () => {
+    expect(
+      rulesFound({ "0001_a.sql": "DELETE FROM sessions_wherehouse;" }),
+    ).toEqual(["DELETE without WHERE"]);
   });
 
   it("does not flag plain CREATE statements", () => {
