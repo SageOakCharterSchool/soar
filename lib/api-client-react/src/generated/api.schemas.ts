@@ -51,6 +51,7 @@ export interface User {
   email: string;
   displayName: string;
   role: UserRole;
+  tags: string[];
   createdAt: string;
 }
 
@@ -66,6 +67,7 @@ export interface UserOption {
   id: number;
   displayName: string;
   role: UserOptionRole;
+  tags: string[];
 }
 
 export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
@@ -81,6 +83,7 @@ export interface UserInput {
   password: string;
   displayName: string;
   role: UserInputRole;
+  tags?: string[];
 }
 
 export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
@@ -95,6 +98,7 @@ export interface UserUpdate {
   displayName?: string;
   role?: UserUpdateRole;
   password?: string;
+  tags?: string[];
 }
 
 export type TermTermType = typeof TermTermType[keyof typeof TermTermType];

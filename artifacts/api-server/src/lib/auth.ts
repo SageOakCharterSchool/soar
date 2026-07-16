@@ -86,6 +86,7 @@ export function toUserDto(user: {
   email: string;
   displayName: string;
   role: "admin" | "staff";
+  tags: string[];
   createdAt: Date;
 }) {
   return {
@@ -93,6 +94,7 @@ export function toUserDto(user: {
     email: user.email,
     displayName: user.displayName,
     role: user.role,
+    tags: user.tags,
     createdAt: user.createdAt.toISOString(),
   };
 }

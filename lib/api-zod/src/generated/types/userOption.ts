@@ -11,4 +11,5 @@ export interface UserOption {
   id: number;
   displayName: string;
   role: UserOptionRole;
+  tags: string[];
 }

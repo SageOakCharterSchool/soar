@@ -1173,7 +1173,7 @@ components:
         password: { type: string }
     User:
       type: object
-      required: [id, email, displayName, role, createdAt]
+      required: [id, email, displayName, role, tags, createdAt]
       properties:
         id: { type: integer }
         email: { type: string }
@@ -1181,16 +1181,22 @@ components:
         role:
           type: string
           enum: [admin, staff]
+        tags:
+          type: array
+          items: { type: string }
         createdAt: { type: string }
     UserOption:
       type: object
-      required: [id, displayName, role]
+      required: [id, displayName, role, tags]
       properties:
         id: { type: integer }
         displayName: { type: string }
         role:
           type: string
           enum: [admin, staff]
+        tags:
+          type: array
+          items: { type: string }
     UserInput:
       type: object
       required: [email, password, displayName, role]
@@ -1201,6 +1207,9 @@ components:
         role:
           type: string
           enum: [admin, staff]
+        tags:
+          type: array
+          items: { type: string }
     UserUpdate:
       type: object
       properties:
@@ -1209,6 +1218,9 @@ components:
           type: string
           enum: [admin, staff]
         password: { type: string }
+        tags:
+          type: array
+          items: { type: string }
     Term:
       type: object
       required: [id, label, schoolYear, termType, startDate, endDate, sortOrder, isCurrent]

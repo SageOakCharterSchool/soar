@@ -78,6 +78,7 @@ beforeEach(() => {
       passwordHash: adminHash,
       displayName: "Administrator",
       role: "admin",
+      tags: [],
       createdAt: new Date("2026-01-01T00:00:00Z"),
     },
     {
@@ -86,6 +87,7 @@ beforeEach(() => {
       passwordHash: staffHash,
       displayName: "Staff Member",
       role: "staff",
+      tags: ["IT"],
       createdAt: new Date("2026-01-02T00:00:00Z"),
     },
   );
@@ -287,8 +289,23 @@ describe("GET /api/users/options", () => {
       "Staff Member",
     ]);
     for (const u of res.body) {
-      expect(Object.keys(u).sort()).toEqual(["displayName", "id", "role"]);
+      expect(Object.keys(u).sort()).toEqual(["displayName", "id", "role", "tags"]);
+      expect(Array.isArray(u.tags)).toBe(true);
     }
+    const staffOption = res.body.find(
+      (u: { displayName: string }) => u.displayName === "Staff Member",
+    );
+    expect(staffOption.tags).toEqual(["IT"]);
+  });
+
+  it("lets an admin update a user's tags", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch("/users/1", { tags: ["IT", "Ops"] });
+    expect(res.status).toBe(200);
+    expect(res.body.tags).toEqual(["IT", "Ops"]);
+    const options = await admin.get("/users/options");
+    const updated = options.body.find((u: { id: number }) => u.id === 1);
+    expect(updated.tags).toEqual(["IT", "Ops"]);
   });
 });
 

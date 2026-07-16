@@ -251,7 +251,7 @@ class Query implements PromiseLike<Row[]> {
 
 // Column defaults applied on insert, mirroring the schema's DB defaults.
 const DEFAULTS: Record<string, () => Row> = {
-  users: () => ({ createdAt: new Date() }),
+  users: () => ({ tags: [], createdAt: new Date() }),
   terms: () => ({ isCurrent: false }),
   appTermStatus: () => ({
     studentSharingStatus: "not_started",

@@ -11,6 +11,7 @@ import {
   useDeleteRaciMember,
   useSetRaciCell,
   useRenameRaciCategory,
+  useListUserOptions,
   type RaciTeamData,
   type RaciRow,
   type RaciMember,
@@ -33,6 +34,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -175,6 +183,115 @@ function NamePrompt({
             Cancel
           </Button>
           <Button onClick={() => name.trim() && onSave(name.trim())} disabled={pending || !name.trim()}>
+            {pending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const CUSTOM_MEMBER = "__custom__";
+
+function AddMemberDialog({
+  teamName,
+  existingNames,
+  open,
+  onOpenChange,
+  onSave,
+  pending,
+}: {
+  teamName: string;
+  existingNames: string[];
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onSave: (name: string) => void;
+  pending: boolean;
+}) {
+  const { data: userOptions, isLoading } = useListUserOptions();
+  const [selected, setSelected] = useState<string>("");
+  const [customName, setCustomName] = useState("");
+
+  const taken = useMemo(
+    () => new Set(existingNames.map((n) => n.trim().toLowerCase())),
+    [existingNames],
+  );
+  const itUsers = useMemo(
+    () =>
+      (userOptions ?? []).filter((u) =>
+        u.tags.some((t) => t.trim().toLowerCase() === "it"),
+      ),
+    [userOptions],
+  );
+  const noneTagged = !isLoading && itUsers.length === 0;
+  const choices = useMemo(
+    () =>
+      itUsers.filter((u) => !taken.has(u.displayName.trim().toLowerCase())),
+    [itUsers, taken],
+  );
+
+  const name =
+    selected === CUSTOM_MEMBER ? customName.trim() : selected.trim();
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) {
+          setSelected("");
+          setCustomName("");
+        }
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Add member to {teamName}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label>Member</Label>
+          <Select value={selected} onValueChange={setSelected}>
+            <SelectTrigger>
+              <SelectValue
+                placeholder={isLoading ? "Loading users..." : "Choose a person"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {choices.map((u) => (
+                <SelectItem key={u.id} value={u.displayName}>
+                  {u.displayName}
+                </SelectItem>
+              ))}
+              <SelectItem value={CUSTOM_MEMBER}>
+                Someone else (type a name)...
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {noneTagged && (
+            <p className="text-xs text-muted-foreground">
+              No users are tagged "IT" yet. Tag them on the Users page to list
+              them here.
+            </p>
+          )}
+        </div>
+        {selected === CUSTOM_MEMBER && (
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              value={customName}
+              autoFocus
+              onChange={(e) => setCustomName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && name) onSave(name);
+              }}
+            />
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => name && onSave(name)} disabled={pending || !name}>
             {pending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
@@ -630,10 +747,9 @@ function TeamMatrix({
           }
         />
       )}
-      <NamePrompt
-        title={`Add member to ${team.name}`}
-        label="Member name"
-        initial=""
+      <AddMemberDialog
+        teamName={team.name}
+        existingNames={team.members.map((m) => m.name)}
         open={addMemberOpen}
         onOpenChange={setAddMemberOpen}
         pending={createMember.isPending}

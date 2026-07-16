@@ -29,6 +29,7 @@ export const LoginResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 
@@ -49,6 +50,7 @@ export const GetCurrentUserResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 
@@ -69,6 +71,7 @@ export const ListUsersResponseItem = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
@@ -81,7 +84,8 @@ export const CreateUserBody = zod.object({
   "email": zod.string(),
   "password": zod.string(),
   "displayName": zod.string(),
-  "role": zod.enum(['admin', 'staff'])
+  "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()).optional()
 })
 
 export const CreateUserResponse = zod.object({
@@ -89,6 +93,7 @@ export const CreateUserResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 
@@ -99,7 +104,8 @@ export const CreateUserResponse = zod.object({
 export const ListUserOptionsResponseItem = zod.object({
   "id": zod.number(),
   "displayName": zod.string(),
-  "role": zod.enum(['admin', 'staff'])
+  "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string())
 })
 export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem)
 
@@ -114,7 +120,8 @@ export const UpdateUserParams = zod.object({
 export const UpdateUserBody = zod.object({
   "displayName": zod.string().optional(),
   "role": zod.enum(['admin', 'staff']).optional(),
-  "password": zod.string().optional()
+  "password": zod.string().optional(),
+  "tags": zod.array(zod.string()).optional()
 })
 
 export const UpdateUserResponse = zod.object({
@@ -122,6 +129,7 @@ export const UpdateUserResponse = zod.object({
   "email": zod.string(),
   "displayName": zod.string(),
   "role": zod.enum(['admin', 'staff']),
+  "tags": zod.array(zod.string()),
   "createdAt": zod.string()
 })
 

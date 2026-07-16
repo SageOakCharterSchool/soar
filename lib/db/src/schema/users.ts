@@ -10,6 +10,8 @@ export const usersTable = pgTable("users", {
   googleId: text("google_id").unique(),
   displayName: text("display_name").notNull(),
   role: text("role", { enum: ["admin", "staff"] }).notNull().default("staff"),
+  // Free-form labels like "IT" used to filter user pickers (e.g. RACI members).
+  tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

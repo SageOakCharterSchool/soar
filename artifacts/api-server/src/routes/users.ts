@@ -14,7 +14,12 @@ router.get("/users", requireAdmin, async (_req, res): Promise<void> => {
 
 router.get("/users/options", requireAuth, async (_req, res): Promise<void> => {
   const users = await db
-    .select({ id: usersTable.id, displayName: usersTable.displayName, role: usersTable.role })
+    .select({
+      id: usersTable.id,
+      displayName: usersTable.displayName,
+      role: usersTable.role,
+      tags: usersTable.tags,
+    })
     .from(usersTable)
     .orderBy(usersTable.displayName);
   res.json(users);
@@ -40,6 +45,7 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
       passwordHash,
       displayName: parsed.data.displayName,
       role: parsed.data.role,
+      tags: parsed.data.tags ?? [],
     })
     .returning();
   res.status(201).json(toUserDto(user!));
@@ -60,6 +66,7 @@ router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
   const updates: Partial<typeof usersTable.$inferInsert> = {};
   if (parsed.data.displayName !== undefined) updates.displayName = parsed.data.displayName;
   if (parsed.data.role !== undefined) updates.role = parsed.data.role;
+  if (parsed.data.tags !== undefined) updates.tags = parsed.data.tags;
   if (parsed.data.password !== undefined && parsed.data.password.length > 0) {
     updates.passwordHash = await bcrypt.hash(parsed.data.password, 10);
   }
