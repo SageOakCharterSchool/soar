@@ -10,10 +10,13 @@
 import * as React from "react";
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
-import { toast, useToast } from "@/hooks/use-toast";
+import { toast, useToast, resetToastStateForTests } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 
 afterEach(() => {
+  act(() => {
+    resetToastStateForTests();
+  });
   cleanup();
 });
 
@@ -59,5 +62,88 @@ describe("use-toast early-mount regression", () => {
     });
 
     expect(screen.getAllByText("Saved").length).toBeGreaterThan(0);
+  });
+});
+
+describe("error toast priority", () => {
+  it("stacks an informational toast alongside an error toast instead of replacing it", () => {
+    render(<Toaster />);
+
+    act(() => {
+      toast({ title: "Sign-in failed", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Settings saved" });
+    });
+
+    expect(screen.getAllByText("Sign-in failed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Settings saved").length).toBeGreaterThan(0);
+  });
+
+  it("keeps an error toast visible even when the stack overflows with newer informational toasts", () => {
+    render(<Toaster />);
+
+    act(() => {
+      toast({ title: "Nightly sync failed", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Info 1" });
+    });
+    act(() => {
+      toast({ title: "Info 2" });
+    });
+    act(() => {
+      toast({ title: "Info 3" });
+    });
+
+    // The error survives; the oldest informational toast is the one evicted.
+    expect(screen.getAllByText("Nightly sync failed").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Info 1")).toBeNull();
+    expect(screen.getAllByText("Info 2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Info 3").length).toBeGreaterThan(0);
+  });
+
+  it("evicts the oldest error when the stack is full of errors and a new error arrives", () => {
+    render(<Toaster />);
+
+    act(() => {
+      toast({ title: "Error A", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Error B", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Error C", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Error D", variant: "destructive" });
+    });
+
+    expect(screen.queryByText("Error A")).toBeNull();
+    expect(screen.getAllByText("Error B").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Error C").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Error D").length).toBeGreaterThan(0);
+  });
+
+  it("does not let a new informational toast displace errors when the stack is full of errors", () => {
+    render(<Toaster />);
+
+    act(() => {
+      toast({ title: "Error A", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Error B", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Error C", variant: "destructive" });
+    });
+    act(() => {
+      toast({ title: "Just an update" });
+    });
+
+    expect(screen.getAllByText("Error A").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Error B").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Error C").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Just an update")).toBeNull();
   });
 });

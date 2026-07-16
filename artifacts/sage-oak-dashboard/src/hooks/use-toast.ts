@@ -5,7 +5,7 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
+const TOAST_LIMIT = 3
 const TOAST_REMOVE_DELAY = 1000000
 
 type ToasterToast = ToastProps & {
@@ -71,12 +71,38 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout)
 }
 
+// When the toast list overflows, evict the oldest non-error toast first so an
+// error ("destructive") toast is never silently displaced by newer
+// informational toasts. Errors stay on screen until dismissed or until they
+// must make room for another error.
+const capToasts = (toasts: ToasterToast[]): ToasterToast[] => {
+  if (toasts.length <= TOAST_LIMIT) {
+    return toasts
+  }
+  const result = [...toasts]
+  while (result.length > TOAST_LIMIT) {
+    let removeIndex = -1
+    for (let i = result.length - 1; i >= 0; i--) {
+      if (result[i].variant !== "destructive") {
+        removeIndex = i
+        break
+      }
+    }
+    if (removeIndex === -1) {
+      // All toasts are errors: evict the oldest one.
+      removeIndex = result.length - 1
+    }
+    result.splice(removeIndex, 1)
+  }
+  return result
+}
+
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+        toasts: capToasts([action.toast, ...state.toasts]),
       }
 
     case "UPDATE_TOAST":
@@ -192,4 +218,12 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+// Test-only helper: clears all toast state and pending removal timers so
+// tests don't leak toasts into each other through module-level memoryState.
+function resetToastStateForTests() {
+  toastTimeouts.forEach((timeout) => clearTimeout(timeout))
+  toastTimeouts.clear()
+  dispatch({ type: "REMOVE_TOAST", toastId: undefined })
+}
+
+export { useToast, toast, resetToastStateForTests }
