@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -319,6 +320,18 @@ function ArchiveDialog() {
 
   const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
 
+  // Denominator guards against the total shrinking or growing mid-export
+  // (rows can be archived while pages are being fetched).
+  const exportPercent =
+    totalCount != null
+      ? Math.min(
+          100,
+          Math.round(
+            (fetchedCount / Math.max(totalCount, fetchedCount, 1)) * 100,
+          ),
+        )
+      : 0;
+
   const cancelDownload = () => {
     abortRef.current?.abort();
   };
@@ -503,11 +516,23 @@ function ArchiveDialog() {
             </div>
             <DialogFooter className="items-center gap-2 sm:gap-2">
               {downloading && (
-                <span className="text-xs text-muted-foreground" aria-live="polite">
-                  {totalCount != null
-                    ? `${fetchedCount.toLocaleString()} of ${totalCount.toLocaleString()} rows fetched…`
-                    : `${fetchedCount.toLocaleString()} rows fetched…`}
-                </span>
+                <div className="flex flex-1 items-center gap-2 min-w-0">
+                  {totalCount != null && (
+                    <Progress
+                      value={exportPercent}
+                      className="h-2 flex-1 min-w-16"
+                      aria-label="Export progress"
+                    />
+                  )}
+                  <span
+                    className="text-xs text-muted-foreground whitespace-nowrap"
+                    aria-live="polite"
+                  >
+                    {totalCount != null
+                      ? `${fetchedCount.toLocaleString()} of ${Math.max(totalCount, fetchedCount).toLocaleString()} rows fetched…`
+                      : `${fetchedCount.toLocaleString()} rows fetched…`}
+                  </span>
+                </div>
               )}
               {downloading && (
                 <Button size="sm" variant="ghost" onClick={cancelDownload}>
