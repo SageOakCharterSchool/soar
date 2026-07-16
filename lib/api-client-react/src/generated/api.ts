@@ -44,6 +44,7 @@ import type {
   ListIssuesParams,
   LoginInput,
   RaciCategoryRename,
+  RaciCellConflict,
   RaciCellInput,
   RaciCellState,
   RaciMatrix,
@@ -3813,7 +3814,7 @@ export const setRaciCell = async (raciCellInput: RaciCellInput, options?: Reques
 
 
 
-export const getSetRaciCellMutationOptions = <TError = ErrorType<ApiMessage>,
+export const getSetRaciCellMutationOptions = <TError = ErrorType<ApiMessage | RaciCellConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setRaciCell>>, TError,{data: BodyType<RaciCellInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof setRaciCell>>, TError,{data: BodyType<RaciCellInput>}, TContext> => {
 
@@ -3842,12 +3843,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SetRaciCellMutationResult = NonNullable<Awaited<ReturnType<typeof setRaciCell>>>
     export type SetRaciCellMutationBody = BodyType<RaciCellInput>
-    export type SetRaciCellMutationError = ErrorType<ApiMessage>
+    export type SetRaciCellMutationError = ErrorType<ApiMessage | RaciCellConflict>
 
     /**
  * @summary Set or clear a RACI cell (admin)
  */
-export const useSetRaciCell = <TError = ErrorType<ApiMessage>,
+export const useSetRaciCell = <TError = ErrorType<ApiMessage | RaciCellConflict>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setRaciCell>>, TError,{data: BodyType<RaciCellInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof setRaciCell>>,

@@ -289,6 +289,65 @@ describe("PUT /raci/cells", () => {
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(3);
   });
 
+  it("accepts writes when expectedValue matches the stored value", async () => {
+    const c = await loginAdmin();
+    // Cell (30, 20) currently holds "A".
+    const res = await c.put("/raci/cells", {
+      rowId: 30,
+      memberId: 20,
+      value: "R",
+      expectedValue: "A",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.value).toBe("R");
+
+    // Empty cell: expectedValue null matches.
+    const empty = await c.put("/raci/cells", {
+      rowId: 31,
+      memberId: 20,
+      value: "I",
+      expectedValue: null,
+    });
+    expect(empty.status).toBe(200);
+  });
+
+  it("409s without overwriting when another admin changed the cell first", async () => {
+    const c = await loginAdmin();
+    // Cell (30, 20) holds "A", but this client last saw "C" — concurrent edit.
+    const res = await c.put("/raci/cells", {
+      rowId: 30,
+      memberId: 20,
+      value: "R",
+      expectedValue: "C",
+    });
+    expect(res.status).toBe(409);
+    expect(res.body.currentValue).toBe("A");
+    // The stored value is untouched and no activity was logged.
+    expect(
+      fakeDb
+        .rows(tables.raciAssignmentsTable)
+        .find((a) => a.rowId === 30 && a.memberId === 20)!.value,
+    ).toBe("A");
+    expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
+
+    // Expecting a value where the cell is empty also conflicts.
+    const emptyConflict = await c.put("/raci/cells", {
+      rowId: 31,
+      memberId: 20,
+      value: "R",
+      expectedValue: "I",
+    });
+    expect(emptyConflict.status).toBe(409);
+    expect(emptyConflict.body.currentValue).toBeNull();
+  });
+
+  it("still allows writes without expectedValue (backwards compatible)", async () => {
+    const c = await loginAdmin();
+    const res = await c.put("/raci/cells", { rowId: 30, memberId: 20, value: "I" });
+    expect(res.status).toBe(200);
+    expect(res.body.value).toBe("I");
+  });
+
   it("rejects members from another team and invalid values", async () => {
     const c = await loginAdmin();
     const wrongTeam = await c.put("/raci/cells", {

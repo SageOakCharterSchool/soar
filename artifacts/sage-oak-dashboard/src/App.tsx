@@ -1,12 +1,12 @@
-import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useGetRosteringUnseenCount,
   getGetRosteringUnseenCountQueryKey,
   useGetIssuesUnseenCount,
   getGetIssuesUnseenCountQueryKey,
 } from "@workspace/api-client-react";
+import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
@@ -29,27 +29,6 @@ const UNSEEN_QUERY_OPTIONS = {
     refetchOnWindowFocus: true,
   } as any,
 };
-
-// Any rostering activity event (including issue reported/resolved) is pushed
-// on this single SSE stream, so both nav badges refresh from it.
-function useActivityEventRefresh(queryKey: readonly unknown[]) {
-  const qc = useQueryClient();
-  useEffect(() => {
-    const base = import.meta.env.BASE_URL;
-    const source = new EventSource(`${base}api/rostering/events`, {
-      withCredentials: true,
-    });
-    const refresh = () => {
-      qc.invalidateQueries({ queryKey });
-    };
-    source.addEventListener("activity", refresh);
-    return () => {
-      source.removeEventListener("activity", refresh);
-      source.close();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qc]);
-}
 
 function NavBadge({
   count,

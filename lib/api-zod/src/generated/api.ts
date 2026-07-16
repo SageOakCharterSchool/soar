@@ -841,7 +841,8 @@ export const DeleteRaciMemberResponse = zod.object({
 export const SetRaciCellBody = zod.object({
   "rowId": zod.number(),
   "memberId": zod.number(),
-  "value": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()])
+  "value": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()]),
+  "expectedValue": zod.union([zod.enum(['R', 'A', 'C', 'I', 'N/A']),zod.null()]).optional().describe('The cell value the client last saw. When provided and it no longer matches the stored value, the update is rejected with 409 so a concurrent admin\'s edit is not silently overwritten.')
 })
 
 export const SetRaciCellResponse = zod.object({

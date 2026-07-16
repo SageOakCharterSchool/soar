@@ -400,7 +400,7 @@ router.put("/raci/cells", requireAdmin, async (req, res): Promise<void> => {
     return;
   }
   const user = (req as Request & { user: User }).user;
-  const { rowId, memberId, value } = parsed.data;
+  const { rowId, memberId, value, expectedValue } = parsed.data;
   const [row] = await db.select().from(raciRowsTable).where(eq(raciRowsTable.id, rowId));
   if (!row) {
     res.status(404).json({ message: "Row not found" });
@@ -420,6 +420,16 @@ router.put("/raci/cells", requireAdmin, async (req, res): Promise<void> => {
   );
   const [existing] = await db.select().from(raciAssignmentsTable).where(cellCond);
   const beforeValue = existing?.value ?? null;
+  // Optimistic concurrency: if the client told us what it last saw and the
+  // stored value has since changed, reject instead of silently overwriting
+  // another admin's concurrent edit.
+  if (expectedValue !== undefined && (expectedValue ?? null) !== beforeValue) {
+    res.status(409).json({
+      message: "This cell was just changed by another admin",
+      currentValue: beforeValue,
+    });
+    return;
+  }
   if (value == null) {
     await db.delete(raciAssignmentsTable).where(cellCond);
   } else if (existing) {

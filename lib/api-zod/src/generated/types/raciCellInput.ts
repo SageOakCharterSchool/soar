@@ -11,4 +11,6 @@ export interface RaciCellInput {
   rowId: number;
   memberId: number;
   value: RaciValue | null;
+  /** The cell value the client last saw. When provided and it no longer matches the stored value, the update is rejected with 409 so a concurrent admin's edit is not silently overwritten. */
+  expectedValue?: RaciValue | null;
 }

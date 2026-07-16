@@ -945,6 +945,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: The cell was changed by another admin since it was loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaciCellConflict"
   /raci/teams/{id}/rename-category:
     post:
       operationId: renameRaciCategory
@@ -1259,6 +1265,23 @@ components:
         rowId: { type: integer }
         memberId: { type: integer }
         value:
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+        expectedValue:
+          description: >-
+            The cell value the client last saw. When provided and it no longer
+            matches the stored value, the update is rejected with 409 so a
+            concurrent admin's edit is not silently overwritten.
+          oneOf:
+            - $ref: "#/components/schemas/RaciValue"
+            - type: "null"
+    RaciCellConflict:
+      type: object
+      required: [message, currentValue]
+      properties:
+        message: { type: string }
+        currentValue:
           oneOf:
             - $ref: "#/components/schemas/RaciValue"
             - type: "null"

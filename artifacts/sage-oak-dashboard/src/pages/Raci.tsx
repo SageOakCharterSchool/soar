@@ -17,6 +17,7 @@ import {
   type RaciValue,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -214,8 +215,24 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
       null;
     const next = CYCLE[(CYCLE.indexOf(current) + 1) % CYCLE.length] ?? null;
     setCell.mutate(
-      { data: { rowId: row.id, memberId, value: next } },
-      { onSuccess: invalidate, onError },
+      // expectedValue lets the server reject the update if another admin
+      // changed this cell since we loaded it (409), instead of overwriting.
+      { data: { rowId: row.id, memberId, value: next, expectedValue: current } },
+      {
+        onSuccess: invalidate,
+        onError: (err: any) => {
+          if (err?.status === 409) {
+            toast({
+              title: "Cell changed by another admin",
+              description:
+                "This cell was just updated by someone else. The matrix has been refreshed — click again to change it.",
+            });
+            invalidate();
+            return;
+          }
+          onError(err);
+        },
+      },
     );
   };
 
@@ -649,6 +666,9 @@ function GroupRows({
 
 export default function Raci() {
   const { data, isLoading } = useGetRaciMatrix();
+  // Live-update the matrix when another admin edits it (RACI changes are
+  // emitted on the shared rostering activity stream).
+  useActivityEventRefresh(getGetRaciMatrixQueryKey());
   const teams = data?.teams ?? [];
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const teamId = selectedTeamId ?? teams[0]?.id;
