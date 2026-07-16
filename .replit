@@ -85,12 +85,12 @@ args = "pnpm --filter @workspace/api-server test && pnpm --filter @workspace/sag
 name = "raci-conflict"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/scripts run raci-conflict-ui-check"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run raci-conflict-ui-check && pnpm --filter @workspace/scripts run raci-highlight-fade-check"
 
 [[workflows.workflow]]
 name = "staff-access"
