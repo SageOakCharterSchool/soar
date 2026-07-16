@@ -652,6 +652,24 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ResourceUsageRow"
+  /usage/additional-resources/history:
+    get:
+      operationId: getAdditionalResourcesHistory
+      tags: [usage]
+      summary: Per-resource usage across recent snapshot dates
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 60 }
+          description: How many recent snapshot dates to include (default 12)
+      responses:
+        "200":
+          description: Usage history per resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUsageHistory"
   /uploads:
     post:
       operationId: uploadUsageData
@@ -1539,6 +1557,33 @@ components:
         link: { type: string }
         uniqueUsers: { type: integer }
         totalAccesses: { type: integer }
+    ResourceUsagePoint:
+      type: object
+      required: [snapshotDate, uniqueUsers, totalAccesses]
+      properties:
+        snapshotDate: { type: string }
+        uniqueUsers: { type: integer }
+        totalAccesses: { type: integer }
+    ResourceUsageSeries:
+      type: object
+      required: [link, points]
+      properties:
+        link: { type: string }
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceUsagePoint"
+    ResourceUsageHistory:
+      type: object
+      required: [snapshotDates, resources]
+      properties:
+        snapshotDates:
+          type: array
+          items: { type: string }
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceUsageSeries"
     UploadFile:
       type: object
       required: [name, content]

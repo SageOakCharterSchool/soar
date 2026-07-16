@@ -563,6 +563,22 @@ export interface ResourceUsageRow {
   totalAccesses: number;
 }
 
+export interface ResourceUsagePoint {
+  snapshotDate: string;
+  uniqueUsers: number;
+  totalAccesses: number;
+}
+
+export interface ResourceUsageSeries {
+  link: string;
+  points: ResourceUsagePoint[];
+}
+
+export interface ResourceUsageHistory {
+  snapshotDates: string[];
+  resources: ResourceUsageSeries[];
+}
+
 export interface UploadFile {
   name: string;
   content: string;
@@ -698,5 +714,14 @@ export const ListIssuesStatus = {
 export type GetDailyUsageParams = {
 startDate?: string;
 endDate?: string;
+};
+
+export type GetAdditionalResourcesHistoryParams = {
+/**
+ * How many recent snapshot dates to include (default 12)
+ * @minimum 1
+ * @maximum 60
+ */
+limit?: number;
 };
 

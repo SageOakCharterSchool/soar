@@ -7,6 +7,7 @@ import {
   useGetUsageBySchool,
   useGetAppEngagement,
   useGetAdditionalResources,
+  useGetAdditionalResourcesHistory,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
 import { MixDonut } from "@/components/charts/MixDonut";
+import { ResourceSparkline } from "@/components/charts/ResourceSparkline";
 import { ArrowUpDown, UploadCloud } from "lucide-react";
 
 function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -54,6 +56,28 @@ export default function Overview() {
   const { data: bySchool } = useGetUsageBySchool();
   const { data: engagement } = useGetAppEngagement();
   const { data: resources } = useGetAdditionalResources();
+  const { data: resourceHistory } = useGetAdditionalResourcesHistory();
+
+  const historyByLink = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof resourceHistory>["resources"][number]["points"]>();
+    for (const r of resourceHistory?.resources ?? []) m.set(r.link, r.points);
+    return m;
+  }, [resourceHistory]);
+
+  // Prefer the latest snapshot's rows; if the newest snapshot has no resource
+  // data (e.g. a partial import), fall back to the most recent values from the
+  // usage history so trends stay visible.
+  const displayResources = useMemo(() => {
+    if (resources && resources.length > 0) return resources;
+    return (resourceHistory?.resources ?? [])
+      .map((r) => {
+        const last = r.points[r.points.length - 1];
+        return last
+          ? { link: r.link, uniqueUsers: last.uniqueUsers, totalAccesses: last.totalAccesses }
+          : null;
+      })
+      .filter((r): r is NonNullable<typeof r> => r != null);
+  }, [resources, resourceHistory]);
 
   const [appMetric, setAppMetric] = useState<"uniqueUsers" | "adoptionPct">("uniqueUsers");
   const [engSort, setEngSort] = useState<EngagementSort>("studentPercent");
@@ -74,10 +98,10 @@ export default function Overview() {
 
   const resourceStats = useMemo(
     () => ({
-      uniqueUsers: (resources ?? []).some((r) => r.uniqueUsers != null),
-      totalAccesses: (resources ?? []).some((r) => r.totalAccesses != null),
+      uniqueUsers: displayResources.some((r) => r.uniqueUsers != null),
+      totalAccesses: displayResources.some((r) => r.totalAccesses != null),
     }),
-    [resources],
+    [displayResources],
   );
 
   const effectiveEngSort: EngagementSort =
@@ -218,26 +242,41 @@ export default function Overview() {
                 ))}
               </TableBody>
             </Table>
-            {resources && resources.length > 0 && (
+            {displayResources.length > 0 && (
               <div className="mt-6">
                 <h4 className="text-sm font-medium mb-2">Additional resources</h4>
                 <ul className="space-y-1">
-                  {resources.map((r) => (
-                    <li key={r.link} className="flex justify-between gap-2 text-sm">
-                      <span className="text-muted-foreground">{r.link}</span>
-                      {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
-                        <span className="tabular-nums whitespace-nowrap">
-                          {[
-                            resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
-                            resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
+                  {displayResources.map((r) => {
+                    const points = historyByLink.get(r.link) ?? [];
+                    return (
+                      <li
+                        key={r.link}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
+                        <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
+                        <span className="flex items-center gap-3 shrink-0">
+                          <ResourceSparkline points={points} />
+                          {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
+                            <span className="tabular-nums whitespace-nowrap">
+                              {[
+                                resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
+                                resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
+                {resourceHistory && resourceHistory.snapshotDates.length > 1 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Trend of unique users across the last {resourceHistory.snapshotDates.length} snapshots
+                    ({resourceHistory.snapshotDates[0]} – {resourceHistory.snapshotDates[resourceHistory.snapshotDates.length - 1]})
+                  </p>
+                )}
               </div>
             )}
           </CardContent>

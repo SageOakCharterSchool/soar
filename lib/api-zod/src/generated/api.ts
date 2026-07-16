@@ -600,6 +600,30 @@ export const GetAdditionalResourcesResponse = zod.array(GetAdditionalResourcesRe
 
 
 /**
+ * @summary Per-resource usage across recent snapshot dates
+ */
+export const getAdditionalResourcesHistoryQueryLimitMax = 60;
+
+
+
+export const GetAdditionalResourcesHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getAdditionalResourcesHistoryQueryLimitMax).optional().describe('How many recent snapshot dates to include (default 12)')
+})
+
+export const GetAdditionalResourcesHistoryResponse = zod.object({
+  "snapshotDates": zod.array(zod.string()),
+  "resources": zod.array(zod.object({
+  "link": zod.string(),
+  "points": zod.array(zod.object({
+  "snapshotDate": zod.string(),
+  "uniqueUsers": zod.number(),
+  "totalAccesses": zod.number()
+}))
+}))
+})
+
+
+/**
  * @summary Upload a batch of Clever export CSVs (admin, multipart form)
  */
 export const UploadUsageDataBody = zod.object({

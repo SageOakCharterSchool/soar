@@ -30,6 +30,7 @@ import type {
   AuthConfig,
   BoardRow,
   DailyUsageRow,
+  GetAdditionalResourcesHistoryParams,
   GetDailyUsageParams,
   GetRosteringActivityArchiveParams,
   GetRosteringActivityParams,
@@ -55,6 +56,7 @@ import type {
   RaciRow,
   RaciRowInput,
   RaciRowUpdate,
+  ResourceUsageHistory,
   ResourceUsageRow,
   RosteringLastSeen,
   RosteringSummary,
@@ -2828,6 +2830,90 @@ export function useGetAdditionalResources<TData = Awaited<ReturnType<typeof getA
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdditionalResourcesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdditionalResourcesHistoryUrl = (params?: GetAdditionalResourcesHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/usage/additional-resources/history?${stringifiedParams}` : `/api/usage/additional-resources/history`
+}
+
+/**
+ * @summary Per-resource usage across recent snapshot dates
+ */
+export const getAdditionalResourcesHistory = async (params?: GetAdditionalResourcesHistoryParams, options?: RequestInit): Promise<ResourceUsageHistory> => {
+
+  return customFetch<ResourceUsageHistory>(getGetAdditionalResourcesHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdditionalResourcesHistoryQueryKey = (params?: GetAdditionalResourcesHistoryParams,) => {
+    return [
+    `/api/usage/additional-resources/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdditionalResourcesHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAdditionalResourcesHistory>>, TError = ErrorType<unknown>>(params?: GetAdditionalResourcesHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdditionalResourcesHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdditionalResourcesHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdditionalResourcesHistory>>> = ({ signal }) => getAdditionalResourcesHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdditionalResourcesHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdditionalResourcesHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdditionalResourcesHistory>>>
+export type GetAdditionalResourcesHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Per-resource usage across recent snapshot dates
+ */
+
+export function useGetAdditionalResourcesHistory<TData = Awaited<ReturnType<typeof getAdditionalResourcesHistory>>, TError = ErrorType<unknown>>(
+ params?: GetAdditionalResourcesHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdditionalResourcesHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdditionalResourcesHistoryQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -340,4 +340,52 @@ describe("key read endpoints", () => {
       { date: "2026-06-03", studentUsers: null, teacherUsers: 12 },
     ]);
   });
+
+  it("requires auth on additional-resources history", async () => {
+    const anon = new Client();
+    expect((await anon.get("/usage/additional-resources/history")).status).toBe(401);
+  });
+
+  it("returns empty history when there is no resource data", async () => {
+    const client = await loginAs(STAFF);
+    const res = await client.get("/usage/additional-resources/history");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ snapshotDates: [], resources: [] });
+  });
+
+  it("returns per-resource series across snapshots, sorted by latest users", async () => {
+    fakeDb.rows(tables.usageAdditionalResourcesTable).push(
+      { link: "Library", uniqueUsers: 5, totalAccesses: 8, snapshotDate: "2026-06-28" },
+      { link: "Library", uniqueUsers: 7, totalAccesses: 11, snapshotDate: "2026-06-29" },
+      { link: "Library", uniqueUsers: 9, totalAccesses: 14, snapshotDate: "2026-06-30" },
+      { link: "Portal", uniqueUsers: 20, totalAccesses: 30, snapshotDate: "2026-06-29" },
+      { link: "Portal", uniqueUsers: 25, totalAccesses: 40, snapshotDate: "2026-06-30" },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/usage/additional-resources/history");
+    expect(res.status).toBe(200);
+    expect(res.body.snapshotDates).toEqual(["2026-06-28", "2026-06-29", "2026-06-30"]);
+    expect(res.body.resources.map((r: { link: string }) => r.link)).toEqual([
+      "Portal",
+      "Library",
+    ]);
+    expect(res.body.resources[0].points).toEqual([
+      { snapshotDate: "2026-06-29", uniqueUsers: 20, totalAccesses: 30 },
+      { snapshotDate: "2026-06-30", uniqueUsers: 25, totalAccesses: 40 },
+    ]);
+    expect(res.body.resources[1].points).toHaveLength(3);
+  });
+
+  it("respects the limit query on history snapshots", async () => {
+    fakeDb.rows(tables.usageAdditionalResourcesTable).push(
+      { link: "Library", uniqueUsers: 5, totalAccesses: 8, snapshotDate: "2026-06-28" },
+      { link: "Library", uniqueUsers: 7, totalAccesses: 11, snapshotDate: "2026-06-29" },
+      { link: "Library", uniqueUsers: 9, totalAccesses: 14, snapshotDate: "2026-06-30" },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/usage/additional-resources/history?limit=2");
+    expect(res.status).toBe(200);
+    expect(res.body.snapshotDates).toEqual(["2026-06-29", "2026-06-30"]);
+    expect(res.body.resources[0].points).toHaveLength(2);
+  });
 });

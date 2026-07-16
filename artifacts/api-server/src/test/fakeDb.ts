@@ -108,6 +108,7 @@ class Query implements PromiseLike<Row[]> {
     private db: FakeDb,
     private table: object,
     private fields?: Record<string, Col | SqlMarker>,
+    private distinct = false,
   ) {}
 
   private cond?: Cond;
@@ -215,10 +216,7 @@ class Query implements PromiseLike<Row[]> {
         return spec.dir === "desc" ? -cmp : cmp;
       });
     }
-    if (this.skip > 0) groups = groups.slice(this.skip);
-    if (this.max != null) groups = groups.slice(0, this.max);
-
-    return groups.map((group) => {
+    let results = groups.map((group) => {
       // Return copies so "before" snapshots don't mutate with later updates.
       if (!this.fields) return { ...group[0]!.base };
       const out: Row = {};
@@ -227,6 +225,20 @@ class Query implements PromiseLike<Row[]> {
       }
       return out;
     });
+
+    if (this.distinct) {
+      const seen = new Set<string>();
+      results = results.filter((row) => {
+        const key = JSON.stringify(row);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    if (this.skip > 0) results = results.slice(this.skip);
+    if (this.max != null) results = results.slice(0, this.max);
+    return results;
   }
 
   then<T1 = Row[], T2 = never>(
@@ -306,6 +318,15 @@ export class FakeDb {
     return {
       from(table: object) {
         return new Query(self, table, fields);
+      },
+    };
+  }
+
+  selectDistinct(fields?: Record<string, Col | SqlMarker>) {
+    const self = this;
+    return {
+      from(table: object) {
+        return new Query(self, table, fields, true);
       },
     };
   }
