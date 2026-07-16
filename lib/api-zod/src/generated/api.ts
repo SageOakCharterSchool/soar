@@ -563,7 +563,7 @@ export const GetAppEngagementResponseItem = zod.object({
   "studentPercent": zod.number(),
   "teacherCount": zod.number(),
   "teacherPercent": zod.number(),
-  "activeTimePerUserMinutes": zod.number()
+  "activeTimePerUserMinutes": zod.number().nullable()
 })
 export const GetAppEngagementResponse = zod.array(GetAppEngagementResponseItem)
 

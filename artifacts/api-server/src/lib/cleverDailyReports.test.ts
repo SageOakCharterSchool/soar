@@ -106,7 +106,8 @@ describe("buildSnapshotFiles", () => {
 
     const appList = files.find((f) => classifyFile(f.name) === "appList")!;
     // Canvas: 2 of 3 students (66.7%), 1 of 2 teachers (50%).
-    expect(appList.content).toContain("Canvas,2,66.7,1,50,0");
+    // Active time is not provided by Clever's reports, so the column is empty.
+    expect(appList.content).toContain("Canvas,2,66.7,1,50,\r\n");
   });
 
   it("aggregates active users per school", () => {

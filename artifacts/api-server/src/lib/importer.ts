@@ -440,7 +440,7 @@ export async function runImport(
               "activetime",
               "minutesperuser",
             ]),
-          ) ?? 0,
+          ) ?? null,
       }))
       .filter((r) => r.appName !== "");
     parsed.forEach((r) => appNames.add(r.appName));

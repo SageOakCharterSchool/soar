@@ -59,7 +59,10 @@ export default function Overview() {
   const [engSort, setEngSort] = useState<EngagementSort>("studentPercent");
 
   const sortedEngagement = useMemo(
-    () => [...(engagement ?? [])].sort((a, b) => b[engSort] - a[engSort]),
+    () =>
+      [...(engagement ?? [])].sort(
+        (a, b) => (b[engSort] ?? -Infinity) - (a[engSort] ?? -Infinity),
+      ),
     [engagement, engSort],
   );
 
@@ -257,7 +260,7 @@ export default function Overview() {
                   <TableCell className="text-right tabular-nums">{pct(e.studentPercent)}</TableCell>
                   <TableCell className="text-right tabular-nums">{fmt(e.teacherCount)}</TableCell>
                   <TableCell className="text-right tabular-nums">{pct(e.teacherPercent)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{e.activeTimePerUserMinutes}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(e.activeTimePerUserMinutes)}</TableCell>
                 </TableRow>
               ))}
               {sortedEngagement.length === 0 && (

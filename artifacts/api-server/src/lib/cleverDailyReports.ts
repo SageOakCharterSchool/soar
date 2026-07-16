@@ -222,7 +222,7 @@ export function buildSnapshotFiles(date: string, files: CleverRawFile[]): Upload
           String(pct(agg.students.size, scopedStudents)),
           String(agg.teachers.size),
           String(pct(agg.teachers.size, scopedTeachers)),
-          "0",
+          "",
         ]),
       }),
     });

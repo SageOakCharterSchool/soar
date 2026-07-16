@@ -1096,7 +1096,7 @@ components:
         studentPercent: { type: number }
         teacherCount: { type: integer }
         teacherPercent: { type: number }
-        activeTimePerUserMinutes: { type: number }
+        activeTimePerUserMinutes: { type: number, nullable: true }
     ResourceUsageRow:
       type: object
       required: [link, uniqueUsers, totalAccesses]

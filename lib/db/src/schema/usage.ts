@@ -102,9 +102,7 @@ export const usageAppListTable = pgTable(
     studentPercent: doublePrecision("student_percent").notNull().default(0),
     teacherCount: integer("teacher_count").notNull().default(0),
     teacherPercent: doublePrecision("teacher_percent").notNull().default(0),
-    activeTimePerUserMinutes: doublePrecision("active_time_per_user_minutes")
-      .notNull()
-      .default(0),
+    activeTimePerUserMinutes: doublePrecision("active_time_per_user_minutes"),
   },
   (t) => [uniqueIndex("usage_applist_idx").on(t.snapshotDate, t.appName)],
 );
