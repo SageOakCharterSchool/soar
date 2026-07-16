@@ -272,4 +272,38 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
   });
 });
 
+router.delete("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw ?? "", 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ message: "Invalid issue id" });
+    return;
+  }
+  const [issue] = await db.select().from(appIssuesTable).where(eq(appIssuesTable.id, id));
+  if (!issue) {
+    res.status(404).json({ message: "Issue not found" });
+    return;
+  }
+  // Remove the activity events logged for this issue so deleting it leaves no
+  // trace in the unseen-count or activity history (used by automated checks
+  // cleaning up synthetic test issues).
+  const snippet =
+    issue.comment.length > 120 ? `${issue.comment.slice(0, 117)}...` : issue.comment;
+  await db
+    .delete(appActivityTable)
+    .where(
+      and(
+        eq(appActivityTable.applicationId, issue.applicationId),
+        inArray(appActivityTable.eventType, ISSUE_EVENT_TYPES),
+        inArray(appActivityTable.detail, [
+          `Issue reported: ${snippet}`,
+          `Issue resolved: ${snippet}`,
+        ]),
+      ),
+    );
+  await db.delete(appIssuesTable).where(eq(appIssuesTable.id, id));
+  emitRosteringActivity();
+  res.json({ message: "Issue deleted" });
+});
+
 export default router;

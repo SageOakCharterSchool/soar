@@ -1059,3 +1059,73 @@ describe("PATCH /api/issues/:id", () => {
     expect(fakeDb.rows(tables.appActivityTable)).toHaveLength(0);
   });
 });
+
+describe("DELETE /api/issues/:id", () => {
+  function seedIssue(applicationId: number, overrides: Record<string, unknown> = {}) {
+    const issue = {
+      id: ++state.idCounter,
+      applicationId,
+      userId: 2,
+      comment: "UI check: new-marker issue",
+      status: "open",
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+      ...overrides,
+    };
+    fakeDb.rows(tables.appIssuesTable).push(issue);
+    return issue;
+  }
+
+  it("requires admin", async () => {
+    const app1 = seedApp("IXL");
+    const issue = seedIssue(app1.id);
+    const staff = await loginAs(STAFF);
+    expect((await staff.delete(`/issues/${issue.id}`)).status).toBe(403);
+  });
+
+  it("returns 404 for an unknown issue", async () => {
+    const admin = await loginAs(ADMIN);
+    expect((await admin.delete("/issues/999")).status).toBe(404);
+  });
+
+  it("deletes the issue and its activity events, leaving unrelated rows", async () => {
+    const app1 = seedApp("IXL");
+    const issue = seedIssue(app1.id);
+    fakeDb.rows(tables.appActivityTable).push(
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_reported",
+        detail: "Issue reported: UI check: new-marker issue",
+        actorId: 2,
+        createdAt: new Date("2026-07-01T00:00:01Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_resolved",
+        detail: "Issue resolved: UI check: new-marker issue",
+        actorId: 1,
+        createdAt: new Date("2026-07-01T00:00:02Z"),
+      },
+      {
+        id: ++state.idCounter,
+        applicationId: app1.id,
+        termId: null,
+        eventType: "issue_reported",
+        detail: "Issue reported: Something else broke",
+        actorId: 2,
+        createdAt: new Date("2026-07-01T00:00:03Z"),
+      },
+    );
+    const admin = await loginAs(ADMIN);
+    const res = await admin.delete(`/issues/${issue.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Issue deleted");
+    expect(fakeDb.rows(tables.appIssuesTable)).toHaveLength(0);
+    const events = fakeDb.rows(tables.appActivityTable);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.detail).toBe("Issue reported: Something else broke");
+  });
+});

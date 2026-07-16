@@ -58,6 +58,20 @@ async function main() {
   const issue = (await created.json()) as { id: number };
   console.log(`Created issue #${issue.id} on ${app.name}`);
 
+  try {
+    await runBrowserChecks();
+  } finally {
+    // Cleanup: delete the synthetic test issue (and its activity events) so
+    // repeated validation runs leave no trace in the Issues page.
+    const deleted = await fetch(`${apiBase}/issues/${issue.id}`, {
+      method: "DELETE",
+      headers: hdrs,
+    });
+    if (deleted.ok) console.log(`Deleted test issue #${issue.id}`);
+    else fail(`cleanup delete of issue #${issue.id} failed: ${deleted.status}`);
+  }
+
+  async function runBrowserChecks() {
   const browser = await chromium.launch({
     executablePath:
       process.env.CHROMIUM_PATH ?? execSync("which chromium").toString().trim(),
@@ -92,14 +106,7 @@ async function main() {
   } finally {
     await browser.close();
   }
-
-  // Cleanup: resolve nothing; delete the test issue? No delete endpoint —
-  // resolve it so it leaves the default Open view.
-  await fetch(`${apiBase}/issues/${issue.id}`, {
-    method: "PATCH",
-    headers: hdrs,
-    body: JSON.stringify({ status: "resolved" }),
-  });
+  }
 
   if (failures > 0) {
     console.error(`\n${failures} failure(s)`);
