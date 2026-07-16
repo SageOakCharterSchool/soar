@@ -145,6 +145,12 @@ export default function Issues() {
                   <p className="text-xs text-muted-foreground">
                     Reported by {issue.reporterName} on{" "}
                     {new Date(issue.createdAt).toLocaleDateString()}
+                    {issue.status === "resolved" && issue.resolvedAt && (
+                      <>
+                        {" · Resolved on "}
+                        {new Date(issue.resolvedAt).toLocaleDateString()}
+                      </>
+                    )}
                   </p>
                 </div>
                 {isAdmin && (
