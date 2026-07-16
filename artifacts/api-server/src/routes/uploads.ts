@@ -4,6 +4,7 @@ import { db, importLogTable, usersTable, type User } from "@workspace/db";
 import { UploadUsageDataBody } from "@workspace/api-zod";
 import { requireAdmin } from "../lib/auth";
 import { runImport } from "../lib/importer";
+import { getSftpSyncStatus, runSftpSync } from "../lib/sftpSync";
 
 const router: IRouter = Router();
 
@@ -34,6 +35,7 @@ router.get("/uploads/log", requireAdmin, async (_req, res): Promise<void> => {
       uploadedByName: usersTable.displayName,
       snapshotDate: importLogTable.snapshotDate,
       filesIncluded: importLogTable.filesIncluded,
+      source: importLogTable.source,
       rowsInserted: importLogTable.rowsInserted,
       rowsUpdated: importLogTable.rowsUpdated,
     })
@@ -44,9 +46,24 @@ router.get("/uploads/log", requireAdmin, async (_req, res): Promise<void> => {
     rows.map((r) => ({
       ...r,
       uploadedAt: r.uploadedAt.toISOString(),
-      uploadedByName: r.uploadedByName ?? "Unknown",
+      uploadedByName:
+        r.uploadedByName ?? (r.source === "sftp" ? "SFTP sync" : "Unknown"),
     })),
   );
+});
+
+router.get("/uploads/sftp/status", requireAdmin, (_req, res): void => {
+  res.json(getSftpSyncStatus());
+});
+
+router.post("/uploads/sftp/sync", requireAdmin, async (_req, res): Promise<void> => {
+  const result = await runSftpSync();
+  if (!result.ok) {
+    const code = result.error === "SFTP is not configured" ? 400 : 409;
+    res.status(code).json({ message: result.error });
+    return;
+  }
+  res.json(result.summary);
 });
 
 export default router;

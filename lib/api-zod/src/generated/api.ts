@@ -528,9 +528,36 @@ export const GetImportLogResponseItem = zod.object({
   "uploadedByName": zod.string(),
   "snapshotDate": zod.string(),
   "filesIncluded": zod.array(zod.string()),
+  "source": zod.enum(['upload', 'sftp']),
   "rowsInserted": zod.number(),
   "rowsUpdated": zod.number()
 })
 export const GetImportLogResponse = zod.array(GetImportLogResponseItem)
+
+
+/**
+ * @summary Status of the automatic Clever SFTP report sync (admin)
+ */
+export const GetSftpSyncStatusResponse = zod.object({
+  "configured": zod.boolean(),
+  "running": zod.boolean(),
+  "lastRunAt": zod.string().nullable(),
+  "lastResult": zod.union([zod.object({
+  "importedSnapshots": zod.array(zod.string()),
+  "skippedSnapshots": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+}),zod.null()]),
+  "lastError": zod.string().nullable()
+})
+
+
+/**
+ * @summary Trigger an immediate Clever SFTP report sync (admin)
+ */
+export const TriggerSftpSyncResponse = zod.object({
+  "importedSnapshots": zod.array(zod.string()),
+  "skippedSnapshots": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+})
 
 

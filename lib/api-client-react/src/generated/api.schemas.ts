@@ -418,14 +418,39 @@ export interface ImportResult {
   warnings: string[];
 }
 
+export type ImportLogEntrySource = typeof ImportLogEntrySource[keyof typeof ImportLogEntrySource];
+
+
+export const ImportLogEntrySource = {
+  upload: 'upload',
+  sftp: 'sftp',
+} as const;
+
 export interface ImportLogEntry {
   id: number;
   uploadedAt: string;
   uploadedByName: string;
   snapshotDate: string;
   filesIncluded: string[];
+  source: ImportLogEntrySource;
   rowsInserted: number;
   rowsUpdated: number;
+}
+
+export interface SftpSyncSummary {
+  importedSnapshots: string[];
+  skippedSnapshots: string[];
+  warnings: string[];
+}
+
+export interface SftpSyncStatus {
+  configured: boolean;
+  running: boolean;
+  /** @nullable */
+  lastRunAt: string | null;
+  lastResult: SftpSyncSummary | null;
+  /** @nullable */
+  lastError: string | null;
 }
 
 export type GetRosteringBoardParams = {

@@ -44,6 +44,8 @@ import type {
   RosteringLastSeen,
   RosteringSummary,
   SchoolUsageRow,
+  SftpSyncStatus,
+  SftpSyncSummary,
   Term,
   TermCopyInput,
   TermInput,
@@ -2427,4 +2429,152 @@ export function useGetImportLog<TData = Awaited<ReturnType<typeof getImportLog>>
 
 
 
+
+export const getGetSftpSyncStatusUrl = () => {
+
+
+
+
+  return `/api/uploads/sftp/status`
+}
+
+/**
+ * @summary Status of the automatic Clever SFTP report sync (admin)
+ */
+export const getSftpSyncStatus = async ( options?: RequestInit): Promise<SftpSyncStatus> => {
+
+  return customFetch<SftpSyncStatus>(getGetSftpSyncStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSftpSyncStatusQueryKey = () => {
+    return [
+    `/api/uploads/sftp/status`
+    ] as const;
+    }
+
+
+export const getGetSftpSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSftpSyncStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSftpSyncStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSftpSyncStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSftpSyncStatus>>> = ({ signal }) => getSftpSyncStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSftpSyncStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSftpSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSftpSyncStatus>>>
+export type GetSftpSyncStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Status of the automatic Clever SFTP report sync (admin)
+ */
+
+export function useGetSftpSyncStatus<TData = Awaited<ReturnType<typeof getSftpSyncStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSftpSyncStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSftpSyncStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getTriggerSftpSyncUrl = () => {
+
+
+
+
+  return `/api/uploads/sftp/sync`
+}
+
+/**
+ * @summary Trigger an immediate Clever SFTP report sync (admin)
+ */
+export const triggerSftpSync = async ( options?: RequestInit): Promise<SftpSyncSummary> => {
+
+  return customFetch<SftpSyncSummary>(getTriggerSftpSyncUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTriggerSftpSyncMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerSftpSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof triggerSftpSync>>, TError,void, TContext> => {
+
+const mutationKey = ['triggerSftpSync'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof triggerSftpSync>>, void> = () => {
+
+
+          return  triggerSftpSync(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TriggerSftpSyncMutationResult = NonNullable<Awaited<ReturnType<typeof triggerSftpSync>>>
+
+    export type TriggerSftpSyncMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Trigger an immediate Clever SFTP report sync (admin)
+ */
+export const useTriggerSftpSync = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerSftpSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof triggerSftpSync>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getTriggerSftpSyncMutationOptions(options));
+    }
 

@@ -189,9 +189,46 @@ async function upsertDailyRows(
   }
 }
 
+export interface SnapshotInfo {
+  snapshotDate: string | null;
+  timeRange: string | null;
+}
+
+/**
+ * Extract the Export_date (and time range) from an ExportProperties.csv
+ * body. Shared by the upload importer and the SFTP sync, which uses it to
+ * decide whether a remote snapshot is already imported before downloading
+ * the full batch.
+ */
+export function extractSnapshotInfo(exportPropertiesContent: string): SnapshotInfo {
+  const propsParsed = parseCsv(exportPropertiesContent);
+  let snapshotDate: string | null = null;
+  let timeRange: string | null = null;
+  for (const row of propsParsed.rows) {
+    const prop = pick(row, ["property", "name", "key"]);
+    const value = pick(row, ["value"]);
+    if (prop && value) {
+      const p = normalizeKey(prop);
+      if (p.includes("exportdate") || p.includes("date")) snapshotDate = normalizeDate(value);
+      if (p.includes("timerange") || p.includes("range")) timeRange = value;
+    }
+  }
+  if (!snapshotDate) {
+    for (const row of propsParsed.rows) {
+      snapshotDate =
+        normalizeDate(pick(row, ["exportdate", "date", "exporteddate"])) ?? snapshotDate;
+      timeRange = pick(row, ["timerange", "range"]) ?? timeRange;
+    }
+  }
+  return { snapshotDate, timeRange };
+}
+
+export type ImportSource = "upload" | "sftp";
+
 export async function runImport(
   files: UploadedFile[],
-  uploadedBy: number,
+  uploadedBy: number | null,
+  source: ImportSource = "upload",
 ): Promise<ImportOutcome | { error: string }> {
   const byKind = new Map<string, UploadedFile>();
   const unrecognized: string[] = [];
@@ -214,25 +251,7 @@ export async function runImport(
     warnings.push(`Unrecognized files skipped: ${unrecognized.join(", ")}`);
   }
 
-  const propsParsed = parseCsv(exportProps.content);
-  let snapshotDate: string | null = null;
-  let timeRange: string | null = null;
-  for (const row of propsParsed.rows) {
-    const prop = pick(row, ["property", "name", "key"]);
-    const value = pick(row, ["value"]);
-    if (prop && value) {
-      const p = normalizeKey(prop);
-      if (p.includes("exportdate") || p.includes("date")) snapshotDate = normalizeDate(value);
-      if (p.includes("timerange") || p.includes("range")) timeRange = value;
-    }
-  }
-  if (!snapshotDate) {
-    for (const row of propsParsed.rows) {
-      snapshotDate =
-        normalizeDate(pick(row, ["exportdate", "date", "exporteddate"])) ?? snapshotDate;
-      timeRange = pick(row, ["timerange", "range"]) ?? timeRange;
-    }
-  }
+  const { snapshotDate, timeRange } = extractSnapshotInfo(exportProps.content);
   if (!snapshotDate) {
     return {
       error:
@@ -497,6 +516,7 @@ export async function runImport(
     uploadedBy,
     snapshotDate,
     filesIncluded: files.map((f) => f.name),
+    source,
     rowsInserted: counter.inserted,
     rowsUpdated: counter.updated,
   });

@@ -31,6 +31,11 @@ Dev admin login (used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not set and n
 | `SESSION_SECRET` | prod: yes | Secret for signing session cookies |
 | `ADMIN_EMAIL` | prod: yes | Seeded admin account email |
 | `ADMIN_PASSWORD` | prod: yes | Seeded admin account password |
+| `SFTP_HOST` | no | Clever Reports SFTP host (`reports-sftp.clever.com`) — enables the daily automatic report sync |
+| `SFTP_PORT` | no | SFTP port (default `22`) |
+| `SFTP_USERNAME` | no | Clever SFTP username |
+| `SFTP_PASSWORD` | no | Clever SFTP password |
+| `SFTP_REMOTE_DIR` | no | Remote directory to scan for report CSVs (default `/`) |
 
 The server refuses to start in production without `SESSION_SECRET`, and will not seed an admin without `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 
@@ -57,6 +62,10 @@ The app sends no frame-blocking headers, so it can be embedded anywhere:
   title="Sage Oak App Dashboard"
 ></iframe>
 ```
+
+## Automatic Clever SFTP report sync
+
+If `SFTP_HOST`, `SFTP_USERNAME`, and `SFTP_PASSWORD` are set (Railway Variables / Replit secrets — never stored in the database), the server connects to Clever's Reports SFTP endpoint on startup and once a day, pulls any report batches whose `Export_date` is not yet in the import log, and imports them through the same pipeline as manual uploads (logged with source `sftp`). Already-imported snapshots are skipped, so the sync is safe to re-run. Admins can also click **Sync now** on the Upload Data page, which shows the last sync time, result, and any error. Manual upload keeps working unchanged.
 
 ## Monthly data upload routine
 

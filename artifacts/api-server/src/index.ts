@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { seed } from "./lib/auth";
 import { runMigrations } from "./lib/migrate";
 import { startActivityRetentionJob } from "./lib/activityRetention";
+import { startSftpSyncJob } from "./lib/sftpSync";
 
 const rawPort = process.env["PORT"];
 
@@ -53,5 +54,6 @@ runMigrations()
 
       logger.info({ port }, "Server listening");
       startActivityRetentionJob();
+      startSftpSyncJob();
     });
   });

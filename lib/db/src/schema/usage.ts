@@ -125,6 +125,7 @@ export const importLogTable = pgTable("import_log", {
   }),
   snapshotDate: date("snapshot_date", { mode: "string" }).notNull(),
   filesIncluded: text("files_included").array().notNull(),
+  source: text("source").notNull().default("upload"),
   rowsInserted: integer("rows_inserted").notNull().default(0),
   rowsUpdated: integer("rows_updated").notNull().default(0),
 });

@@ -560,6 +560,42 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ImportLogEntry"
+  /uploads/sftp/status:
+    get:
+      operationId: getSftpSyncStatus
+      tags: [uploads]
+      summary: Status of the automatic Clever SFTP report sync (admin)
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SftpSyncStatus"
+  /uploads/sftp/sync:
+    post:
+      operationId: triggerSftpSync
+      tags: [uploads]
+      summary: Trigger an immediate Clever SFTP report sync (admin)
+      responses:
+        "200":
+          description: Sync summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SftpSyncSummary"
+        "400":
+          description: SFTP not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: A sync is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
 components:
   schemas:
     HealthStatus:
@@ -904,7 +940,7 @@ components:
           items: { type: string }
     ImportLogEntry:
       type: object
-      required: [id, uploadedAt, uploadedByName, snapshotDate, filesIncluded, rowsInserted, rowsUpdated]
+      required: [id, uploadedAt, uploadedByName, snapshotDate, filesIncluded, source, rowsInserted, rowsUpdated]
       properties:
         id: { type: integer }
         uploadedAt: { type: string }
@@ -913,5 +949,33 @@ components:
         filesIncluded:
           type: array
           items: { type: string }
+        source: { type: string, enum: [upload, sftp] }
         rowsInserted: { type: integer }
         rowsUpdated: { type: integer }
+    SftpSyncSummary:
+      type: object
+      required: [importedSnapshots, skippedSnapshots, warnings]
+      properties:
+        importedSnapshots:
+          type: array
+          items: { type: string }
+        skippedSnapshots:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+    SftpSyncStatus:
+      type: object
+      required: [configured, running, lastRunAt, lastResult, lastError]
+      properties:
+        configured: { type: boolean }
+        running: { type: boolean }
+        lastRunAt:
+          type: [string, "null"]
+        lastResult:
+          oneOf:
+            - $ref: "#/components/schemas/SftpSyncSummary"
+            - type: "null"
+        lastError:
+          type: [string, "null"]
