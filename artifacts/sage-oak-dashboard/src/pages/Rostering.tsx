@@ -20,7 +20,7 @@ import {
   type Term,
   type AppTermStatusUpdate,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -261,61 +261,61 @@ function ArchiveDialog() {
   }, [search]);
 
   const PAGE_SIZE = 500;
-  const [rows, setRows] = useState<ArchivedActivityEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const listAbortRef = useRef<AbortController | null>(null);
 
-  const fetchPage = async (offset: number, append: boolean) => {
-    listAbortRef.current?.abort();
-    const controller = new AbortController();
-    listAbortRef.current = controller;
-    if (append) setLoadingMore(true);
-    else setIsLoading(true);
-    try {
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: [
+      "rostering-activity-archive",
+      { search: debouncedSearch, from: fromDate, to: toDate },
+    ],
+    queryFn: async ({ pageParam, signal }) => {
       const params: Record<string, string | number> = {
         limit: PAGE_SIZE,
-        offset,
+        offset: pageParam,
       };
       if (debouncedSearch) params.search = debouncedSearch;
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
-      const page = (await getRosteringActivityArchive(params as any, {
-        signal: controller.signal,
+      return (await getRosteringActivityArchive(params as any, {
+        signal,
       })) as ArchivedActivityEvent[];
-      if (controller.signal.aborted) return;
-      setRows((prev) => (append ? [...prev, ...page] : page));
-      setHasMore(page.length === PAGE_SIZE);
-    } catch (err) {
-      if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        return;
-      }
-      toast({
-        variant: "destructive",
-        title: "Could not load archived history",
-        description:
-          err instanceof Error ? err.message : "Please try again.",
-      });
-    } finally {
-      if (listAbortRef.current === controller) listAbortRef.current = null;
-      if (append) setLoadingMore(false);
-      else setIsLoading(false);
-    }
-  };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE
+        ? allPages.reduce((sum, page) => sum + page.length, 0)
+        : undefined,
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
-    if (!open) return;
-    setRows([]);
-    setHasMore(false);
-    void fetchPage(0, false);
-    return () => listAbortRef.current?.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, debouncedSearch, fromDate, toDate]);
+    if (!isError || !error) return;
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    toast({
+      variant: "destructive",
+      title: "Could not load archived history",
+      description: error instanceof Error ? error.message : "Please try again.",
+    });
+  }, [isError, error, toast]);
+
+  const rows = useMemo(
+    () => data?.pages.flat() ?? [],
+    [data],
+  );
+  const hasMore = Boolean(hasNextPage);
+  const loadingMore = isFetchingNextPage;
 
   const loadMore = () => {
-    if (loadingMore || isLoading) return;
-    void fetchPage(rows.length, true);
+    if (isFetchingNextPage || isLoading) return;
+    void fetchNextPage();
   };
 
   const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
