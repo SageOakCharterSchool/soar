@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { TreePine } from "lucide-react";
+const logoUrl = `${import.meta.env.BASE_URL}sageoak-logo-primary.png`;
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -93,10 +93,12 @@ export function Login() {
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="h-12 w-12 bg-primary rounded-xl flex items-center justify-center mb-2">
-            <TreePine className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Sage Oak</h1>
+          <img
+            src={logoUrl}
+            alt="Sage Oak Charter Schools"
+            className="h-40 w-auto mb-1"
+            data-testid="img-login-logo"
+          />
           <p className="text-muted-foreground">Operations Dashboard</p>
         </div>
 

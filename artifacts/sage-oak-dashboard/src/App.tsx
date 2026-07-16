@@ -158,14 +158,12 @@ function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => setLocation("/")}
               data-testid="text-app-name"
             >
-              {logoDataUrl && (
-                <img
-                  src={logoDataUrl}
-                  alt=""
-                  className="h-7 w-7 rounded object-contain"
-                  data-testid="img-app-logo"
-                />
-              )}
+              <img
+                src={logoDataUrl ?? `${import.meta.env.BASE_URL}sageoak-tree-green.png`}
+                alt=""
+                className="h-8 w-auto rounded object-contain"
+                data-testid="img-app-logo"
+              />
               {appName}
             </h1>
             <nav className="flex items-center space-x-1">
