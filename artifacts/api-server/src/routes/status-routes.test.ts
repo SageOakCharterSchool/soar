@@ -946,6 +946,44 @@ describe("GET /api/issues", () => {
       "resolved one",
     ]);
   });
+
+  it("includes RACI people for the app, sorted A then R, skipping N/A", async () => {
+    const app1 = seedApp("IXL");
+    fakeDb.rows(tables.appIssuesTable).push({
+      id: ++state.idCounter,
+      applicationId: app1.id,
+      userId: 2,
+      comment: "who owns this?",
+      status: "open",
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    fakeDb.rows(tables.raciTeamsTable).push({ id: 10, name: "IT", sortOrder: 0 });
+    fakeDb.rows(tables.raciMembersTable).push(
+      { id: 20, teamId: 10, name: "Brad", userId: null, sortOrder: 0 },
+      { id: 21, teamId: 10, name: "Ash", userId: null, sortOrder: 1 },
+      { id: 22, teamId: 10, name: "Katie", userId: null, sortOrder: 2 },
+    );
+    fakeDb.rows(tables.raciRowsTable).push({
+      id: 30,
+      teamId: 10,
+      category: "ROSTERING",
+      name: "IXL",
+      sortOrder: 0,
+      applicationId: app1.id,
+    });
+    fakeDb.rows(tables.raciAssignmentsTable).push(
+      { id: 40, rowId: 30, memberId: 20, value: "R" },
+      { id: 41, rowId: 30, memberId: 21, value: "A" },
+      { id: 42, rowId: 30, memberId: 22, value: "N/A" },
+    );
+    const client = await loginAs(STAFF);
+    const res = await client.get("/issues");
+    expect(res.status).toBe(200);
+    expect(res.body[0].raci).toEqual([
+      { name: "Ash", value: "A" },
+      { name: "Brad", value: "R" },
+    ]);
+  });
 });
 
 describe("PATCH /api/issues/:id", () => {

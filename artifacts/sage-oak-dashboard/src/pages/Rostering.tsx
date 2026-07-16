@@ -22,6 +22,7 @@ import {
 import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { RaciChips } from "@/components/RaciChips";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -61,20 +62,6 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   in_progress: { label: "In progress", className: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200" },
   complete: { label: "Complete", className: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200" },
   needs_review: { label: "Needs review", className: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200" },
-};
-
-const RACI_CHIP_CLASSES: Record<string, string> = {
-  R: "bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-200",
-  A: "bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-200",
-  C: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
-  I: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",
-};
-
-const RACI_CHIP_LABELS: Record<string, string> = {
-  R: "Responsible",
-  A: "Accountable",
-  C: "Consulted",
-  I: "Informed",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -1103,19 +1090,7 @@ export default function Rostering() {
                       {row.category && (
                         <div className="text-xs text-muted-foreground">{row.category}</div>
                       )}
-                      {row.raci.length > 0 && (
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                          {row.raci.map((p) => (
-                            <span
-                              key={`${p.name}-${p.value}`}
-                              className={`inline-flex items-center rounded px-1 py-px text-[10px] font-medium ${RACI_CHIP_CLASSES[p.value] ?? "bg-muted text-muted-foreground"}`}
-                              title={`${p.name}: ${RACI_CHIP_LABELS[p.value] ?? p.value} (from the RACI matrix)`}
-                            >
-                              {p.value} · {p.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <RaciChips people={row.raci} />
                     </TableCell>
                     <TableCell><StatusBadge status={row.studentSharingStatus} /></TableCell>
                     <TableCell><StatusBadge status={row.staffSharingStatus} /></TableCell>

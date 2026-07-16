@@ -476,6 +476,7 @@ export interface Issue {
   status: IssueStatus;
   createdAt: string;
   resolvedAt?: string | null;
+  raci: RaciBoardPerson[];
 }
 
 export type IssueUpdateStatus = typeof IssueUpdateStatus[keyof typeof IssueUpdateStatus];

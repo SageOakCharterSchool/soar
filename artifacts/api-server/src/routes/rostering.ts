@@ -10,14 +10,12 @@ import {
   appActivityArchiveTable,
   pageLastSeenTable,
   usersTable,
-  raciRowsTable,
-  raciMembersTable,
-  raciAssignmentsTable,
   type User,
 } from "@workspace/db";
 import { UpdateAppTermStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
+import { getRaciPeopleByApp } from "../lib/raciPeople";
 
 const router: IRouter = Router();
 
@@ -330,32 +328,7 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
   const issueMap = new Map(issues.map((i) => [i.applicationId, i.count]));
 
   // RACI people for each linked application (from the RACI matrix page).
-  const raciCells = await db
-    .select({
-      applicationId: raciRowsTable.applicationId,
-      memberName: raciMembersTable.name,
-      value: raciAssignmentsTable.value,
-    })
-    .from(raciAssignmentsTable)
-    .innerJoin(raciRowsTable, eq(raciAssignmentsTable.rowId, raciRowsTable.id))
-    .innerJoin(raciMembersTable, eq(raciAssignmentsTable.memberId, raciMembersTable.id));
-  const RACI_ORDER: Record<string, number> = { A: 0, R: 1, C: 2, I: 3, "N/A": 4 };
-  const raciMap = new Map<number, { name: string; value: string }[]>();
-  for (const cell of raciCells) {
-    if (cell.applicationId == null || cell.value === "N/A") continue;
-    if (!raciMap.has(cell.applicationId)) raciMap.set(cell.applicationId, []);
-    const list = raciMap.get(cell.applicationId)!;
-    if (!list.some((p) => p.name === cell.memberName && p.value === cell.value)) {
-      list.push({ name: cell.memberName, value: cell.value });
-    }
-  }
-  for (const list of raciMap.values()) {
-    list.sort(
-      (a, b) =>
-        (RACI_ORDER[a.value] ?? 9) - (RACI_ORDER[b.value] ?? 9) ||
-        a.name.localeCompare(b.name),
-    );
-  }
+  const raciMap = await getRaciPeopleByApp();
 
   res.json(
     rows.map((row) => ({

@@ -436,7 +436,11 @@ export const ReportIssueResponse = zod.object({
   "comment": zod.string(),
   "status": zod.enum(['open', 'resolved']),
   "createdAt": zod.string(),
-  "resolvedAt": zod.string().nullish()
+  "resolvedAt": zod.string().nullish(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
 })
 
 
@@ -456,7 +460,11 @@ export const ListIssuesResponseItem = zod.object({
   "comment": zod.string(),
   "status": zod.enum(['open', 'resolved']),
   "createdAt": zod.string(),
-  "resolvedAt": zod.string().nullish()
+  "resolvedAt": zod.string().nullish(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
 })
 export const ListIssuesResponse = zod.array(ListIssuesResponseItem)
 
@@ -481,7 +489,11 @@ export const UpdateIssueResponse = zod.object({
   "comment": zod.string(),
   "status": zod.enum(['open', 'resolved']),
   "createdAt": zod.string(),
-  "resolvedAt": zod.string().nullish()
+  "resolvedAt": zod.string().nullish(),
+  "raci": zod.array(zod.object({
+  "name": zod.string(),
+  "value": zod.enum(['R', 'A', 'C', 'I', 'N/A'])
+}))
 })
 
 

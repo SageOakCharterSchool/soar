@@ -1426,7 +1426,7 @@ components:
         comment: { type: string, minLength: 1 }
     Issue:
       type: object
-      required: [id, applicationId, appName, userId, reporterName, comment, status, createdAt]
+      required: [id, applicationId, appName, userId, reporterName, comment, status, createdAt, raci]
       properties:
         id: { type: integer }
         applicationId: { type: integer }
@@ -1439,6 +1439,10 @@ components:
           enum: [open, resolved]
         createdAt: { type: string }
         resolvedAt: { type: string, nullable: true }
+        raci:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaciBoardPerson"
     IssueUpdate:
       type: object
       required: [status]

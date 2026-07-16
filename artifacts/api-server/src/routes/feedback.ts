@@ -14,6 +14,7 @@ import {
 import { IssueInput as _unused, ReportIssueBody, UpdateIssueBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity } from "../lib/activityEvents";
+import { getRaciPeopleByApp } from "../lib/raciPeople";
 
 const router: IRouter = Router();
 
@@ -98,6 +99,7 @@ router.post("/apps/:id/issues", requireAuth, async (req, res): Promise<void> => 
     actorId: user.id,
   });
   emitRosteringActivity();
+  const raciMap = await getRaciPeopleByApp();
   res.status(201).json({
     id: issue!.id,
     applicationId,
@@ -107,6 +109,8 @@ router.post("/apps/:id/issues", requireAuth, async (req, res): Promise<void> => 
     comment: issue!.comment,
     status: issue!.status,
     createdAt: issue!.createdAt.toISOString(),
+    resolvedAt: null,
+    raci: raciMap.get(applicationId) ?? [],
   });
 });
 
@@ -136,11 +140,14 @@ router.get("/issues", requireAuth, async (req, res): Promise<void> => {
           eq(appIssuesTable.status, statusFilter === "resolved" ? "resolved" : "open"),
         );
 
+  // RACI people so staff can see who owns each app (from the RACI matrix).
+  const raciMap = await getRaciPeopleByApp();
   res.json(
     issues.map((i) => ({
       ...i,
       createdAt: i.createdAt.toISOString(),
       resolvedAt: i.resolvedAt ? i.resolvedAt.toISOString() : null,
+      raci: raciMap.get(i.applicationId) ?? [],
     })),
   );
 });
@@ -250,6 +257,7 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
     .from(applicationsTable)
     .where(eq(applicationsTable.id, issue.applicationId));
   const [reporter] = await db.select().from(usersTable).where(eq(usersTable.id, issue.userId));
+  const raciMap = await getRaciPeopleByApp();
   res.json({
     id: issue.id,
     applicationId: issue.applicationId,
@@ -260,6 +268,7 @@ router.patch("/issues/:id", requireAdmin, async (req, res): Promise<void> => {
     status: issue.status,
     createdAt: issue.createdAt.toISOString(),
     resolvedAt: issue.resolvedAt ? issue.resolvedAt.toISOString() : null,
+    raci: raciMap.get(issue.applicationId) ?? [],
   });
 });
 

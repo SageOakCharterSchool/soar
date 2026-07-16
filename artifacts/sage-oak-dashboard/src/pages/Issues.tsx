@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { RaciChips } from "@/components/RaciChips";
 
 const FILTERS: { label: string; value: ListIssuesStatus | undefined }[] = [
   { label: "Open", value: "open" },
@@ -141,6 +142,7 @@ export default function Issues() {
                       </Badge>
                     )}
                   </div>
+                  <RaciChips people={issue.raci} />
                   <p className="text-sm">{issue.comment}</p>
                   <p className="text-xs text-muted-foreground">
                     Reported by {issue.reporterName} on{" "}

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { IssueStatus } from './issueStatus';
+import type { RaciBoardPerson } from './raciBoardPerson';
 
 export interface Issue {
   id: number;
@@ -17,4 +18,5 @@ export interface Issue {
   status: IssueStatus;
   createdAt: string;
   resolvedAt?: string | null;
+  raci: RaciBoardPerson[];
 }
