@@ -141,12 +141,12 @@ isValidation = true
 name = "stale-threshold"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/scripts run stale-threshold-ui-check"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run stale-threshold-ui-check && pnpm --filter @workspace/scripts run stale-threshold-invalid-ui-check"
 
 [agent]
 stack = "PNPM_WORKSPACE"
