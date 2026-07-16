@@ -178,10 +178,12 @@ function TeamMatrix({ team }: { team: RaciTeamData }) {
   // name since we loaded it, so refresh instead of overwriting their edit.
   const onRenameError = (close: () => void) => (err: any) => {
     if (err?.status === 409) {
+      const currentName = err?.data?.currentName;
       toast({
         title: "Changed by another admin",
-        description:
-          "This was just renamed by someone else. The matrix has been refreshed — try again if you still want to change it.",
+        description: currentName
+          ? `This was just renamed by someone else. It is now called "${currentName}". The matrix has been refreshed — try again if you still want to change it.`
+          : "This was just renamed by someone else. The matrix has been refreshed — try again if you still want to change it.",
       });
       invalidate();
       close();

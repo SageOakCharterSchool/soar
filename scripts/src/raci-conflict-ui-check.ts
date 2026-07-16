@@ -357,6 +357,19 @@ async function runChecks(fixture: Fixture) {
     } else {
       fail("B did NOT get the rename conflict toast after a stale rename");
     }
+    const toastNamesCurrent = await pageB
+      .getByText(`It is now called "${ROW_NAME_A}"`)
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (toastNamesCurrent) {
+      pass(`the conflict toast names the current name "${ROW_NAME_A}"`);
+    } else {
+      fail(
+        `the conflict toast did not include the current name "${ROW_NAME_A}"`,
+      );
+    }
     const dialogClosed = await pageB
       .getByRole("dialog")
       .waitFor({ state: "hidden", timeout: 15000 })
