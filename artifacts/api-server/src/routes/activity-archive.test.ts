@@ -230,6 +230,28 @@ describe("GET /api/rostering/activity/archive", () => {
     expect(res.body).toHaveLength(2);
   });
 
+  it("reports the total matching rows in X-Total-Count regardless of pagination", async () => {
+    seedArchive();
+    seedArchive();
+    seedArchive();
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getRaw("/rostering/activity/archive?limit=2");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-total-count")).toBe("3");
+  });
+
+  it("X-Total-Count respects filters and is set on CSV responses", async () => {
+    seedArchive({ appName: "Zoom" });
+    seedArchive({ appName: "Zoom" });
+    seedArchive({ appName: "Other" });
+    const admin = await loginAs(ADMIN);
+    const res = await admin.getRaw(
+      "/rostering/activity/archive?format=csv&appName=zoom&limit=1",
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-total-count")).toBe("2");
+  });
+
   it("filters by search across app name, actor, and detail", async () => {
     const byApp = seedArchive({ appName: "Zoom", detail: "Enabled" });
     const byActor = seedArchive({ actorName: "Zoomer Admin", detail: "Other" });

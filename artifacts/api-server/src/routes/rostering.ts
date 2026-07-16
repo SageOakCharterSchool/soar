@@ -124,6 +124,14 @@ router.get(
       conditions.push(lte(appActivityArchiveTable.createdAt, to));
     }
 
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(appActivityArchiveTable)
+      .where(where);
+    res.setHeader("X-Total-Count", String(countRow?.count ?? 0));
+
     const rows = await db
       .select({
         id: appActivityArchiveTable.id,
@@ -137,7 +145,7 @@ router.get(
         archivedAt: appActivityArchiveTable.archivedAt,
       })
       .from(appActivityArchiveTable)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(desc(appActivityArchiveTable.createdAt), desc(appActivityArchiveTable.id))
       .limit(limit)
       .offset(offset);

@@ -245,6 +245,7 @@ function ArchiveDialog() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [fetchedCount, setFetchedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
 
@@ -279,6 +280,7 @@ function ArchiveDialog() {
     abortRef.current = controller;
     setDownloading(true);
     setFetchedCount(0);
+    setTotalCount(null);
     try {
       const pageSize = 1000;
       const parts: string[] = [];
@@ -299,6 +301,11 @@ function ArchiveDialog() {
         });
         if (!res.ok) {
           throw new Error(`Export failed (${res.status})`);
+        }
+        const totalHeader = res.headers.get("X-Total-Count");
+        if (totalHeader != null) {
+          const total = parseInt(totalHeader, 10);
+          if (!Number.isNaN(total)) setTotalCount(total);
         }
         const text = await res.text();
         const records = splitCsvRecords(text);
@@ -335,6 +342,7 @@ function ArchiveDialog() {
       abortRef.current = null;
       setDownloading(false);
       setFetchedCount(0);
+      setTotalCount(null);
     }
   };
 
@@ -430,7 +438,9 @@ function ArchiveDialog() {
             <DialogFooter className="items-center gap-2 sm:gap-2">
               {downloading && (
                 <span className="text-xs text-muted-foreground" aria-live="polite">
-                  {fetchedCount.toLocaleString()} rows fetched…
+                  {totalCount != null
+                    ? `${fetchedCount.toLocaleString()} of ${totalCount.toLocaleString()} rows fetched…`
+                    : `${fetchedCount.toLocaleString()} rows fetched…`}
                 </span>
               )}
               {downloading && (
