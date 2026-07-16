@@ -8,6 +8,11 @@ import {
   runImport,
   type UploadedFile,
 } from "./importer";
+import {
+  parseCleverFileName,
+  buildSnapshotFiles,
+  type CleverRawFile,
+} from "./cleverDailyReports";
 
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -225,7 +230,27 @@ export async function syncFromSftp(
     const existingLog = await db.select().from(importLogTable);
     const importedDates = new Set(existingLog.map((r) => r.snapshotDate));
 
+    // Clever's real Reports SFTP publishes raw per-user daily files
+    // (YYYY-MM-DD-<report>-<role>.csv) instead of aggregated snapshot
+    // batches. Collect those across all directories, grouped by date.
+    const cleverByDate = new Map<
+      string,
+      Array<{ path: string; info: NonNullable<ReturnType<typeof parseCleverFileName>> }>
+    >();
+
     for (const batch of batches) {
+      const cleverFiles = batch.fileNames
+        .map((name) => ({ name, info: parseCleverFileName(name) }))
+        .filter((f) => f.info !== null);
+      if (cleverFiles.length > 0 && cleverFiles.length === batch.fileNames.length) {
+        for (const f of cleverFiles) {
+          const date = f.info!.date;
+          const list = cleverByDate.get(date) ?? [];
+          list.push({ path: joinRemote(batch.dir, f.name), info: f.info! });
+          cleverByDate.set(date, list);
+        }
+        continue;
+      }
       const exportPropsName = batch.fileNames.find(
         (n) => classifyFile(n) === "exportProperties",
       );
@@ -271,6 +296,29 @@ export async function syncFromSftp(
       summary.warnings.push(
         ...outcome.warnings.map((w) => `${batch.label}: ${w}`),
       );
+    }
+
+    // Process Clever daily report dates (oldest first) that are not yet
+    // in the import log. Each date is aggregated into a snapshot batch
+    // and run through the shared import pipeline.
+    for (const date of [...cleverByDate.keys()].sort()) {
+      if (importedDates.has(date)) {
+        summary.skippedSnapshots.push(date);
+        continue;
+      }
+      const rawFiles: CleverRawFile[] = [];
+      for (const f of cleverByDate.get(date)!) {
+        rawFiles.push({ info: f.info, content: await getFileContent(client, f.path) });
+      }
+      const files = buildSnapshotFiles(date, rawFiles);
+      const outcome = await runImport(files, null, "sftp");
+      if ("error" in outcome) {
+        summary.warnings.push(`Import failed for "${date}": ${outcome.error}`);
+        continue;
+      }
+      importedDates.add(date);
+      summary.importedSnapshots.push(date);
+      summary.warnings.push(...outcome.warnings.map((w) => `${date}: ${w}`));
     }
     return summary;
   } finally {

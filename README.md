@@ -65,7 +65,12 @@ The app sends no frame-blocking headers, so it can be embedded anywhere:
 
 ## Automatic Clever SFTP report sync
 
-If `SFTP_HOST`, `SFTP_USERNAME`, and `SFTP_PASSWORD` are set (Railway Variables / Replit secrets — never stored in the database), the server connects to Clever's Reports SFTP endpoint on startup and once a day, pulls any report batches whose `Export_date` is not yet in the import log, and imports them through the same pipeline as manual uploads (logged with source `sftp`). Already-imported snapshots are skipped, so the sync is safe to re-run. Admins can also click **Sync now** on the Upload Data page, which shows the last sync time, result, and any error. Manual upload keeps working unchanged.
+If `SFTP_HOST`, `SFTP_USERNAME`, and `SFTP_PASSWORD` are set (Railway Variables / Replit secrets — never stored in the database), the server connects to Clever's Reports SFTP endpoint on startup and once a day, pulls any reports whose date is not yet in the import log, and imports them through the same pipeline as manual uploads (logged with source `sftp`). Already-imported snapshots are skipped, so the sync is safe to re-run. Admins can also click **Sync now** on the Upload Data page, which shows the last sync time, result, and any error. Manual upload keeps working unchanged.
+
+Two remote layouts are supported (verified against Clever's real server on 2026-07-16):
+
+- **Clever's real daily reports** — `daily-participation/` and `resource-usage/` directories containing raw per-user files named `YYYY-MM-DD-<report>-{students|teachers|staff}.csv`. Each day's files are aggregated (active users, logins, per-app and per-school unique users) into one snapshot keyed by the report date.
+- **Aggregated snapshot batches** — directories (or the root) containing `ExportProperties.csv` plus the analytics CSVs, keyed by `Export_date`. This matches the manual-upload format.
 
 ## Monthly data upload routine
 

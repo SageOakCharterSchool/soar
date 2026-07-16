@@ -208,6 +208,57 @@ describe("syncFromSftp", () => {
     expect(fakeDb.rows(tables.importLogTable)).toHaveLength(2);
   });
 
+  it("imports Clever's real daily-report layout, keyed by date, idempotently", async () => {
+    const partHeader =
+      "date,sis_id,clever_user_id,clever_school_id,school_name,active,num_logins,num_resources_accessed";
+    const resHeader =
+      "date,sis_id,clever_user_id,clever_school_id,school_name,resource_type,resource_name,resource_id,num_access";
+    const fs: RemoteFs = {
+      "/": {},
+      "/daily-participation": {
+        "2026-07-14-daily-participation-students.csv": `${partHeader}\n2026-07-14,1,u1,s1,School A,True,2,1`,
+        "2026-07-14-daily-participation-teachers.csv": `${partHeader}\n2026-07-14,2,t1,s1,School A,False,0,0`,
+        "2026-07-15-daily-participation-students.csv": `${partHeader}\n2026-07-15,1,u1,s1,School A,True,1,1`,
+      },
+      "/resource-usage": {
+        "2026-07-14-resource-usage-students.csv": `${resHeader}\n2026-07-14,1,u1,s1,School A,app,Canvas,r1,2`,
+        "2026-07-15-resource-usage-students.csv": `${resHeader}\n2026-07-15,1,u1,s1,School A,app,Canvas,r1,1`,
+      },
+    };
+    const first = await syncFromSftp(makeMockClient(fs).client, CONFIG);
+    expect(first.importedSnapshots).toEqual(["2026-07-14", "2026-07-15"]);
+    expect(first.skippedSnapshots).toEqual([]);
+    // No "no ExportProperties.csv" warnings for the Clever layout.
+    expect(first.warnings.filter((w) => w.includes("ExportProperties"))).toEqual([]);
+
+    const log = fakeDb.rows(tables.importLogTable);
+    expect(log).toHaveLength(2);
+    expect(log[0]).toMatchObject({ snapshotDate: "2026-07-14", source: "sftp" });
+
+    const metrics = fakeDb.rows(tables.usageKeyMetricsTable);
+    expect(metrics.find((m) => m.snapshotDate === "2026-07-14")).toMatchObject({
+      uniqueStudents: 1,
+      scopedStudents: 1,
+      uniqueTeachers: 0,
+      scopedTeachers: 1,
+    });
+    const byApp = fakeDb.rows(tables.usageByAppTable);
+    expect(byApp.find((r) => r.snapshotDate === "2026-07-14")).toMatchObject({
+      application: "Canvas",
+      uniqueUsers: 1,
+    });
+    const daily = fakeDb.rows(tables.usageDailyStudentTable);
+    expect(daily.map((d) => d.date).sort()).toEqual(["2026-07-14", "2026-07-15"]);
+
+    // Re-running skips both dates without downloading anything.
+    const { client, calls } = makeMockClient(fs);
+    const second = await syncFromSftp(client, CONFIG);
+    expect(second.importedSnapshots).toEqual([]);
+    expect(second.skippedSnapshots.sort()).toEqual(["2026-07-14", "2026-07-15"]);
+    expect(calls.gets).toEqual([]);
+    expect(fakeDb.rows(tables.importLogTable)).toHaveLength(2);
+  });
+
   it("warns when the server has no CSV files at all", async () => {
     const { client, calls } = makeMockClient({ "/": { "readme.txt": "hi" } });
     const summary = await syncFromSftp(client, CONFIG);
