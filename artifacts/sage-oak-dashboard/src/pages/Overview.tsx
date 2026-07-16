@@ -63,6 +63,23 @@ export default function Overview() {
     [engagement],
   );
 
+  const schoolCols = useMemo(
+    () => ({
+      uniqueUsers: (bySchool ?? []).some((s) => s.uniqueUsers != null),
+      scopedUsers: (bySchool ?? []).some((s) => s.scopedUsers != null),
+      adoptionPct: (bySchool ?? []).some((s) => s.adoptionPct != null),
+    }),
+    [bySchool],
+  );
+
+  const resourceStats = useMemo(
+    () => ({
+      uniqueUsers: (resources ?? []).some((r) => r.uniqueUsers != null),
+      totalAccesses: (resources ?? []).some((r) => r.totalAccesses != null),
+    }),
+    [resources],
+  );
+
   const effectiveEngSort: EngagementSort =
     engSort === "activeTimePerUserMinutes" && !hasActiveTime
       ? "studentPercent"
@@ -179,18 +196,24 @@ export default function Overview() {
               <TableHeader>
                 <TableRow>
                   <TableHead>School</TableHead>
-                  <TableHead className="text-right">Unique users</TableHead>
-                  <TableHead className="text-right">Rostered</TableHead>
-                  <TableHead className="text-right">Adoption</TableHead>
+                  {schoolCols.uniqueUsers && <TableHead className="text-right">Unique users</TableHead>}
+                  {schoolCols.scopedUsers && <TableHead className="text-right">Rostered</TableHead>}
+                  {schoolCols.adoptionPct && <TableHead className="text-right">Adoption</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(bySchool ?? []).map((s) => (
                   <TableRow key={s.school}>
                     <TableCell className="font-medium">{s.school}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(s.uniqueUsers)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(s.scopedUsers)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{pct(s.adoptionPct)}</TableCell>
+                    {schoolCols.uniqueUsers && (
+                      <TableCell className="text-right tabular-nums">{fmt(s.uniqueUsers)}</TableCell>
+                    )}
+                    {schoolCols.scopedUsers && (
+                      <TableCell className="text-right tabular-nums">{fmt(s.scopedUsers)}</TableCell>
+                    )}
+                    {schoolCols.adoptionPct && (
+                      <TableCell className="text-right tabular-nums">{pct(s.adoptionPct)}</TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -202,9 +225,16 @@ export default function Overview() {
                   {resources.map((r) => (
                     <li key={r.link} className="flex justify-between gap-2 text-sm">
                       <span className="text-muted-foreground">{r.link}</span>
-                      <span className="tabular-nums whitespace-nowrap">
-                        {fmt(r.uniqueUsers)} users · {fmt(r.totalAccesses)} opens
-                      </span>
+                      {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
+                        <span className="tabular-nums whitespace-nowrap">
+                          {[
+                            resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
+                            resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
