@@ -92,6 +92,19 @@ function Chip({ value }: { value: string | null }) {
   );
 }
 
+// Canonical fingerprint of a row's cell assignments, matching the server's
+// expectedAssignments format: "memberId=value" sorted by memberId, joined
+// with commas (empty string for no assignments).
+function assignmentFingerprint(
+  assignments: RaciRow["assignments"],
+): string {
+  return assignments
+    .map((a) => ({ memberId: a.memberId, value: a.value }))
+    .sort((a, b) => a.memberId - b.memberId)
+    .map((a) => `${a.memberId}=${a.value}`)
+    .join(",");
+}
+
 function rowWarnings(row: RaciRow): { multiA: boolean; noA: boolean } {
   const aCount = row.assignments.filter((a) => a.value === "A").length;
   return { multiA: aCount > 1, noA: aCount === 0 };
@@ -202,13 +215,18 @@ function TeamMatrix({
     onError(err);
   };
   // Shared 409 handling for delete conflicts: another admin renamed this item
-  // since we loaded it, so refresh instead of destroying their change blindly.
+  // or changed its assignments since we loaded it, so refresh instead of
+  // destroying their change blindly.
   const onDeleteConflict = (err: any) => {
     if (err?.status === 409) {
+      const changedAssignments =
+        typeof err?.data?.message === "string" &&
+        err.data.message.includes("assignments");
       toast({
         title: "Changed by another admin",
-        description:
-          "This was just renamed by someone else. The matrix has been refreshed — check the new name and delete again if you still want to.",
+        description: changedAssignments
+          ? "This task's assignments were just changed by someone else. The matrix has been refreshed — review the changes and delete again if you still want to."
+          : "This was just renamed by someone else. The matrix has been refreshed — check the new name and delete again if you still want to.",
       });
       invalidate();
       return;
@@ -443,9 +461,19 @@ function TeamMatrix({
                   onDeleteRow={(row) => {
                     if (window.confirm(`Remove "${row.name}" from the matrix?`)) {
                       deleteRow.mutate(
-                        // expectedName lets the server reject the delete (409)
-                        // if another admin renamed this task since we loaded it.
-                        { id: row.id, params: { expectedName: row.name } },
+                        // expectedName / expectedAssignments let the server
+                        // reject the delete (409) if another admin renamed
+                        // this task or changed its cell assignments since we
+                        // loaded the matrix.
+                        {
+                          id: row.id,
+                          params: {
+                            expectedName: row.name,
+                            expectedAssignments: assignmentFingerprint(
+                              row.assignments,
+                            ),
+                          },
+                        },
                         { onSuccess: invalidate, onError: onDeleteConflict },
                       );
                     }

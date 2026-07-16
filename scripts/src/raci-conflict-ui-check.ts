@@ -710,6 +710,88 @@ async function runChecks(fixture: Fixture) {
     } else {
       fail("the task row was deleted on the server despite the conflict");
     }
+
+    // ---- Stale-delete conflict flow (assignments changed) ----
+    // After the rename steps the row carries A's second name and the member
+    // carries A's name, so the cell button label is
+    // "<member A-name> on <row A2-name>: <value>".
+    const renamedCellPrefix = `${MEMBER_NAME_A} on ${ROW_NAME_A2}:`;
+    const renamedCell = (page: Page) =>
+      page.locator(`button[aria-label^="${renamedCellPrefix}"]`);
+    const renamedCellValue = async (page: Page) =>
+      ((await renamedCell(page).getAttribute("aria-label")) ?? "")
+        .slice(renamedCellPrefix.length)
+        .trim();
+
+    console.log(
+      "\nStep 17: B goes stale again, A changes a cell, B tries to delete the task:",
+    );
+    holdDelete = true;
+    // A cycles the cell (A -> C), changing the row's assignments.
+    await renamedCell(pageA).click();
+    const aChanged = await pageA
+      .locator(`button[aria-label="${renamedCellPrefix} C"]`)
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (aChanged) {
+      pass("A changed the cell to C (row assignments changed)");
+    } else {
+      fail(
+        `A's cell did not change to C (shows "${await renamedCellValue(pageA)}")`,
+      );
+    }
+    await pageB.waitForTimeout(1500);
+    if ((await renamedCellValue(pageB)) === "A") {
+      pass("B still shows the stale assignment A (refresh blocked)");
+    } else {
+      fail(
+        `B was expected to be stale at A but shows "${await renamedCellValue(pageB)}"`,
+      );
+    }
+    pageB.once("dialog", (d) => void d.accept());
+    // Earlier steps leave "Changed by another admin" toasts on screen and
+    // they auto-dismiss, so wait for this flow's unique description text
+    // (started before the click) instead of counting generic toast titles.
+    const assignmentsToastPromise = pageB
+      .getByText("This task's assignments were just changed by someone else", {
+        exact: false,
+      })
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    await pageB.locator(`button[aria-label="Delete ${ROW_NAME_A2}"]`).click();
+    if (await assignmentsToastPromise) {
+      pass("B got the conflict toast explaining the assignments changed");
+    } else {
+      fail(
+        "B did NOT get the assignments-changed conflict toast after a stale delete",
+      );
+    }
+
+    console.log("\nStep 18: the row must survive and B must refresh to A's edit:");
+    releaseDeleteRoutes();
+    const bConverged = await pageB
+      .locator(`button[aria-label="${renamedCellPrefix} C"]`)
+      .waitFor({ timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    if (bConverged) {
+      pass("B refreshed and shows A's cell value C (row still present)");
+    } else {
+      fail(
+        `B did not refresh to C after the delete conflict (shows "${await renamedCellValue(pageB)}")`,
+      );
+    }
+    if (
+      (await waitForRow(pageA, ROW_NAME_A2)) &&
+      (await waitForRow(pageB, ROW_NAME_A2))
+    ) {
+      pass("the task row was NOT deleted on either session");
+    } else {
+      fail("the task row disappeared — the stale delete went through");
+    }
   } finally {
     await browser.close();
   }

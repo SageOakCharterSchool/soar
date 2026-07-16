@@ -32,7 +32,7 @@ async function main() {
         body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
       });
       if (res.ok) {
-        token = (await res.json()).token;
+        token = ((await res.json()) as { token: string }).token;
         break;
       }
       if (res.status < 500) throw new Error(`login failed: ${res.status}`);
@@ -43,12 +43,12 @@ async function main() {
   }
   const auth = { Authorization: `Bearer ${token}` };
 
-  const bySchool: Array<Record<string, unknown>> = await (
+  const bySchool = (await (
     await fetch(`${apiBase}/usage/by-school`, { headers: auth })
-  ).json();
-  const engagement: Array<Record<string, unknown>> = await (
+  ).json()) as Array<Record<string, unknown>>;
+  const engagement = (await (
     await fetch(`${apiBase}/usage/applist`, { headers: auth })
-  ).json();
+  ).json()) as Array<Record<string, unknown>>;
 
   const schoolHidden =
     bySchool.length > 0 &&
