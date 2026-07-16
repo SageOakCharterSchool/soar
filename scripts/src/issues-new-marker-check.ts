@@ -112,6 +112,10 @@ async function main() {
     await page.goto(`${appBase}/issues`, { waitUntil: "load" });
     await page.getByText("UI check: new-marker issue").first().waitFor({ timeout: 15000 });
 
+    // The "Seen on your last visit" divider only renders in "Newest first"
+    // order — the default sort is now "Longest waiting", so switch first.
+    await page.getByRole("button", { name: "Newest first" }).click();
+
     // Markers render only after the page's mark-seen request resolves (the
     // response carries the previous last-seen time), so wait rather than
     // checking instantly — under load this can lag behind the issues list.

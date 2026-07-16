@@ -43,11 +43,19 @@ const FILTERS: { label: string; value: ListIssuesStatus | undefined }[] = [
   { label: "All", value: undefined },
 ];
 
+type SortMode = "waiting" | "newest";
+
+const SORTS: { label: string; value: SortMode }[] = [
+  { label: "Longest waiting", value: "waiting" },
+  { label: "Newest first", value: "newest" },
+];
+
 export default function Issues() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<ListIssuesStatus | undefined>("open");
+  const [sort, setSort] = useState<SortMode>("waiting");
 
   const { data: issues, isLoading } = useListIssues(
     status ? { status } : undefined,
@@ -79,9 +87,26 @@ export default function Issues() {
     return issue.resolvedAt != null && new Date(issue.resolvedAt).getTime() > seen;
   };
   const newCount = (issues ?? []).filter(isNewForMe).length;
-  const firstOldIdx = (issues ?? []).findIndex((i) => !isNewForMe(i));
+
+  // "Longest waiting" pulls open issues to the top, oldest first, so stale
+  // issues are impossible to miss. Resolved issues keep newest-first order
+  // below them. "Newest first" preserves the server order.
+  const sortedIssues =
+    sort === "waiting"
+      ? [...(issues ?? [])].sort((a, b) => {
+          if (a.status !== b.status) return a.status === "open" ? -1 : 1;
+          const aT = new Date(a.createdAt).getTime();
+          const bT = new Date(b.createdAt).getTime();
+          return a.status === "open" ? aT - bT : bT - aT;
+        })
+      : issues ?? [];
+
+  // The "seen on your last visit" divider only makes sense when the list is
+  // in newest-first order.
+  const firstOldIdx =
+    sort === "newest" ? sortedIssues.findIndex((i) => !isNewForMe(i)) : -1;
   const dividerBeforeId =
-    newCount > 0 && firstOldIdx > 0 ? (issues ?? [])[firstOldIdx]?.id : null;
+    newCount > 0 && firstOldIdx > 0 ? sortedIssues[firstOldIdx]?.id : null;
 
   const resolvedIssues = (issues ?? []).filter((i) => i.status === "resolved");
   const resolvedDurations = resolvedIssues
@@ -131,17 +156,32 @@ export default function Issues() {
             </Badge>
           )}
         </div>
-        <div className="flex gap-1">
-          {FILTERS.map((f) => (
-            <Button
-              key={f.label}
-              size="sm"
-              variant={status === f.value ? "default" : "outline"}
-              onClick={() => setStatus(f.value)}
-            >
-              {f.label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex gap-1">
+            {FILTERS.map((f) => (
+              <Button
+                key={f.label}
+                size="sm"
+                variant={status === f.value ? "default" : "outline"}
+                onClick={() => setStatus(f.value)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Sort:</span>
+            {SORTS.map((s) => (
+              <Button
+                key={s.value}
+                size="sm"
+                variant={sort === s.value ? "secondary" : "ghost"}
+                onClick={() => setSort(s.value)}
+              >
+                {s.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -159,7 +199,7 @@ export default function Issues() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {issues.map((issue, idx) => (
+          {sortedIssues.map((issue, idx) => (
             <div key={issue.id}>
               {issue.id === dividerBeforeId && idx > 0 && (
                 <div className="flex items-center gap-2 pb-2" aria-hidden="true">
