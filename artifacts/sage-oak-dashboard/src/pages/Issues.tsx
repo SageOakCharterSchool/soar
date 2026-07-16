@@ -29,6 +29,14 @@ function formatTurnaround(days: number): string {
   return rounded === 1 ? "1 day" : `${rounded} days`;
 }
 
+const STALE_OPEN_DAYS = 7;
+
+function openDays(createdAt: string, now: number): number | null {
+  const ms = now - new Date(createdAt).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return ms / DAY_MS;
+}
+
 const FILTERS: { label: string; value: ListIssuesStatus | undefined }[] = [
   { label: "Open", value: "open" },
   { label: "Resolved", value: "resolved" },
@@ -83,6 +91,8 @@ export default function Issues() {
     resolvedDurations.length > 0
       ? resolvedDurations.reduce((a, b) => a + b, 0) / resolvedDurations.length
       : null;
+
+  const now = Date.now();
 
   const setIssueStatus = (id: number, next: "open" | "resolved") => {
     updateIssue.mutate(
@@ -164,6 +174,29 @@ export default function Issues() {
                     <Badge variant={issue.status === "open" ? "destructive" : "secondary"}>
                       {issue.status}
                     </Badge>
+                    {issue.status === "open" &&
+                      (() => {
+                        const d = openDays(issue.createdAt, now);
+                        if (d === null) return null;
+                        const stale = d >= STALE_OPEN_DAYS;
+                        return (
+                          <Badge
+                            variant="outline"
+                            className={
+                              stale
+                                ? "border-amber-500 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {stale && (
+                              <span className="mr-1" aria-hidden="true">
+                                ⚠
+                              </span>
+                            )}
+                            Open for {formatTurnaround(d)}
+                          </Badge>
+                        );
+                      })()}
                     {isNewForMe(issue) && (
                       <Badge className="h-4 border-transparent bg-sky-100 px-1.5 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-300">
                         New
