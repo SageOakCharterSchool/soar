@@ -244,7 +244,13 @@ function ArchiveDialog() {
   const [toDate, setToDate] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [fetchedCount, setFetchedCount] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -263,13 +269,21 @@ function ArchiveDialog() {
   const rows = (archived ?? []) as ArchivedActivityEvent[];
   const hasFilters = Boolean(debouncedSearch || fromDate || toDate);
 
+  const cancelDownload = () => {
+    abortRef.current?.abort();
+  };
+
   const downloadCsv = async () => {
     if (downloading) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setDownloading(true);
+    setFetchedCount(0);
     try {
       const pageSize = 1000;
       const parts: string[] = [];
       let offset = 0;
+      let rowCount = 0;
       for (;;) {
         const qs = new URLSearchParams({
           format: "csv",
@@ -281,6 +295,7 @@ function ArchiveDialog() {
         if (toDate) qs.set("to", toDate);
         const res = await fetch(`/api/rostering/activity/archive?${qs.toString()}`, {
           credentials: "include",
+          signal: controller.signal,
         });
         if (!res.ok) {
           throw new Error(`Export failed (${res.status})`);
@@ -291,9 +306,12 @@ function ArchiveDialog() {
         const dataRecords = records.slice(1);
         if (parts.length === 0 && records.length > 0) parts.push(records[0]);
         parts.push(...dataRecords);
+        rowCount += dataRecords.length;
+        setFetchedCount(rowCount);
         if (dataRecords.length < pageSize) break;
         offset += pageSize;
       }
+      if (controller.signal.aborted) return;
       const blob = new Blob([parts.join("\n") + "\n"], {
         type: "text/csv;charset=utf-8",
       });
@@ -304,6 +322,9 @@ function ArchiveDialog() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
+      if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
       toast({
         variant: "destructive",
         title: "Download failed",
@@ -311,7 +332,9 @@ function ArchiveDialog() {
           err instanceof Error ? err.message : "Could not export the archive. Please try again.",
       });
     } finally {
+      abortRef.current = null;
       setDownloading(false);
+      setFetchedCount(0);
     }
   };
 
@@ -404,7 +427,17 @@ function ArchiveDialog() {
                 ))}
               </ul>
             </div>
-            <DialogFooter>
+            <DialogFooter className="items-center gap-2 sm:gap-2">
+              {downloading && (
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                  {fetchedCount.toLocaleString()} rows fetched…
+                </span>
+              )}
+              {downloading && (
+                <Button size="sm" variant="ghost" onClick={cancelDownload}>
+                  Cancel
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -412,7 +445,7 @@ function ArchiveDialog() {
                 disabled={downloading}
               >
                 <Download className="h-4 w-4 mr-1.5" />
-                {downloading ? "Preparing…" : "Download CSV"}
+                {downloading ? "Exporting…" : "Download CSV"}
               </Button>
             </DialogFooter>
           </>
