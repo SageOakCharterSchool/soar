@@ -233,7 +233,7 @@ function RecentActivity({ termId }: { termId: number }) {
   );
 }
 
-function splitCsvRecords(text: string): string[] {
+export function splitCsvRecords(text: string): string[] {
   const records: string[] = [];
   let current = "";
   let inQuotes = false;
