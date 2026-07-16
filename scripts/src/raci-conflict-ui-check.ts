@@ -7,6 +7,9 @@
  *     blocked), B gets the "Cell changed by another admin" conflict toast
  *     instead of silently overwriting.
  *   - After the conflict, both sessions converge on the same value.
+ *   - When admin B has a stale "Rename task" dialog open (A renamed the same
+ *     task first), B's save gets the "Changed by another admin" toast instead
+ *     of overwriting A's rename, and both pages converge on A's name.
  * Exits with code 1 (fails loudly) on any mismatch.
  *
  * Creates a temporary task row + member in the first RACI team and deletes
@@ -46,7 +49,10 @@ function assertNotProduction() {
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@sageoak.org";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "sageoak-admin";
 const ROW_NAME = "E2E Conflict Check Task";
+const ROW_NAME_A = "E2E Conflict Check Task (renamed by A)";
+const ROW_NAME_B = "E2E Conflict Check Task (renamed by B)";
 const MEMBER_NAME = "E2E Conflict Tester";
+const ROW_NAMES = [ROW_NAME, ROW_NAME_A, ROW_NAME_B];
 
 let failures = 0;
 function fail(msg: string) {
@@ -117,7 +123,7 @@ async function cleanupLeftovers(cookie: string): Promise<void> {
     }>;
   };
   for (const team of teams) {
-    for (const row of team.rows.filter((r) => r.name === ROW_NAME)) {
+    for (const row of team.rows.filter((r) => ROW_NAMES.includes(r.name))) {
       await api(cookie, "DELETE", `/raci/rows/${row.id}`);
     }
     for (const m of team.members.filter((m) => m.name === MEMBER_NAME)) {
@@ -305,6 +311,87 @@ async function runChecks(fixture: Fixture) {
     }
     if (finalA !== "A") {
       fail(`final value should be A (A's last accepted edit), got "${finalA}"`);
+    }
+
+    // ---- Rename conflict flow ----
+    const renameButton = (page: Page, rowName: string) =>
+      page.locator(`button[aria-label="Rename ${rowName}"]`);
+    const dialogInput = (page: Page) =>
+      page.getByRole("dialog").getByRole("textbox");
+    const dialogSave = (page: Page) =>
+      page.getByRole("dialog").getByRole("button", { name: /^Save/ });
+
+    console.log(
+      "\nStep 5: B opens the rename dialog, then A renames the same task:",
+    );
+    await renameButton(pageB, ROW_NAME).click();
+    await dialogInput(pageB).waitFor({ timeout: 15000 });
+    pass("B's rename dialog is open (holding the original name)");
+
+    await renameButton(pageA, ROW_NAME).click();
+    await dialogInput(pageA).waitFor({ timeout: 15000 });
+    await dialogInput(pageA).fill(ROW_NAME_A);
+    await dialogSave(pageA).click();
+    const aRenamed = await pageA
+      .locator(`button[aria-label="Rename ${ROW_NAME_A}"]`)
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (aRenamed) {
+      pass(`A renamed the task to "${ROW_NAME_A}"`);
+    } else {
+      fail("A's rename did not take effect");
+    }
+
+    console.log("\nStep 6: B saves the stale rename and must get a conflict:");
+    await dialogInput(pageB).fill(ROW_NAME_B);
+    await dialogSave(pageB).click();
+    const gotRenameToast = await pageB
+      .getByText("Changed by another admin")
+      .first()
+      .waitFor({ timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (gotRenameToast) {
+      pass(`B got the "Changed by another admin" toast`);
+    } else {
+      fail("B did NOT get the rename conflict toast after a stale rename");
+    }
+    const dialogClosed = await pageB
+      .getByRole("dialog")
+      .waitFor({ state: "hidden", timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    if (dialogClosed) {
+      pass("B's rename dialog closed after the conflict");
+    } else {
+      fail("B's rename dialog stayed open after the conflict");
+    }
+
+    console.log("\nStep 7: both sessions must converge on A's name:");
+    const waitForRow = (page: Page, name: string) =>
+      page
+        .locator(`button[aria-label="Rename ${name}"]`)
+        .waitFor({ timeout: 30000 })
+        .then(() => true)
+        .catch(() => false);
+    if (await waitForRow(pageB, ROW_NAME_A)) {
+      pass(`B refreshed and shows A's name "${ROW_NAME_A}"`);
+    } else {
+      fail(`B did not converge to "${ROW_NAME_A}"`);
+    }
+    if (await waitForRow(pageA, ROW_NAME_A)) {
+      pass(`A still shows "${ROW_NAME_A}" (B's stale rename was rejected)`);
+    } else {
+      fail(`A no longer shows "${ROW_NAME_A}" — B's stale rename overwrote it?`);
+    }
+    const bHasStaleName = await pageB
+      .locator(`button[aria-label="Rename ${ROW_NAME_B}"]`)
+      .count();
+    if (bHasStaleName === 0) {
+      pass("B's rejected name is nowhere in the matrix");
+    } else {
+      fail(`B's stale rename "${ROW_NAME_B}" ended up in the matrix`);
     }
   } finally {
     await browser.close();
