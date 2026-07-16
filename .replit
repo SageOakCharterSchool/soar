@@ -44,6 +44,10 @@ args = "staff-access"
 task = "workflow.run"
 args = "issues-legacy-date"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "issue-open-age"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -114,6 +118,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run issues-legacy-date-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "issue-open-age"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run issue-open-age-check"
 
 [workflows.workflow.metadata]
 isValidation = true
