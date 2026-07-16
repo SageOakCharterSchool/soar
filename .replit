@@ -22,10 +22,6 @@ args = "typecheck"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "staff-access"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "migrations"
 
 [[workflows.workflow.tasks]]
@@ -40,6 +36,10 @@ args = "test"
 task = "workflow.run"
 args = "raci-conflict"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "staff-access"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -50,17 +50,6 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsc -b lib/db lib/api-zod && pnpm --filter @workspace/api-server typecheck"
-
-[[workflows.workflow]]
-name = "staff-access"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/scripts run staff-access-check && pnpm --filter @workspace/scripts run staff-ui-check"
 
 [[workflows.workflow]]
 name = "migrations"
@@ -99,6 +88,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run raci-conflict-ui-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "staff-access"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run staff-access-check && pnpm --filter @workspace/scripts run staff-ui-check && pnpm --filter @workspace/scripts run issues-new-marker-check"
 
 [workflows.workflow.metadata]
 isValidation = true
