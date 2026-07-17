@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-const logoUrl = `${import.meta.env.BASE_URL}sageoak-logo-primary.png`;
+const treeLogoUrl = `${import.meta.env.BASE_URL}sageoak-tree-white.png`;
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -90,19 +90,27 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(202,20%,25%)] via-[hsl(192,16%,30%)] to-[hsl(155,12%,38%)] p-4">
       <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center text-center space-y-2">
+        <div className="flex flex-col items-center text-center">
           <img
-            src={logoUrl}
+            src={treeLogoUrl}
             alt="Sage Oak Charter Schools"
-            className="h-40 w-auto mb-1"
+            className="h-28 w-auto mb-4"
             data-testid="img-login-logo"
           />
-          <p className="text-muted-foreground">Operations Dashboard</p>
+          <p className="text-2xl font-bold tracking-wide text-white">
+            Sage Oak
+          </p>
+          <p className="text-sm font-semibold tracking-[0.2em] uppercase text-white/80">
+            Charter Schools
+          </p>
+          <h1 className="mt-6 font-serif text-3xl font-normal tracking-normal text-white">
+            Operations Dashboard
+          </h1>
         </div>
 
-        <Card className="border-border/50 shadow-sm">
+        <Card className="border-white/10 shadow-lg">
           <CardHeader>
             <CardTitle>Sign in</CardTitle>
             <CardDescription>Enter your email to access the dashboard</CardDescription>
