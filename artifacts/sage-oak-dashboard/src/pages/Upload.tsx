@@ -5,6 +5,8 @@ import {
   useGetSftpSyncStatus,
   useTriggerSftpSync,
   type ImportResult,
+  type ImportLogEntry,
+  type SftpSyncRun,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,11 +22,30 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { UploadCloud, FileText, X, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
+import { SortableHead, useTableSort } from "@/hooks/useTableSort";
 
 interface PendingFile {
   name: string;
   content: string;
 }
+
+const syncRunAccessors = {
+  ranAt: (r: SftpSyncRun) => r.ranAt,
+  ok: (r: SftpSyncRun) => r.ok,
+  imported: (r: SftpSyncRun) => r.importedSnapshots.length,
+  skipped: (r: SftpSyncRun) => r.skippedSnapshots.length,
+};
+
+const importLogAccessors = {
+  uploadedAt: (r: ImportLogEntry) => r.uploadedAt,
+  uploadedByName: (r: ImportLogEntry) => r.uploadedByName,
+  source: (r: ImportLogEntry) => r.source,
+  snapshotDate: (r: ImportLogEntry) => r.snapshotDate,
+  files: (r: ImportLogEntry) => r.filesIncluded.length,
+  rowsInserted: (r: ImportLogEntry) => r.rowsInserted,
+  rowsUpdated: (r: ImportLogEntry) => r.rowsUpdated,
+  warnings: (r: ImportLogEntry) => (r as any).warnings?.length ?? 0,
+};
 
 export default function Upload() {
   const { toast } = useToast();
@@ -36,6 +57,18 @@ export default function Upload() {
   const { data: importLog } = useGetImportLog();
   const { data: sftpStatus, refetch: refetchSftpStatus } = useGetSftpSyncStatus();
   const sftpSync = useTriggerSftpSync();
+
+  const {
+    sorted: sortedRuns,
+    sort: runSort,
+    toggle: toggleRunSort,
+  } = useTableSort(sftpStatus?.recentRuns, syncRunAccessors);
+
+  const {
+    sorted: sortedImportLog,
+    sort: logSort,
+    toggle: toggleLogSort,
+  } = useTableSort(importLog, importLogAccessors);
 
   const runSftpSync = () =>
     sftpSync.mutate(undefined, {
@@ -178,15 +211,15 @@ export default function Upload() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ran at</TableHead>
-                  <TableHead>Result</TableHead>
-                  <TableHead className="text-right">Imported</TableHead>
-                  <TableHead className="text-right">Already up to date</TableHead>
+                  <SortableHead label="Ran at" sortKey="ranAt" sort={runSort} onToggle={toggleRunSort} firstDir="desc" />
+                  <SortableHead label="Result" sortKey="ok" sort={runSort} onToggle={toggleRunSort} />
+                  <SortableHead label="Imported" sortKey="imported" sort={runSort} onToggle={toggleRunSort} firstDir="desc" align="right" />
+                  <SortableHead label="Already up to date" sortKey="skipped" sort={runSort} onToggle={toggleRunSort} firstDir="desc" align="right" />
                   <TableHead>Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sftpStatus.recentRuns.map((run) => (
+                {sortedRuns.map((run) => (
                   <TableRow key={run.id}>
                     <TableCell className="whitespace-nowrap text-sm">
                       {new Date(run.ranAt).toLocaleString()}
@@ -324,18 +357,18 @@ export default function Upload() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Uploaded</TableHead>
-                <TableHead>By</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Snapshot date</TableHead>
-                <TableHead>Files</TableHead>
-                <TableHead className="text-right">Inserted</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
-                <TableHead className="text-right">Warnings</TableHead>
+                <SortableHead label="Uploaded" sortKey="uploadedAt" sort={logSort} onToggle={toggleLogSort} firstDir="desc" />
+                <SortableHead label="By" sortKey="uploadedByName" sort={logSort} onToggle={toggleLogSort} />
+                <SortableHead label="Source" sortKey="source" sort={logSort} onToggle={toggleLogSort} />
+                <SortableHead label="Snapshot date" sortKey="snapshotDate" sort={logSort} onToggle={toggleLogSort} firstDir="desc" />
+                <SortableHead label="Files" sortKey="files" sort={logSort} onToggle={toggleLogSort} firstDir="desc" />
+                <SortableHead label="Inserted" sortKey="rowsInserted" sort={logSort} onToggle={toggleLogSort} firstDir="desc" align="right" />
+                <SortableHead label="Updated" sortKey="rowsUpdated" sort={logSort} onToggle={toggleLogSort} firstDir="desc" align="right" />
+                <SortableHead label="Warnings" sortKey="warnings" sort={logSort} onToggle={toggleLogSort} firstDir="desc" align="right" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(importLog ?? []).map((entry) => (
+              {sortedImportLog.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="whitespace-nowrap text-sm">
                     {new Date(entry.uploadedAt).toLocaleString()}

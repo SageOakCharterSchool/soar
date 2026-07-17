@@ -59,6 +59,17 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2 } from "lucide-react";
+import { SortableHead, useTableSort } from "@/hooks/useTableSort";
+
+const boardColumnAccessors = {
+  appName: (r: BoardRow) => r.appName,
+  studentSharingStatus: (r: BoardRow) => r.studentSharingStatus,
+  staffSharingStatus: (r: BoardRow) => r.staffSharingStatus,
+  syncMethod: (r: BoardRow) => r.syncMethod,
+  owner: (r: BoardRow) => r.owner,
+  notes: (r: BoardRow) => r.notes,
+  updatedAt: (r: BoardRow) => r.updatedAt,
+};
 
 // Fallback options used until the settings-driven list loads. Colors for the
 // well-known status values stay stable; custom values get palette colors.
@@ -1043,6 +1054,14 @@ export default function Rostering() {
     return out;
   }, [board, statusFilter, search, sortKey, openIssuesOnly]);
 
+  // Column-header sorting layered on top of the dropdown sort — when no
+  // header is active, the dropdown order above is preserved.
+  const {
+    sorted: displayRows,
+    sort: colSort,
+    toggle: toggleColSort,
+  } = useTableSort(rows, boardColumnAccessors);
+
   const toggleUpvote = (row: BoardRow) =>
     upvote.mutate(
       { id: row.applicationId },
@@ -1152,18 +1171,18 @@ export default function Rostering() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Application</TableHead>
-                  <TableHead>Student sharing</TableHead>
-                  <TableHead>Staff sharing</TableHead>
-                  <TableHead>Sync</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <SortableHead label="Application" sortKey="appName" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Student sharing" sortKey="studentSharingStatus" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Staff sharing" sortKey="staffSharingStatus" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Sync" sortKey="syncMethod" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Owner" sortKey="owner" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Notes" sortKey="notes" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Updated" sortKey="updatedAt" sort={colSort} onToggle={toggleColSort} firstDir="desc" />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {displayRows.map((row) => (
                   <TableRow key={row.applicationId}>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
