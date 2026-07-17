@@ -189,6 +189,117 @@ async function checkRaciSearch(page: Page) {
   await page.evaluate((k: string) => localStorage.removeItem(k), SEARCH_KEY);
 }
 
+/**
+ * The search is shared across teams: switching teams with a remembered
+ * search must keep the filter applied to the new team's rows, and a search
+ * matching nothing must show "No tasks match your search." rather than
+ * looking like the team has no data.
+ */
+async function checkRaciSearchAcrossTeams(page: Page) {
+  console.log("\nRACI search across team switches:");
+
+  await page.goto(`${appBase}/raci`, { waitUntil: "load" });
+  await page.evaluate((k: string) => localStorage.removeItem(k), SEARCH_KEY);
+  await page.reload({ waitUntil: "load" });
+
+  const teamButtons = page.locator("div.flex.flex-wrap.gap-1\\.5 > button");
+  await teamButtons.first().waitFor({ timeout: 15000 });
+  const teamCount = await teamButtons.count();
+  if (teamCount < 2) {
+    console.log(`  skip: only ${teamCount} team(s), need 2 to test switching`);
+    return;
+  }
+
+  const searchBox = page.getByPlaceholder(SEARCH_PLACEHOLDER);
+  await searchBox.waitFor({ timeout: 15000 });
+
+  // Start on the first team and store a search that matches nothing anywhere.
+  await teamButtons.nth(0).click();
+  await page.locator("tbody tr").first().waitFor({ timeout: 15000 });
+  const noMatch = "zz-no-match-xq7";
+  await searchBox.fill(noMatch);
+  await page.waitForTimeout(400);
+
+  const noMatchState = page.getByText("No tasks match your search.").first();
+  if (await noMatchState.isVisible().catch(() => false))
+    pass("no-match search shows the search empty state on the first team");
+  else fail("no-match search did not show the search empty state on the first team");
+
+  // Switch teams: the remembered search must carry over ...
+  await teamButtons.nth(1).click();
+  await page.waitForTimeout(400);
+  const carried = await searchBox.inputValue();
+  if (carried === noMatch)
+    pass(`search "${noMatch}" carried over to the second team`);
+  else fail(`expected search "${noMatch}" on the second team, got "${carried}"`);
+
+  // ... and stay applied: no data rows, and the empty state must say the
+  // search matched nothing (not that the team has no tasks).
+  const rowsOnSecond = await dataRowCount(page);
+  const searchEmptyVisible = await noMatchState.isVisible().catch(() => false);
+  const noTasksYetVisible = await page
+    .getByText("No tasks yet for this team.")
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (rowsOnSecond === 0 && searchEmptyVisible && !noTasksYetVisible)
+    pass('second team shows "No tasks match your search." with the filter applied');
+  else
+    fail(
+      `expected search empty state on second team (rows=${rowsOnSecond}, ` +
+        `searchEmpty=${searchEmptyVisible}, noTasksYet=${noTasksYetVisible})`,
+    );
+
+  // Clearing the search must reveal the second team's real state (rows, or
+  // the genuine "no tasks yet" empty state) — proving the filter, not
+  // missing data, hid the rows.
+  await searchBox.fill("");
+  await page.waitForTimeout(400);
+  const rowsCleared = await dataRowCount(page);
+  const noTasksYetAfterClear = await page
+    .getByText("No tasks yet for this team.")
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (rowsCleared > 0 || noTasksYetAfterClear)
+    pass(
+      rowsCleared > 0
+        ? `clearing the search reveals the second team's rows (${rowsCleared})`
+        : "clearing the search reveals the second team's genuine empty state",
+    );
+  else fail("clearing the search revealed neither rows nor the no-tasks empty state");
+
+  // A remembered search should also survive a reload while on the switched
+  // team and still filter that team's rows.
+  if (rowsCleared > 0) {
+    const memberTerm = (
+      await page.locator("thead th").nth(1).innerText()
+    ).trim().split(/\s+/)[0];
+    if (memberTerm) {
+      await searchBox.fill(memberTerm);
+      await page.waitForTimeout(400);
+      const filtered = await dataRowCount(page);
+      await page.reload({ waitUntil: "load" });
+      await searchBox.waitFor({ timeout: 15000 });
+      const restoredTerm = await searchBox.inputValue();
+      await page.locator("tbody tr").first().waitFor({ timeout: 15000 });
+      const filteredAfterReload = await dataRowCount(page);
+      if (restoredTerm === memberTerm && filteredAfterReload === filtered)
+        pass(
+          `reload on the switched team keeps search "${memberTerm}" and its ${filtered} filtered row(s)`,
+        );
+      else
+        fail(
+          `after reload on switched team expected search "${memberTerm}" with ${filtered} row(s), ` +
+            `got "${restoredTerm}" with ${filteredAfterReload}`,
+        );
+    }
+  }
+
+  // Clean up so later runs (and admins on this browser) start fresh.
+  await page.evaluate((k: string) => localStorage.removeItem(k), SEARCH_KEY);
+}
+
 async function main() {
   const browser = await chromium.launch({
     executablePath:
@@ -216,6 +327,7 @@ async function main() {
       storageKey: "sageoak-rostering-term",
     });
     await checkRaciSearch(page);
+    await checkRaciSearchAcrossTeams(page);
   } finally {
     await browser.close();
   }
