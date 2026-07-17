@@ -25,6 +25,7 @@ import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { useStoredId } from "@/hooks/useStoredId";
+import { useStoredValue, oneOf, parseBool } from "@/hooks/useStoredValue";
 import { RaciChips } from "@/components/RaciChips";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1023,10 +1024,30 @@ export default function Rostering() {
   );
   const upvote = useToggleUpvote();
 
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [storedStatusFilter, setStatusFilter] = useStoredValue<string>(
+    "sageoak-rostering-status",
+    "all",
+    (raw) => (raw.length > 0 ? raw : null),
+  );
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("appName");
-  const [openIssuesOnly, setOpenIssuesOnly] = useState(false);
+  const [sortKey, setSortKey] = useStoredValue<SortKey>(
+    "sageoak-rostering-sort",
+    "appName",
+    oneOf(["appName", "upvotes", "updated"] as const),
+  );
+  const [openIssuesOnly, setOpenIssuesOnly] = useStoredValue<boolean>(
+    "sageoak-rostering-open-issues",
+    false,
+    parseBool,
+  );
+  // A stored status that no longer exists (option removed/renamed) falls
+  // back to "all" instead of silently filtering everything out.
+  const statusFilter =
+    storedStatusFilter === "all" ||
+    statusOptions.length === 0 ||
+    statusOptions.some((o) => o.value === storedStatusFilter)
+      ? storedStatusFilter
+      : "all";
 
   const rows = useMemo(() => {
     let out = [...(board ?? [])];
