@@ -102,7 +102,7 @@ const SEARCH_PLACEHOLDER = "Search tasks, categories, or people...";
 async function dataRowCount(page: Page) {
   return page.evaluate(() => {
     const rows = Array.from(document.querySelectorAll("tbody tr"));
-    return rows.filter((r) => !/No tasks/i.test(r.textContent ?? "")).length;
+    return rows.filter((r: { textContent: string | null }) => !/No tasks/i.test(r.textContent ?? "")).length;
   });
 }
 
