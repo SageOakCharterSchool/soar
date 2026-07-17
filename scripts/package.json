@@ -18,6 +18,7 @@
     "raci-conflict-ui-check": "tsx ./src/raci-conflict-ui-check.ts",
     "raci-chip-link-check": "tsx ./src/raci-chip-link-check.ts",
     "raci-app-link-check": "tsx ./src/raci-app-link-check.ts",
+    "raci-reimport-chip-check": "tsx ./src/raci-reimport-chip-check.ts",
     "raci-highlight-fade-check": "tsx ./src/raci-highlight-fade-check.ts",
     "prod-login-check": "tsx ./src/prod-login-check.ts",
     "stored-filter-check": "tsx ./src/stored-filter-check.ts",
