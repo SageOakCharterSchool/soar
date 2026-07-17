@@ -107,6 +107,12 @@ async function main() {
     await page.goto(`${appBase}/rostering`, { waitUntil: "load" });
     const boardChip = page.locator("button[title*='RACI matrix']").first();
     await boardChip.waitFor({ timeout: 15000 });
+    const chipText = ((await boardChip.innerText()) ?? "").trim();
+    if (/^[ARCI]\b/.test(chipText) && chipText.length > 2 && (await boardChip.isVisible())) {
+      pass(`rostering: chip visible with role+name text ("${chipText}")`);
+    } else {
+      fail(`rostering: expected visible role+name chip text, got "${chipText}"`);
+    }
     await boardChip.click();
     await page.waitForURL(/\/raci\?app=\d+$/, { timeout: 15000 });
     pass("rostering: chip navigated to RACI page with app param");

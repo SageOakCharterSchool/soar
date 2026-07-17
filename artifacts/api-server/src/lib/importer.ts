@@ -1,8 +1,9 @@
 import Papa from "papaparse";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { emitRosteringActivity } from "./activityEvents";
 import {
   db,
+  raciRowsTable,
   applicationsTable,
   appTermStatusTable,
   termsTable,
@@ -489,6 +490,26 @@ export async function runImport(
       .from(termsTable)
       .where(eq(termsTable.isCurrent, true));
     if (insertedApps.length > 0) {
+      // Re-link RACI matrix rows that match a newly created application by
+      // name. Without this, an app-list re-import (new application ids)
+      // permanently orphans existing RACI rows and their board chips vanish.
+      const unlinkedRows = await db
+        .select()
+        .from(raciRowsTable)
+        .where(isNull(raciRowsTable.applicationId));
+      if (unlinkedRows.length > 0) {
+        const norm = (s: string) => s.trim().toLowerCase();
+        const appByName = new Map(insertedApps.map((a) => [norm(a.name), a.id]));
+        for (const row of unlinkedRows) {
+          const appId = appByName.get(norm(row.name));
+          if (appId != null) {
+            await db
+              .update(raciRowsTable)
+              .set({ applicationId: appId })
+              .where(eq(raciRowsTable.id, row.id));
+          }
+        }
+      }
       await db.insert(appActivityTable).values(
         insertedApps.map((a) => ({
           applicationId: a.id,
