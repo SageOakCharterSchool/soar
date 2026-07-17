@@ -14,6 +14,7 @@
     "stale-threshold-ui-check": "tsx ./src/stale-threshold-ui-check.ts",
     "stale-threshold-invalid-ui-check": "tsx ./src/stale-threshold-invalid-ui-check.ts",
     "google-sso-ui-check": "tsx ./src/google-sso-ui-check.ts",
+    "login-branding-check": "tsx ./src/login-branding-check.ts",
     "raci-conflict-ui-check": "tsx ./src/raci-conflict-ui-check.ts",
     "raci-chip-link-check": "tsx ./src/raci-chip-link-check.ts",
     "raci-highlight-fade-check": "tsx ./src/raci-highlight-fade-check.ts",
