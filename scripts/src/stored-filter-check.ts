@@ -4,7 +4,9 @@
  * `sageoak-rostering-term`), and a stale stored id falls back to the default
  * without breaking the page. Also checks the RACI task search box
  * (`sageoak-raci-search`): typed text and the filtered rows survive a
- * refresh, and a garbage stored value doesn't break the page.
+ * refresh, a garbage stored value doesn't break the page, and the
+ * "No tasks match your search." empty state offers a one-click
+ * "Clear search" button that empties the box and the stored value.
  */
 import { execSync } from "node:child_process";
 import { chromium, type Page } from "playwright-core";
@@ -250,11 +252,27 @@ async function checkRaciSearchAcrossTeams(page: Page) {
         `searchEmpty=${searchEmptyVisible}, noTasksYet=${noTasksYetVisible})`,
     );
 
-  // Clearing the search must reveal the second team's real state (rows, or
-  // the genuine "no tasks yet" empty state) — proving the filter, not
-  // missing data, hid the rows.
-  await searchBox.fill("");
+  // The search empty state offers a one-click "Clear search" button; it must
+  // empty the box, remove the stored value, and reveal the second team's
+  // real state (rows, or the genuine "no tasks yet" empty state) — proving
+  // the filter, not missing data, hid the rows.
+  const clearButton = page.getByRole("button", { name: "Clear search" });
+  if (await clearButton.isVisible().catch(() => false))
+    pass('empty state shows a "Clear search" button');
+  else fail('no "Clear search" button in the search empty state');
+  await clearButton.click();
   await page.waitForTimeout(400);
+  const clearedValue = await searchBox.inputValue();
+  if (clearedValue === "") pass('"Clear search" emptied the search box');
+  else fail(`expected empty search box after "Clear search", got "${clearedValue}"`);
+  const storedAfterClear = await page.evaluate(
+    (k: string) => localStorage.getItem(k),
+    SEARCH_KEY,
+  );
+  if (storedAfterClear == null)
+    pass(`"Clear search" removed the stored value (${SEARCH_KEY})`);
+  else
+    fail(`expected ${SEARCH_KEY} removed after "Clear search", got "${storedAfterClear}"`);
   const rowsCleared = await dataRowCount(page);
   const noTasksYetAfterClear = await page
     .getByText("No tasks yet for this team.")

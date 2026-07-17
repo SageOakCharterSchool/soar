@@ -644,9 +644,20 @@ function TeamMatrix({
                     className="py-8 text-center text-muted-foreground"
                   >
                     {/* Empty-state text is asserted by scripts/src/staff-ui-check.ts — keep in sync. */}
-                    {search
-                      ? "No tasks match your search."
-                      : "No tasks yet for this team."}
+                    {search ? (
+                      <span className="flex flex-col items-center gap-2">
+                        <span>No tasks match your search.</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSearch("")}
+                        >
+                          Clear search
+                        </Button>
+                      </span>
+                    ) : (
+                      "No tasks yet for this team."
+                    )}
                   </TableCell>
                 </TableRow>
               )}
