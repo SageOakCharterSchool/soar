@@ -56,6 +56,10 @@ args = "stale-threshold"
 task = "workflow.run"
 args = "theme-os"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "stored-filter"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -162,6 +166,17 @@ args = "pnpm --filter @workspace/scripts run theme-os-preference-check"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "stored-filter"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run stored-filter-check"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
