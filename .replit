@@ -60,6 +60,10 @@ args = "theme-os"
 task = "workflow.run"
 args = "stored-filter"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "og-preview"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -177,6 +181,17 @@ args = "pnpm --filter @workspace/scripts run stored-filter-check"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "og-preview"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run og-preview-check"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 stack = "PNPM_WORKSPACE"

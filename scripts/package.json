@@ -20,6 +20,7 @@
     "prod-login-check": "tsx ./src/prod-login-check.ts",
     "stored-filter-check": "tsx ./src/stored-filter-check.ts",
     "sse-stream-check": "tsx ./src/sse-stream-check.ts",
+    "og-preview-check": "tsx ./src/og-preview-check.ts",
     "issues-legacy-date-check": "tsx ./src/issues-legacy-date-check.ts",
     "settings-ui-check": "tsx ./src/settings-ui-check.ts",
     "generate-raci-seed": "tsx ./src/generate-raci-seed.ts",
