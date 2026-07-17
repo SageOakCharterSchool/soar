@@ -73,7 +73,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsc -b lib/db lib/api-zod && pnpm --filter @workspace/api-server typecheck"
+args = "npx tsc -b lib/db lib/api-zod && pnpm --filter @workspace/api-server typecheck && pnpm --filter @workspace/scripts typecheck"
 
 [[workflows.workflow]]
 name = "migrations"
