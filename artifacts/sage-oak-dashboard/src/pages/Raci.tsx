@@ -22,6 +22,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
 import { useStoredId } from "@/hooks/useStoredId";
+import { useStoredValue } from "@/hooks/useStoredValue";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -351,7 +352,14 @@ function TeamMatrix({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const [search, setSearch] = useState("");
+  // Remembered across refresh (and shared across teams) so admins doing long
+  // sessions keep their filter. localStorage only stores strings, so any
+  // stored value is a valid search; the empty default clears the key.
+  const [search, setSearch] = useStoredValue(
+    "sageoak-raci-search",
+    "",
+    (raw) => raw,
+  );
   const { meta: raciMeta, cycle } = useRaciOptions();
 
   const setCell = useSetRaciCell();
