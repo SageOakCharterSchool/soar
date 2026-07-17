@@ -24,6 +24,8 @@ import {
 import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { useStoredId } from "@/hooks/useStoredId";
+import { useStoredValue, oneOf, parseBool } from "@/hooks/useStoredValue";
 import { RaciChips } from "@/components/RaciChips";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,17 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2 } from "lucide-react";
+import { SortableHead, useTableSort } from "@/hooks/useTableSort";
+
+const boardColumnAccessors = {
+  appName: (r: BoardRow) => r.appName,
+  studentSharingStatus: (r: BoardRow) => r.studentSharingStatus,
+  staffSharingStatus: (r: BoardRow) => r.staffSharingStatus,
+  syncMethod: (r: BoardRow) => r.syncMethod,
+  owner: (r: BoardRow) => r.owner,
+  notes: (r: BoardRow) => r.notes,
+  updatedAt: (r: BoardRow) => r.updatedAt,
+};
 
 // Fallback options used until the settings-driven list loads. Colors for the
 // well-known status values stay stable; custom values get palette colors.
@@ -985,8 +998,21 @@ export default function Rostering() {
     () => [...(terms ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
     [terms],
   );
-  const [selectedTermId, setSelectedTermId] = useState<number | null>(null);
-  const termId = selectedTermId ?? sortedTerms.find((t) => t.isCurrent)?.id ?? sortedTerms[0]?.id;
+  const [storedTermId, setStoredTermId] = useStoredId("sageoak-rostering-term");
+  const [selectedTermIdState, setSelectedTermIdState] = useState<number | null>(null);
+  const setSelectedTermId = (id: number) => {
+    setSelectedTermIdState(id);
+    setStoredTermId(id);
+  };
+  const validStoredTermId =
+    storedTermId != null && sortedTerms.some((t) => t.id === storedTermId)
+      ? storedTermId
+      : null;
+  const termId =
+    selectedTermIdState ??
+    validStoredTermId ??
+    sortedTerms.find((t) => t.isCurrent)?.id ??
+    sortedTerms[0]?.id;
 
   const { data: board, isLoading } = useGetRosteringBoard(
     { termId: termId as number },
@@ -998,10 +1024,30 @@ export default function Rostering() {
   );
   const upvote = useToggleUpvote();
 
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [storedStatusFilter, setStatusFilter] = useStoredValue<string>(
+    "sageoak-rostering-status",
+    "all",
+    (raw) => (raw.length > 0 ? raw : null),
+  );
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("appName");
-  const [openIssuesOnly, setOpenIssuesOnly] = useState(false);
+  const [sortKey, setSortKey] = useStoredValue<SortKey>(
+    "sageoak-rostering-sort",
+    "appName",
+    oneOf(["appName", "upvotes", "updated"] as const),
+  );
+  const [openIssuesOnly, setOpenIssuesOnly] = useStoredValue<boolean>(
+    "sageoak-rostering-open-issues",
+    false,
+    parseBool,
+  );
+  // A stored status that no longer exists (option removed/renamed) falls
+  // back to "all" instead of silently filtering everything out.
+  const statusFilter =
+    storedStatusFilter === "all" ||
+    statusOptions.length === 0 ||
+    statusOptions.some((o) => o.value === storedStatusFilter)
+      ? storedStatusFilter
+      : "all";
 
   const rows = useMemo(() => {
     let out = [...(board ?? [])];
@@ -1028,6 +1074,14 @@ export default function Rostering() {
     });
     return out;
   }, [board, statusFilter, search, sortKey, openIssuesOnly]);
+
+  // Column-header sorting layered on top of the dropdown sort — when no
+  // header is active, the dropdown order above is preserved.
+  const {
+    sorted: displayRows,
+    sort: colSort,
+    toggle: toggleColSort,
+  } = useTableSort(rows, boardColumnAccessors);
 
   const toggleUpvote = (row: BoardRow) =>
     upvote.mutate(
@@ -1138,18 +1192,18 @@ export default function Rostering() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Application</TableHead>
-                  <TableHead>Student sharing</TableHead>
-                  <TableHead>Staff sharing</TableHead>
-                  <TableHead>Sync</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Notes</TableHead>
-                  <TableHead>Updated</TableHead>
+                  <SortableHead label="Application" sortKey="appName" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Student sharing" sortKey="studentSharingStatus" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Staff sharing" sortKey="staffSharingStatus" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Sync" sortKey="syncMethod" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Owner" sortKey="owner" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Notes" sortKey="notes" sort={colSort} onToggle={toggleColSort} />
+                  <SortableHead label="Updated" sortKey="updatedAt" sort={colSort} onToggle={toggleColSort} firstDir="desc" />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {displayRows.map((row) => (
                   <TableRow key={row.applicationId}>
                     <TableCell>
                       <div className="flex items-center gap-1.5">

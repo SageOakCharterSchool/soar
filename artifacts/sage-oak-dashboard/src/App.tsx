@@ -9,6 +9,8 @@ import {
   useGetPublicAppSettings,
 } from "@workspace/api-client-react";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
+import { useTheme } from "@/hooks/useTheme";
+import { Moon, Sun } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
@@ -134,6 +136,7 @@ function IssuesNavBadge({ active }: { active: boolean }) {
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [location, setLocation] = useLocation();
   const { data: settings } = useGetPublicAppSettings({
     query: { enabled: !!user } as any,
@@ -158,14 +161,15 @@ function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => setLocation("/")}
               data-testid="text-app-name"
             >
-              {logoDataUrl && (
-                <img
-                  src={logoDataUrl}
-                  alt=""
-                  className="h-7 w-7 rounded object-contain"
-                  data-testid="img-app-logo"
-                />
-              )}
+              <img
+                src={
+                  logoDataUrl ??
+                  `${import.meta.env.BASE_URL}${theme === "dark" ? "sageoak-tree-white.png" : "sageoak-tree-green.png"}`
+                }
+                alt=""
+                className="h-8 w-auto rounded object-contain"
+                data-testid="img-app-logo"
+              />
               {appName}
             </h1>
             <nav className="flex items-center space-x-1">
@@ -221,6 +225,15 @@ function Layout({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center space-x-4">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              data-testid="button-theme-toggle"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
             <div className="text-sm text-right">
               <div className="font-medium">{user.displayName}</div>
               <div className="text-xs text-muted-foreground capitalize">{user.role}</div>

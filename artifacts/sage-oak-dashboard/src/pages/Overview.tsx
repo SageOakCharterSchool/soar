@@ -34,7 +34,31 @@ import { TopAppsChart } from "@/components/charts/TopAppsChart";
 import { MixDonut } from "@/components/charts/MixDonut";
 import { ResourceSparkline, ResourceTrendBadge } from "@/components/charts/ResourceSparkline";
 import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
-import { ArrowUpDown, UploadCloud } from "lucide-react";
+import { UploadCloud } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { SortableHead, useTableSort } from "@/hooks/useTableSort";
+import type { AppEngagementRow, SchoolUsageRow } from "@workspace/api-client-react";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+const shiftISODate = (iso: string, days: number) =>
+  toISODate(new Date(new Date(iso + "T00:00:00Z").getTime() + days * DAY_MS));
+
+const schoolAccessors = {
+  school: (r: SchoolUsageRow) => r.school,
+  uniqueUsers: (r: SchoolUsageRow) => r.uniqueUsers,
+  scopedUsers: (r: SchoolUsageRow) => r.scopedUsers,
+  adoptionPct: (r: SchoolUsageRow) => r.adoptionPct,
+};
+
+const engagementAccessors = {
+  appName: (r: AppEngagementRow) => r.appName,
+  studentCount: (r: AppEngagementRow) => r.studentCount,
+  studentPercent: (r: AppEngagementRow) => r.studentPercent,
+  teacherCount: (r: AppEngagementRow) => r.teacherCount,
+  teacherPercent: (r: AppEngagementRow) => r.teacherPercent,
+  activeTimePerUserMinutes: (r: AppEngagementRow) => r.activeTimePerUserMinutes,
+};
 
 function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -61,13 +85,25 @@ const fmt = (n: number | null | undefined) =>
   n == null ? "—" : n.toLocaleString();
 const pct = (n: number | null | undefined) => (n == null ? "—" : `${n}%`);
 
-type EngagementSort = "studentPercent" | "teacherPercent" | "activeTimePerUserMinutes";
-
 export default function Overview() {
   const { isAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const { data: summary, isLoading } = useGetUsageSummary();
-  const { data: daily } = useGetDailyUsage();
+
+  // Date range for the daily usage chart — defaults to the 28 days ending at
+  // the latest snapshot date (the window the Clever export covers).
+  const defaultEnd = summary?.snapshotDate ?? toISODate(new Date());
+  const defaultStart = shiftISODate(defaultEnd, -27);
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
+  const startDate = rangeStart ?? defaultStart;
+  const endDate = rangeEnd ?? defaultEnd;
+  const isDefaultRange = startDate === defaultStart && endDate === defaultEnd;
+
+  const { data: daily } = useGetDailyUsage(
+    { startDate, endDate },
+    { query: { enabled: !!summary?.hasData } as any },
+  );
   const { data: byApp } = useGetUsageByApp();
   const { data: mix } = useGetUsageMix();
   const { data: bySchool } = useGetUsageBySchool();
@@ -98,7 +134,6 @@ export default function Overview() {
 
   const [appMetric, setAppMetric] = useState<"uniqueUsers" | "adoptionPct">("uniqueUsers");
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
-  const [engSort, setEngSort] = useState<EngagementSort>("studentPercent");
 
   const hasActiveTime = useMemo(
     () => (engagement ?? []).some((e) => e.activeTimePerUserMinutes != null),
@@ -147,19 +182,20 @@ export default function Overview() {
           .map(([, label]) => label)
       : [];
 
-  const effectiveEngSort: EngagementSort =
-    engSort === "activeTimePerUserMinutes" && !hasActiveTime
-      ? "studentPercent"
-      : engSort;
+  const {
+    sorted: sortedEngagement,
+    sort: engSort,
+    toggle: toggleEngSort,
+  } = useTableSort(engagement, engagementAccessors, {
+    key: "studentPercent",
+    dir: "desc",
+  });
 
-  const sortedEngagement = useMemo(
-    () =>
-      [...(engagement ?? [])].sort(
-        (a, b) =>
-          (b[effectiveEngSort] ?? -Infinity) - (a[effectiveEngSort] ?? -Infinity),
-      ),
-    [engagement, effectiveEngSort],
-  );
+  const {
+    sorted: sortedSchools,
+    sort: schoolSort,
+    toggle: toggleSchoolSort,
+  } = useTableSort(bySchool, schoolAccessors);
 
   if (isLoading) {
     return (
@@ -212,14 +248,50 @@ export default function Overview() {
       </div>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-between space-y-0 gap-2">
           <CardTitle className="text-base">Daily active users</CardTitle>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <Input
+              type="date"
+              className="h-8 w-36"
+              value={startDate}
+              max={endDate}
+              onChange={(e) => e.target.value && setRangeStart(e.target.value)}
+              aria-label="Start date"
+              data-testid="daily-range-start"
+            />
+            <span className="text-muted-foreground">to</span>
+            <Input
+              type="date"
+              className="h-8 w-36"
+              value={endDate}
+              min={startDate}
+              onChange={(e) => e.target.value && setRangeEnd(e.target.value)}
+              aria-label="End date"
+              data-testid="daily-range-end"
+            />
+            {!isDefaultRange && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setRangeStart(null);
+                  setRangeEnd(null);
+                }}
+                data-testid="daily-range-reset"
+              >
+                Last 28 days
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {daily && daily.length > 0 ? (
             <DailyUsageChart data={daily} />
           ) : (
-            <p className="text-sm text-muted-foreground py-8 text-center">No daily usage history yet.</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              No daily usage recorded between {startDate} and {endDate}.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -262,14 +334,20 @@ export default function Overview() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>School</TableHead>
-                  {schoolCols.uniqueUsers && <TableHead className="text-right">Unique users</TableHead>}
-                  {schoolCols.scopedUsers && <TableHead className="text-right">Rostered</TableHead>}
-                  {schoolCols.adoptionPct && <TableHead className="text-right">Adoption</TableHead>}
+                  <SortableHead label="School" sortKey="school" sort={schoolSort} onToggle={toggleSchoolSort} />
+                  {schoolCols.uniqueUsers && (
+                    <SortableHead label="Unique users" sortKey="uniqueUsers" sort={schoolSort} onToggle={toggleSchoolSort} firstDir="desc" align="right" />
+                  )}
+                  {schoolCols.scopedUsers && (
+                    <SortableHead label="Rostered" sortKey="scopedUsers" sort={schoolSort} onToggle={toggleSchoolSort} firstDir="desc" align="right" />
+                  )}
+                  {schoolCols.adoptionPct && (
+                    <SortableHead label="Adoption" sortKey="adoptionPct" sort={schoolSort} onToggle={toggleSchoolSort} firstDir="desc" align="right" />
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(bySchool ?? []).map((s) => (
+                {sortedSchools.map((s) => (
                   <TableRow key={s.school}>
                     <TableCell className="font-medium">{s.school}</TableCell>
                     {schoolCols.uniqueUsers && (
@@ -409,25 +487,13 @@ export default function Overview() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Application</TableHead>
-                <TableHead className="text-right">Students</TableHead>
-                <TableHead className="text-right">
-                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("studentPercent")}>
-                    % of students <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-right">Teachers</TableHead>
-                <TableHead className="text-right">
-                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("teacherPercent")}>
-                    % of teachers <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
+                <SortableHead label="Application" sortKey="appName" sort={engSort} onToggle={toggleEngSort} />
+                <SortableHead label="Students" sortKey="studentCount" sort={engSort} onToggle={toggleEngSort} firstDir="desc" align="right" />
+                <SortableHead label="% of students" sortKey="studentPercent" sort={engSort} onToggle={toggleEngSort} firstDir="desc" align="right" />
+                <SortableHead label="Teachers" sortKey="teacherCount" sort={engSort} onToggle={toggleEngSort} firstDir="desc" align="right" />
+                <SortableHead label="% of teachers" sortKey="teacherPercent" sort={engSort} onToggle={toggleEngSort} firstDir="desc" align="right" />
                 {hasActiveTime && (
-                  <TableHead className="text-right">
-                    <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => setEngSort("activeTimePerUserMinutes")}>
-                      Active min/user <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
+                  <SortableHead label="Active min/user" sortKey="activeTimePerUserMinutes" sort={engSort} onToggle={toggleEngSort} firstDir="desc" align="right" />
                 )}
               </TableRow>
             </TableHeader>

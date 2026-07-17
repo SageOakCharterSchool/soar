@@ -52,6 +52,22 @@ args = "issue-open-age"
 task = "workflow.run"
 args = "stale-threshold"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "theme-os"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "stored-filter"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "og-preview"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "login-branding"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -61,7 +77,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsc -b lib/db lib/api-zod && pnpm --filter @workspace/api-server typecheck"
+args = "npx tsc -b lib/db lib/api-zod && pnpm --filter @workspace/api-server typecheck && pnpm --filter @workspace/scripts typecheck"
 
 [[workflows.workflow]]
 name = "migrations"
@@ -148,9 +164,54 @@ isValidation = true
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run stale-threshold-ui-check && pnpm --filter @workspace/scripts run stale-threshold-invalid-ui-check"
 
+[[workflows.workflow]]
+name = "theme-os"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run theme-os-preference-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "stored-filter"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run stored-filter-check"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "og-preview"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run og-preview-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "login-branding"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run login-branding-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
+integrations = ["github:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"

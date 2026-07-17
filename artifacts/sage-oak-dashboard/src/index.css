@@ -67,56 +67,59 @@
 }
 
 :root {
-  --background: 40 20% 98%;
-  --foreground: 153 10% 15%;
-  --border: 40 10% 88%;
-  --input: 40 10% 88%;
-  --ring: 153 25% 42%;
+  /* Sage Oak 2025-26 brand palette:
+     sage #8d9e88, deep green #687664, slate #374f59, navy #1c476c,
+     gold #f2ce8a, cream #f2ede6, neutrals #9faea7 #6f7d82 #d8ded7 #e9e7df */
+  --background: 40 20% 96%;
+  --foreground: 200 15% 16%;
+  --border: 160 8% 84%;
+  --input: 160 8% 84%;
+  --ring: 192 24% 32%;
   
   --card: 0 0% 100%;
-  --card-foreground: 153 10% 15%;
-  --card-border: 40 10% 90%;
+  --card-foreground: 15 4% 18%;
+  --card-border: 111 10% 87%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 153 10% 15%;
-  --popover-border: 40 10% 90%;
+  --popover-foreground: 15 4% 18%;
+  --popover-border: 111 10% 87%;
   
-  --primary: 153 25% 42%;
+  --primary: 192 24% 30%;
   --primary-foreground: 0 0% 100%;
-  --primary-border: 153 25% 35%;
+  --primary-border: 192 24% 24%;
   
-  --secondary: 40 15% 90%;
-  --secondary-foreground: 153 20% 30%;
-  --secondary-border: 40 15% 80%;
+  --secondary: 160 10% 88%;
+  --secondary-foreground: 198 24% 26%;
+  --secondary-border: 160 10% 79%;
   
-  --muted: 40 10% 94%;
-  --muted-foreground: 153 10% 45%;
-  --muted-border: 40 10% 88%;
+  --muted: 160 10% 92%;
+  --muted-foreground: 196 10% 38%;
+  --muted-border: 160 10% 85%;
   
-  --accent: 40 20% 92%;
-  --accent-foreground: 153 25% 35%;
-  --accent-border: 40 20% 85%;
+  --accent: 150 14% 88%;
+  --accent-foreground: 198 24% 26%;
+  --accent-border: 150 12% 80%;
   
   --destructive: 0 70% 50%;
   --destructive-foreground: 0 0% 100%;
   --destructive-border: 0 70% 40%;
   
-  --chart-1: 153 25% 42%;
-  --chart-2: 40 30% 60%;
-  --chart-3: 180 20% 50%;
-  --chart-4: 25 30% 55%;
-  --chart-5: 210 20% 45%;
+  --chart-1: 192 30% 38%;
+  --chart-2: 107 12% 45%;
+  --chart-3: 39 70% 55%;
+  --chart-4: 208 45% 45%;
+  --chart-5: 152 12% 58%;
   
-  --sidebar: 40 20% 96%;
-  --sidebar-foreground: 153 15% 25%;
-  --sidebar-border: 40 15% 90%;
-  --sidebar-primary: 153 25% 42%;
+  --sidebar: 190 14% 94%;
+  --sidebar-foreground: 198 24% 22%;
+  --sidebar-border: 190 10% 85%;
+  --sidebar-primary: 192 24% 30%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 40 20% 90%;
-  --sidebar-accent-foreground: 153 25% 35%;
-  --sidebar-ring: 153 25% 42%;
+  --sidebar-accent: 190 12% 88%;
+  --sidebar-accent-foreground: 198 24% 26%;
+  --sidebar-ring: 192 24% 32%;
   
-  --app-font-sans: "Inter", sans-serif;
+  --app-font-sans: "Montserrat", sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: 0.5rem;
@@ -129,54 +132,54 @@
 }
 
 .dark {
-  --background: 153 10% 12%;
-  --foreground: 40 20% 96%;
-  --border: 153 10% 20%;
-  --input: 153 10% 20%;
-  --ring: 153 25% 42%;
+  --background: 198 22% 11%;
+  --foreground: 160 12% 92%;
+  --border: 196 16% 21%;
+  --input: 196 16% 21%;
+  --ring: 178 22% 56%;
   
-  --card: 153 10% 15%;
-  --card-foreground: 40 20% 96%;
-  --card-border: 153 10% 22%;
+  --card: 198 22% 14%;
+  --card-foreground: 48 19% 92%;
+  --card-border: 198 18% 22%;
   
-  --popover: 153 10% 15%;
-  --popover-foreground: 40 20% 96%;
-  --popover-border: 153 10% 22%;
+  --popover: 198 22% 14%;
+  --popover-foreground: 48 19% 92%;
+  --popover-border: 198 18% 22%;
   
-  --primary: 153 25% 42%;
+  --primary: 186 24% 38%;
   --primary-foreground: 0 0% 100%;
-  --primary-border: 153 25% 35%;
+  --primary-border: 186 24% 30%;
   
-  --secondary: 153 10% 25%;
-  --secondary-foreground: 40 20% 90%;
-  --secondary-border: 153 10% 30%;
+  --secondary: 196 16% 24%;
+  --secondary-foreground: 160 12% 90%;
+  --secondary-border: 196 16% 30%;
   
-  --muted: 153 10% 20%;
-  --muted-foreground: 40 10% 70%;
-  --muted-border: 153 10% 25%;
+  --muted: 196 16% 19%;
+  --muted-foreground: 165 10% 68%;
+  --muted-border: 196 16% 25%;
   
-  --accent: 153 15% 25%;
-  --accent-foreground: 40 20% 96%;
-  --accent-border: 153 15% 30%;
+  --accent: 190 18% 24%;
+  --accent-foreground: 160 20% 82%;
+  --accent-border: 190 18% 30%;
   
   --destructive: 0 60% 45%;
   --destructive-foreground: 0 0% 100%;
   --destructive-border: 0 60% 35%;
   
-  --chart-1: 153 30% 50%;
-  --chart-2: 40 40% 65%;
-  --chart-3: 180 30% 55%;
-  --chart-4: 25 40% 60%;
-  --chart-5: 210 30% 55%;
+  --chart-1: 182 28% 56%;
+  --chart-2: 106 14% 58%;
+  --chart-3: 39 75% 68%;
+  --chart-4: 208 40% 62%;
+  --chart-5: 152 12% 70%;
   
-  --sidebar: 153 10% 14%;
-  --sidebar-foreground: 40 20% 90%;
-  --sidebar-border: 153 10% 20%;
-  --sidebar-primary: 153 25% 42%;
+  --sidebar: 198 22% 13%;
+  --sidebar-foreground: 160 12% 90%;
+  --sidebar-border: 196 16% 21%;
+  --sidebar-primary: 186 24% 38%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 153 15% 22%;
-  --sidebar-accent-foreground: 40 20% 96%;
-  --sidebar-ring: 153 25% 42%;
+  --sidebar-accent: 194 18% 22%;
+  --sidebar-accent-foreground: 160 12% 92%;
+  --sidebar-ring: 178 22% 56%;
 }
 
 @layer base {
@@ -185,5 +188,15 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+  }
+  /* Brand typography: headings in Montserrat Black, subheadings in Bold. */
+  h1 {
+    font-weight: 900;
+  }
+  h2, h3, h4, h5, h6 {
+    font-weight: 700;
   }
 }

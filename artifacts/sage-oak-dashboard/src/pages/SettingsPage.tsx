@@ -294,7 +294,7 @@ function SyncScheduleCard({ settings }: { settings: AppSettings }) {
   );
 }
 
-const ACCENT_PRESETS = ["#4a7c67", "#2563eb", "#7c3aed", "#b45309", "#be123c"];
+const ACCENT_PRESETS = ["#687664", "#8d9e88", "#374f59", "#1c476c"];
 
 function BrandingCard({ settings }: { settings: AppSettings }) {
   const [appName, setAppName] = useState(settings.branding.appName);
@@ -388,7 +388,7 @@ function BrandingCard({ settings }: { settings: AppSettings }) {
             ))}
             <input
               type="color"
-              value={accentColor ?? "#4a7c67"}
+              value={accentColor ?? "#687664"}
               onChange={(e) => setAccentColor(e.target.value)}
               className="h-7 w-10 cursor-pointer rounded border border-border bg-transparent"
               aria-label="Custom accent color"

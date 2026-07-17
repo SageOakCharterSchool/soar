@@ -51,6 +51,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Pencil, Trash2, UserPlus } from "lucide-react";
+import { SortableHead, useTableSort } from "@/hooks/useTableSort";
+
+const userAccessors = {
+  displayName: (u: User) => u.displayName,
+  email: (u: User) => u.email,
+  role: (u: User) => u.role,
+  tags: (u: User) => u.tags.join(", "),
+  createdAt: (u: User) => u.createdAt,
+};
 
 function parseTags(input: string): string[] {
   return Array.from(
@@ -164,6 +173,12 @@ export default function Users() {
   const [role, setRole] = useState<UserInputRole>("staff");
   const [tagsInput, setTagsInput] = useState("");
 
+  const {
+    sorted: sortedUsers,
+    sort: userSort,
+    toggle: toggleUserSort,
+  } = useTableSort(users, userAccessors);
+
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
 
@@ -259,16 +274,16 @@ export default function Users() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Created</TableHead>
+                <SortableHead label="Name" sortKey="displayName" sort={userSort} onToggle={toggleUserSort} />
+                <SortableHead label="Email" sortKey="email" sort={userSort} onToggle={toggleUserSort} />
+                <SortableHead label="Role" sortKey="role" sort={userSort} onToggle={toggleUserSort} />
+                <SortableHead label="Tags" sortKey="tags" sort={userSort} onToggle={toggleUserSort} />
+                <SortableHead label="Created" sortKey="createdAt" sort={userSort} onToggle={toggleUserSort} firstDir="desc" />
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(users ?? []).map((u) => (
+              {sortedUsers.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">
                     {u.displayName}

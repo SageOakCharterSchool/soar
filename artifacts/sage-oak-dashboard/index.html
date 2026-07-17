@@ -4,20 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Sage Oak App Dashboard</title>
-    <meta name="description" content="Sage Oak App Dashboard — built on Replit. Update this description to reflect the app." />
+    <meta name="description" content="Sage Oak App Dashboard — monitor app usage, nightly Clever syncs, and resource trends for Sage Oak schools in one place." />
     <meta name="robots" content="index, follow" />
     <meta property="og:title" content="Sage Oak App Dashboard" />
-    <meta property="og:description" content="Sage Oak App Dashboard — built on Replit. Update this description to reflect the app." />
+    <meta property="og:description" content="Monitor app usage, nightly Clever syncs, and resource trends for Sage Oak schools in one place." />
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="/opengraph.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Sage Oak App Dashboard" />
-    <meta name="twitter:description" content="Sage Oak App Dashboard — built on Replit. Update this description to reflect the app." />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="twitter:description" content="Monitor app usage, nightly Clever syncs, and resource trends for Sage Oak schools in one place." />
+    <meta name="twitter:image" content="/opengraph.jpg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   </head>
   <body>
+    <script>
+      try {
+        var stored = localStorage.getItem("sageoak-theme");
+        var dark =
+          stored === "dark" ||
+          (stored !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
