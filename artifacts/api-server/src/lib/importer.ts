@@ -4,6 +4,7 @@ import { emitRosteringActivity } from "./activityEvents";
 import {
   db,
   raciRowsTable,
+  raciAssignmentsTable,
   applicationsTable,
   appTermStatusTable,
   termsTable,
@@ -534,6 +535,26 @@ export async function runImport(
           missing.map((a) => ({ applicationId: a.id, termId: currentTerm.id })),
         );
       }
+    }
+  }
+
+  // --- Orphaned RACI rows: assignments exist but no linked application ---
+  // App deletion nulls application_id and re-imports create apps under new
+  // ids; the re-link above only matches by exact name, so renamed apps still
+  // leave rows orphaned. Surface them so admins can re-link manually.
+  const unlinked = await db
+    .select()
+    .from(raciRowsTable)
+    .where(isNull(raciRowsTable.applicationId));
+  if (unlinked.length > 0) {
+    const allAssignments = await db.select().from(raciAssignmentsTable);
+    const assignedRowIds = new Set(allAssignments.map((a) => a.rowId));
+    const orphaned = unlinked.filter((r) => assignedRowIds.has(r.id));
+    if (orphaned.length > 0) {
+      const names = orphaned.map((r) => `"${r.name}"`).join(", ");
+      warnings.push(
+        `${orphaned.length} RACI ${orphaned.length === 1 ? "row has" : "rows have"} people assigned but no linked application: ${names}. If an app was renamed in this import, open the RACI page and re-link ${orphaned.length === 1 ? "it" : "them"} manually.`,
+      );
     }
   }
 

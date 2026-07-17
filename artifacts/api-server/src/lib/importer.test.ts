@@ -356,6 +356,53 @@ describe("side effects", () => {
     expect(rows.find((r) => r.name === "Seesaw")!.applicationId).toBe(999);
   });
 
+  it("warns about RACI rows with assignments but no linked application", async () => {
+    fakeDb.rows(tables.raciRowsTable).push(
+      { id: 1, name: "Old App Name", applicationId: null },
+      { id: 2, name: "Unassigned Row", applicationId: null },
+      { id: 3, name: "Linked Row", applicationId: 5 },
+    );
+    fakeDb.rows(tables.raciAssignmentsTable).push(
+      { id: 1, rowId: 1, memberId: 1, value: "A" },
+      { id: 2, rowId: 3, memberId: 1, value: "R" },
+    );
+    const result = ok(await runImport([EXPORT_PROPS], 1));
+    const warning = result.warnings.find((w) => w.includes("RACI"));
+    expect(warning).toBeDefined();
+    expect(warning).toContain('"Old App Name"');
+    expect(warning).not.toContain('"Unassigned Row"');
+    expect(warning).not.toContain('"Linked Row"');
+  });
+
+  it("does not warn when an import re-links the only orphaned RACI row", async () => {
+    fakeDb.rows(tables.raciRowsTable).push({ id: 1, name: "IXL", applicationId: null });
+    fakeDb.rows(tables.raciAssignmentsTable).push({
+      id: 1,
+      rowId: 1,
+      memberId: 1,
+      value: "A",
+    });
+    const result = ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content: "Application,Unique Users,Scoped Users\nIXL,120,150\n",
+          },
+        ],
+        1,
+      ),
+    );
+    expect(result.warnings.find((w) => w.includes("RACI"))).toBeUndefined();
+  });
+
+  it("does not warn about orphaned rows that have no assignments", async () => {
+    fakeDb.rows(tables.raciRowsTable).push({ id: 1, name: "No People", applicationId: null });
+    const result = ok(await runImport([EXPORT_PROPS], 1));
+    expect(result.warnings.find((w) => w.includes("RACI"))).toBeUndefined();
+  });
+
   it("writes an import log entry on success", async () => {
     await runImport([EXPORT_PROPS], 7);
     const logs = fakeDb.rows(tables.importLogTable);

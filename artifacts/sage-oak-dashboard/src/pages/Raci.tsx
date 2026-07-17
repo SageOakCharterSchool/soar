@@ -175,9 +175,17 @@ function memberAssignmentFingerprint(
     .join(",");
 }
 
-function rowWarnings(row: RaciRow): { multiA: boolean; noA: boolean } {
+function rowWarnings(row: RaciRow): {
+  multiA: boolean;
+  noA: boolean;
+  orphaned: boolean;
+} {
   const aCount = row.assignments.filter((a) => a.value === "A").length;
-  return { multiA: aCount > 1, noA: aCount === 0 };
+  return {
+    multiA: aCount > 1,
+    noA: aCount === 0,
+    orphaned: row.assignments.length > 0 && row.applicationId == null,
+  };
 }
 
 function NamePrompt({
@@ -1068,6 +1076,15 @@ function GroupRows({
                     className="h-4 border-transparent bg-amber-100 px-1.5 text-[10px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
                   >
                     No A
+                  </Badge>
+                )}
+                {warnings.orphaned && (
+                  <Badge
+                    variant="outline"
+                    className="h-4 border-transparent bg-orange-100 px-1.5 text-[10px] text-orange-900 dark:bg-orange-900/40 dark:text-orange-200"
+                    title="This task has people assigned but is not linked to any application. It may have been orphaned by an app rename or re-import — use the pencil to re-link it."
+                  >
+                    No app
                   </Badge>
                 )}
               </div>
