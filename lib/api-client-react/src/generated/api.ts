@@ -49,6 +49,7 @@ import type {
   ListIssuesParams,
   LoginInput,
   PublicAppSettings,
+  RaciAppOption,
   RaciCategoryRename,
   RaciCategoryRenameConflict,
   RaciCellConflict,
@@ -3737,6 +3738,83 @@ export function useGetRaciMatrix<TData = Awaited<ReturnType<typeof getRaciMatrix
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRaciMatrixQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListRaciAppOptionsUrl = () => {
+
+
+
+
+  return `/api/raci/app-options`
+}
+
+/**
+ * @summary Applications available for linking to RACI rows
+ */
+export const listRaciAppOptions = async ( options?: RequestInit): Promise<RaciAppOption[]> => {
+
+  return customFetch<RaciAppOption[]>(getListRaciAppOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRaciAppOptionsQueryKey = () => {
+    return [
+    `/api/raci/app-options`
+    ] as const;
+    }
+
+
+export const getListRaciAppOptionsQueryOptions = <TData = Awaited<ReturnType<typeof listRaciAppOptions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRaciAppOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRaciAppOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRaciAppOptions>>> = ({ signal }) => listRaciAppOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRaciAppOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRaciAppOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof listRaciAppOptions>>>
+export type ListRaciAppOptionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Applications available for linking to RACI rows
+ */
+
+export function useListRaciAppOptions<TData = Awaited<ReturnType<typeof listRaciAppOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRaciAppOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRaciAppOptionsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
