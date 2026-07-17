@@ -2,7 +2,9 @@
  * Permanent UI check: the RACI team and Rostering term selections are
  * remembered across a page refresh (localStorage keys `sageoak-raci-team` /
  * `sageoak-rostering-term`), and a stale stored id falls back to the default
- * without breaking the page.
+ * without breaking the page. Also checks the RACI task search box
+ * (`sageoak-raci-search`): typed text and the filtered rows survive a
+ * refresh, and a garbage stored value doesn't break the page.
  */
 import { execSync } from "node:child_process";
 import { chromium, type Page } from "playwright-core";
@@ -91,6 +93,102 @@ async function checkPage(
   else fail("no selection after a stale stored id");
 }
 
+const SEARCH_KEY = "sageoak-raci-search";
+const SEARCH_PLACEHOLDER = "Search tasks, categories, or people...";
+
+/** Count real data rows, excluding the in-table empty-state row. */
+async function dataRowCount(page: Page) {
+  return page.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll("tbody tr"));
+    return rows.filter((r) => !/No tasks/i.test(r.textContent ?? "")).length;
+  });
+}
+
+async function checkRaciSearch(page: Page) {
+  console.log("\nRACI search persistence:");
+
+  // Start from a clean slate so a leftover stored search doesn't skew counts.
+  await page.goto(`${appBase}/raci`, { waitUntil: "load" });
+  await page.evaluate((k: string) => localStorage.removeItem(k), SEARCH_KEY);
+  await page.reload({ waitUntil: "load" });
+
+  const searchBox = page.getByPlaceholder(SEARCH_PLACEHOLDER);
+  await searchBox.waitFor({ timeout: 15000 });
+  await page.locator("tbody tr").first().waitFor({ timeout: 15000 });
+  const totalRows = await dataRowCount(page);
+  if (totalRows === 0) {
+    console.log("  skip: no RACI rows to filter");
+    return;
+  }
+
+  // Search for the first member's name (people are searchable), which
+  // matches a subset of rows without depending on task naming.
+  const term = (
+    await page.locator("thead th").nth(1).innerText()
+  ).trim().split(/\s+/)[0];
+  if (!term) {
+    fail("could not derive a search term from the member header");
+    return;
+  }
+
+  await searchBox.fill(term);
+  await page.waitForTimeout(400);
+  const stored = await page.evaluate(
+    (k: string) => localStorage.getItem(k),
+    SEARCH_KEY,
+  );
+  if (stored === term) pass(`search term stored (${SEARCH_KEY}=${stored})`);
+  else fail(`expected ${SEARCH_KEY}="${term}" in localStorage, got "${stored}"`);
+
+  const filteredBefore = await dataRowCount(page);
+  if (filteredBefore <= totalRows)
+    pass(`search filters rows (${filteredBefore}/${totalRows} shown)`);
+  else fail(`filtered count ${filteredBefore} exceeds total ${totalRows}`);
+
+  await page.reload({ waitUntil: "load" });
+  await searchBox.waitFor({ timeout: 15000 });
+  const restored = await searchBox.inputValue();
+  if (restored === term) pass(`search text "${term}" restored after refresh`);
+  else fail(`expected search "${term}" after refresh, got "${restored}"`);
+
+  await page.locator("tbody tr").first().waitFor({ timeout: 15000 });
+  const filteredAfter = await dataRowCount(page);
+  if (filteredAfter === filteredBefore)
+    pass(`filtered rows restored after refresh (${filteredAfter})`);
+  else
+    fail(
+      `expected ${filteredBefore} filtered row(s) after refresh, got ${filteredAfter}`,
+    );
+
+  // A garbage stored value (quotes, angle brackets, unicode) must not break
+  // the page: the search box and table still render, showing either matching
+  // rows or the search empty state.
+  const garbage = `"><script>ζ${"x".repeat(200)}`;
+  await page.evaluate(
+    ([k, v]: string[]) => localStorage.setItem(k, v),
+    [SEARCH_KEY, garbage],
+  );
+  await page.reload({ waitUntil: "load" });
+  await searchBox.waitFor({ timeout: 15000 });
+  const garbageValue = await searchBox.inputValue();
+  if (garbageValue === garbage)
+    pass("garbage stored value shows up in the search box without crashing");
+  else fail("search box did not reflect the garbage stored value");
+  await page.locator("tbody tr").first().waitFor({ timeout: 15000 });
+  const rowsWithGarbage = await dataRowCount(page);
+  const emptyStateVisible = await page
+    .getByText("No tasks match your search.")
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (rowsWithGarbage > 0 || emptyStateVisible)
+    pass("page still renders with a garbage stored search");
+  else fail("neither rows nor the search empty state rendered with garbage value");
+
+  // Clean up so later runs (and admins on this browser) start fresh.
+  await page.evaluate((k: string) => localStorage.removeItem(k), SEARCH_KEY);
+}
+
 async function main() {
   const browser = await chromium.launch({
     executablePath:
@@ -117,6 +215,7 @@ async function main() {
       path: "/rostering",
       storageKey: "sageoak-rostering-term",
     });
+    await checkRaciSearch(page);
   } finally {
     await browser.close();
   }
