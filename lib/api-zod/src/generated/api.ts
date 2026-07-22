@@ -906,6 +906,16 @@ export const GetRaciMatrixResponse = zod.object({
 
 
 /**
+ * @summary Applications available for linking to RACI rows
+ */
+export const ListRaciAppOptionsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+})
+export const ListRaciAppOptionsResponse = zod.array(ListRaciAppOptionsResponseItem)
+
+
+/**
  * @summary Add a RACI row (admin)
  */
 

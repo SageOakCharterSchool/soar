@@ -852,6 +852,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RaciMatrix"
+  /raci/app-options:
+    get:
+      operationId: listRaciAppOptions
+      tags: [raci]
+      summary: Applications available for linking to RACI rows
+      responses:
+        "200":
+          description: Application options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RaciAppOption"
   /raci/rows:
     post:
       operationId: createRaciRow
@@ -1479,6 +1493,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RaciAssignment"
+    RaciAppOption:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }
     RaciTeamData:
       type: object
       required: [id, name, sortOrder, members, rows]

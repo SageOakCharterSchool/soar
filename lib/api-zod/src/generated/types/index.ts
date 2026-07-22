@@ -46,6 +46,7 @@ export * from './loginInput';
 export * from './mixSlice';
 export * from './notificationSettings';
 export * from './publicAppSettings';
+export * from './raciAppOption';
 export * from './raciAssignment';
 export * from './raciBoardPerson';
 export * from './raciCategoryRename';

@@ -317,6 +317,11 @@ export interface RaciRow {
   assignments: RaciAssignment[];
 }
 
+export interface RaciAppOption {
+  id: number;
+  name: string;
+}
+
 export interface RaciTeamData {
   id: number;
   name: string;

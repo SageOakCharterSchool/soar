@@ -12,6 +12,7 @@ import {
   useSetRaciCell,
   useRenameRaciCategory,
   useListUserOptions,
+  useListRaciAppOptions,
   useGetPublicAppSettings,
   type RaciTeamData,
   type RaciRow,
@@ -57,6 +58,7 @@ import {
   AlertTriangle,
   Download,
   ExternalLink,
+  Link2,
   Pencil,
   Plus,
   Trash2,
@@ -173,9 +175,17 @@ function memberAssignmentFingerprint(
     .join(",");
 }
 
-function rowWarnings(row: RaciRow): { multiA: boolean; noA: boolean } {
+function rowWarnings(row: RaciRow): {
+  multiA: boolean;
+  noA: boolean;
+  orphaned: boolean;
+} {
   const aCount = row.assignments.filter((a) => a.value === "A").length;
-  return { multiA: aCount > 1, noA: aCount === 0 };
+  return {
+    multiA: aCount > 1,
+    noA: aCount === 0,
+    orphaned: row.assignments.length > 0 && row.applicationId == null,
+  };
 }
 
 function NamePrompt({
@@ -224,6 +234,77 @@ function NamePrompt({
             Cancel
           </Button>
           <Button onClick={() => name.trim() && onSave(name.trim())} disabled={pending || !name.trim()}>
+            {pending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const NO_APP = "__none__";
+
+function LinkAppDialog({
+  row,
+  open,
+  onOpenChange,
+  onSave,
+  pending,
+}: {
+  row: RaciRow;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onSave: (applicationId: number | null) => void;
+  pending: boolean;
+}) {
+  const { data: apps, isLoading } = useListRaciAppOptions();
+  const [selected, setSelected] = useState<string>(
+    row.applicationId != null ? String(row.applicationId) : NO_APP,
+  );
+  const applicationId = selected === NO_APP ? null : Number(selected);
+  const unchanged = applicationId === (row.applicationId ?? null);
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o)
+          setSelected(
+            row.applicationId != null ? String(row.applicationId) : NO_APP,
+          );
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Linked app for "{row.name}"</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label>Application</Label>
+          <Select value={selected} onValueChange={setSelected}>
+            <SelectTrigger aria-label="Linked application">
+              <SelectValue
+                placeholder={isLoading ? "Loading apps..." : "Choose an app"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_APP}>None (no linked app)</SelectItem>
+              {(apps ?? []).map((a) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Linking shows this task's role assignments as chips on the
+            Rostering board for that app.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => onSave(applicationId)} disabled={pending || unchanged}>
             {pending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
@@ -420,6 +501,7 @@ function TeamMatrix({
   };
 
   const [editRow, setEditRow] = useState<RaciRow | null>(null);
+  const [linkRow, setLinkRow] = useState<RaciRow | null>(null);
   const [editMember, setEditMember] = useState<RaciMember | null>(null);
   const [editCategory, setEditCategory] = useState<string | null>(null);
   const [addRowCategory, setAddRowCategory] = useState<string | null | false>(false);
@@ -693,6 +775,7 @@ function TeamMatrix({
                   onRenameCategory={setEditCategory}
                   onAddRow={(category) => setAddRowCategory(category)}
                   onOpenApp={() => setLocation("/rostering")}
+                  onLinkApp={setLinkRow}
                   highlightAppId={highlightAppId}
                 />
               ))}
@@ -707,6 +790,36 @@ function TeamMatrix({
         </Button>
       )}
 
+      {linkRow && (
+        <LinkAppDialog
+          row={linkRow}
+          open={linkRow != null}
+          onOpenChange={(o) => !o && setLinkRow(null)}
+          pending={updateRow.isPending}
+          onSave={(applicationId) =>
+            updateRow.mutate(
+              { id: linkRow.id, data: { applicationId } },
+              {
+                onSuccess: () => {
+                  invalidate();
+                  setLinkRow(null);
+                  toast({
+                    title:
+                      applicationId != null
+                        ? "App linked"
+                        : "App link cleared",
+                    description:
+                      applicationId != null
+                        ? `"${linkRow.name}" now shows its role chips on the Rostering board.`
+                        : `"${linkRow.name}" is no longer linked to an app.`,
+                  });
+                },
+                onError,
+              },
+            )
+          }
+        />
+      )}
       {editRow && (
         <NamePrompt
           title="Rename task"
@@ -845,6 +958,7 @@ function GroupRows({
   onRenameCategory,
   onAddRow,
   onOpenApp,
+  onLinkApp,
   highlightAppId,
 }: {
   group: { category: string | null; rows: RaciRow[] };
@@ -857,6 +971,7 @@ function GroupRows({
   onRenameCategory: (category: string) => void;
   onAddRow: (category: string | null) => void;
   onOpenApp: () => void;
+  onLinkApp: (row: RaciRow) => void;
   highlightAppId: number | null;
 }) {
   const colSpan = team.members.length + (isAdmin ? 2 : 1);
@@ -915,16 +1030,38 @@ function GroupRows({
             <TableCell>
               <div className="flex items-center gap-1.5">
                 <span className="font-medium">{row.name}</span>
-                {row.applicationId != null && (
+                {row.applicationId != null ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    <button
+                      className="inline-flex items-center gap-0.5 text-xs text-sky-700 hover:underline dark:text-sky-400"
+                      onClick={onOpenApp}
+                      title={`Linked to ${row.appName ?? "an app"} — open the Rostering board`}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {row.appName ?? "Rostering"}
+                    </button>
+                    {isAdmin && (
+                      <button
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={`Change linked app for ${row.name}`}
+                        title="Change or clear the linked app"
+                        onClick={() => onLinkApp(row)}
+                      >
+                        <Link2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </span>
+                ) : isAdmin ? (
                   <button
-                    className="inline-flex items-center gap-0.5 text-xs text-sky-700 hover:underline dark:text-sky-400"
-                    onClick={onOpenApp}
-                    title={`Open ${row.appName ?? row.name} on the Rostering board`}
+                    className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={`Link ${row.name} to an app`}
+                    title="Link this task to an app so its role chips show on the Rostering board"
+                    onClick={() => onLinkApp(row)}
                   >
-                    <ExternalLink className="h-3 w-3" />
-                    Rostering
+                    <Link2 className="h-3 w-3" />
+                    Link app
                   </button>
-                )}
+                ) : null}
                 {warnings.multiA && (
                   <span
                     title="More than one person is Accountable for this task"
@@ -939,6 +1076,15 @@ function GroupRows({
                     className="h-4 border-transparent bg-amber-100 px-1.5 text-[10px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
                   >
                     No A
+                  </Badge>
+                )}
+                {warnings.orphaned && (
+                  <Badge
+                    variant="outline"
+                    className="h-4 border-transparent bg-orange-100 px-1.5 text-[10px] text-orange-900 dark:bg-orange-900/40 dark:text-orange-200"
+                    title="This task has people assigned but is not linked to any application. It may have been orphaned by an app rename or re-import — use the pencil to re-link it."
+                  >
+                    No app
                   </Badge>
                 )}
               </div>

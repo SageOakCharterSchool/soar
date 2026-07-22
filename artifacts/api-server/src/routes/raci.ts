@@ -150,6 +150,15 @@ async function matchApplicationByName(name: string): Promise<number | null> {
   return match?.id ?? null;
 }
 
+// Applications available for linking to RACI rows (dropdown options).
+router.get("/raci/app-options", requireAuth, async (_req, res): Promise<void> => {
+  const apps = await db
+    .select({ id: applicationsTable.id, name: applicationsTable.name })
+    .from(applicationsTable)
+    .orderBy(asc(applicationsTable.name));
+  res.json(apps);
+});
+
 router.post("/raci/rows", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateRaciRowBody.safeParse(req.body);
   if (!parsed.success) {

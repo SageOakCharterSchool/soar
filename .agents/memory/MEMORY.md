@@ -15,4 +15,5 @@
 - [RACI empty-state UI checks](raci-empty-state-check.md) — in-table empty-state messages are tbody rows, so "no rows" guards based on tr counts never fire; exclude them first.
 - [Count-based toast waits are flaky](toast-count-waits-flaky.md) — TOAST_LIMIT caps visible count and toasts auto-dismiss ~5s; wait on unique toast text started before the action instead.
 - [Drizzle text enum is TS-only](drizzle-text-enum-ts-only.md) — text({enum}) has no DB constraint; widening allowed values is a schema-type edit, not a migration.
+- [RACI link lifecycle](raci-link-lifecycle.md) — board chips die silently when app re-imports orphan raci_rows.application_id; app-creating code must relink by name.
 - [GitHub push via connector token](github-push-via-connector.md) — when Git pane auth is broken, the GitHub connector token can push over HTTPS; must override lfs.url to GitHub or LFS hangs on the ssh proxy.
