@@ -628,8 +628,9 @@ describe("requests (enhancement requests)", () => {
     const activity = fakeDb
       .rows(tables.appActivityTable)
       .find((e) => e.eventType === "request_submitted");
-    expect(activity!.detail.length).toBeLessThan(200);
-    expect(activity!.detail).toContain("...");
+    const detail = activity!.detail as string;
+    expect(detail.length).toBeLessThan(200);
+    expect(detail).toContain("...");
   });
 
   it("rejects an invalid status filter with 400", async () => {

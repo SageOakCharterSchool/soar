@@ -21,6 +21,7 @@
     "raci-reimport-chip-check": "tsx ./src/raci-reimport-chip-check.ts",
     "raci-highlight-fade-check": "tsx ./src/raci-highlight-fade-check.ts",
     "prod-login-check": "tsx ./src/prod-login-check.ts",
+    "requests-ui-check": "tsx ./src/requests-ui-check.ts",
     "stored-filter-check": "tsx ./src/stored-filter-check.ts",
     "sse-stream-check": "tsx ./src/sse-stream-check.ts",
     "og-preview-check": "tsx ./src/og-preview-check.ts",
