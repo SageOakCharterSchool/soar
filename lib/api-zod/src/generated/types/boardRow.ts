@@ -10,6 +10,7 @@ import type { RaciBoardPerson } from './raciBoardPerson';
 export interface BoardRow {
   applicationId: number;
   appName: string;
+  dayOneCritical: boolean;
   /** @nullable */
   category?: string | null;
   statusId: number;

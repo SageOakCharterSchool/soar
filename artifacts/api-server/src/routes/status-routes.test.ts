@@ -118,7 +118,7 @@ function seedTerm(overrides: Record<string, unknown> = {}) {
 }
 
 function seedApp(name: string, category: string | null = "Math") {
-  const app = { id: ++state.idCounter, name, category, createdAt: new Date() };
+  const app = { id: ++state.idCounter, name, category, dayOneCritical: false, createdAt: new Date() };
   fakeDb.rows(tables.applicationsTable).push(app);
   return app;
 }
@@ -463,6 +463,143 @@ describe("GET /api/rostering/board", () => {
       openIssueCount: 0,
       updatedByName: null,
     });
+  });
+  it("includes the day-one critical flag on board rows", async () => {
+    const term = seedTerm();
+    const critical = seedApp("Critical App");
+    critical.dayOneCritical = true;
+    const normal = seedApp("Normal App");
+    seedStatus(critical.id, term.id);
+    seedStatus(normal.id, term.id);
+
+    const client = await loginAs(STAFF);
+    const res = await client.get(`/rostering/board?termId=${term.id}`);
+    expect(res.status).toBe(200);
+    const byName = new Map(res.body.map((r: { appName: string }) => [r.appName, r]));
+    expect(byName.get("Critical App")).toMatchObject({ dayOneCritical: true });
+    expect(byName.get("Normal App")).toMatchObject({ dayOneCritical: false });
+  });
+});
+
+describe("POST /api/apps (manual app creation)", () => {
+  it("requires admin", async () => {
+    const term = seedTerm();
+    const body = { name: "VLA", termId: term.id };
+    expect((await new Client().post("/apps", body)).status).toBe(401);
+    const staff = await loginAs(STAFF);
+    expect((await staff.post("/apps", body)).status).toBe(403);
+  });
+
+  it("rejects an invalid body", async () => {
+    const admin = await loginAs(ADMIN);
+    expect((await admin.post("/apps", {})).status).toBe(400);
+    expect((await admin.post("/apps", { name: "", termId: 1 })).status).toBe(400);
+    expect((await admin.post("/apps", { name: "   ", termId: seedTerm().id })).status).toBe(400);
+  });
+
+  it("returns 404 for an unknown term", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", { name: "VLA", termId: 99999 });
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects duplicate names case-insensitively with 409", async () => {
+    const term = seedTerm();
+    seedApp("Zoom");
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", { name: "  zoom ", termId: term.id });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("Zoom");
+  });
+
+  it("rejects an inactive sharing status option", async () => {
+    const term = seedTerm();
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", {
+      name: "VLA",
+      termId: term.id,
+      studentSharingStatus: "definitely_not_a_status",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("creates the app, its status row for the term, and an activity event", async () => {
+    const term = seedTerm();
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", {
+      name: "VLA",
+      termId: term.id,
+      category: "Custom Rostering — VLA",
+      owner: "Administrator",
+      notes: "Sections and enrollments handled by custom rostering",
+      studentSharingStatus: "in_progress",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ name: "VLA", category: "Custom Rostering — VLA" });
+
+    const app = fakeDb
+      .rows(tables.applicationsTable)
+      .find((a) => a.name === "VLA");
+    expect(app).toBeTruthy();
+    const status = fakeDb
+      .rows(tables.appTermStatusTable)
+      .find((s) => s.applicationId === app!.id && s.termId === term.id);
+    expect(status).toMatchObject({
+      studentSharingStatus: "in_progress",
+      staffSharingStatus: "not_started",
+      owner: "Administrator",
+    });
+    const activity = fakeDb
+      .rows(tables.appActivityTable)
+      .find((e) => e.applicationId === app!.id);
+    expect(activity).toMatchObject({ eventType: "app_added" });
+    expect(activity!.detail).toContain("Added manually");
+
+    // The new app appears on the board for that term.
+    const board = await admin.get(`/rostering/board?termId=${term.id}`);
+    expect(board.status).toBe(200);
+    expect(board.body.some((r: any) => r.appName === "VLA")).toBe(true);
+  });
+});
+
+describe("PATCH /api/apps/:id/day-one-critical", () => {
+  it("requires admin", async () => {
+    const app = seedApp("Alpha");
+    expect(
+      (await new Client().patch(`/apps/${app.id}/day-one-critical`, { dayOneCritical: true })).status,
+    ).toBe(401);
+    const staff = await loginAs(STAFF);
+    const res = await staff.patch(`/apps/${app.id}/day-one-critical`, { dayOneCritical: true });
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects an invalid body", async () => {
+    const app = seedApp("Alpha");
+    const admin = await loginAs(ADMIN);
+    expect((await admin.patch(`/apps/${app.id}/day-one-critical`, {})).status).toBe(400);
+    expect(
+      (await admin.patch(`/apps/${app.id}/day-one-critical`, { dayOneCritical: "yes" })).status,
+    ).toBe(400);
+  });
+
+  it("returns 404 for an unknown app", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.patch("/apps/99999/day-one-critical", { dayOneCritical: true });
+    expect(res.status).toBe(404);
+  });
+
+  it("flags and unflags an app", async () => {
+    const app = seedApp("Alpha");
+    const admin = await loginAs(ADMIN);
+    const on = await admin.patch(`/apps/${app.id}/day-one-critical`, { dayOneCritical: true });
+    expect(on.status).toBe(200);
+    expect(on.body).toEqual({ applicationId: app.id, dayOneCritical: true });
+    expect(
+      fakeDb.rows(tables.applicationsTable).find((a) => a.id === app.id)?.dayOneCritical,
+    ).toBe(true);
+    const off = await admin.patch(`/apps/${app.id}/day-one-critical`, { dayOneCritical: false });
+    expect(off.status).toBe(200);
+    expect(off.body).toEqual({ applicationId: app.id, dayOneCritical: false });
   });
 });
 

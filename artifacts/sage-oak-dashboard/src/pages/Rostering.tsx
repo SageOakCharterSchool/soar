@@ -6,6 +6,8 @@ import {
   useToggleUpvote,
   useReportIssue,
   useUpdateAppTermStatus,
+  useUpdateAppDayOneCritical,
+  useCreateApp,
   useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
@@ -663,10 +665,13 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
+  const updateDayOne = useUpdateAppDayOneCritical();
+  const [dayOneCritical, setDayOneCritical] = useState(row.dayOneCritical);
   const { data: userOptions = [] } = useListUserOptions();
   const { options: statusOptions, activeOptions } = useStatusOptions();
 
-  const openWith = () =>
+  const openWith = () => {
+    setDayOneCritical(row.dayOneCritical);
     setForm({
       studentSharingStatus: row.studentSharingStatus,
       staffSharingStatus: row.staffSharingStatus,
@@ -675,12 +680,27 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
       owner: row.owner ?? undefined,
       notes: row.notes ?? undefined,
     });
+  };
 
   const save = () =>
     update.mutate(
       { id: row.statusId, data: form },
       {
         onSuccess: () => {
+          if (dayOneCritical !== row.dayOneCritical) {
+            updateDayOne.mutate(
+              { id: row.applicationId, data: { dayOneCritical } },
+              {
+                onSuccess: () => invalidateBoard(queryClient),
+                onError: (err: any) =>
+                  toast({
+                    title: "Day 1 flag not saved",
+                    description: err?.data?.message ?? "Try again.",
+                    variant: "destructive",
+                  }),
+              },
+            );
+          }
           invalidateBoard(queryClient);
           setOpen(false);
         },
@@ -733,6 +753,14 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
         <div className="grid grid-cols-2 gap-4">
           {statusSelect("studentSharingStatus", "Student data sharing")}
           {statusSelect("staffSharingStatus", "Staff data sharing")}
+          <label className="col-span-2 flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={dayOneCritical}
+              onCheckedChange={(v) => setDayOneCritical(v === true)}
+              data-testid="checkbox-day-one-critical"
+            />
+            Critically needed for day one of the school year
+          </label>
           <div className="space-y-1.5">
             <Label>Sync method</Label>
             <Select
@@ -845,6 +873,162 @@ function ReportIssueDialog({ row }: { row: BoardRow }) {
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={submit} disabled={!comment.trim() || report.isPending}>
             {report.isPending ? "Submitting..." : "Submit"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// The custom rostering programs whose sections/enrollments are managed
+// outside Clever; offered as one-click choices when manually adding an app.
+const CUSTOM_ROSTERING_PROGRAMS = ["VLA", "PLA", "HS", "OakSchool", "MTSS", "Sped"];
+
+function AddAppDialog({ termId }: { termId: number }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [notes, setNotes] = useState("");
+  const [owner, setOwner] = useState<string>(NO_OWNER);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const createApp = useCreateApp();
+  const { data: userOptions = [] } = useListUserOptions();
+
+  const reset = () => {
+    setName("");
+    setCategory("");
+    setNotes("");
+    setOwner(NO_OWNER);
+  };
+
+  const pickProgram = (program: string) => {
+    setName(program);
+    setCategory(`Custom Rostering — ${program}`);
+  };
+
+  const submit = () => {
+    if (!name.trim()) return;
+    createApp.mutate(
+      {
+        data: {
+          name: name.trim(),
+          termId,
+          category: category.trim() || null,
+          owner: owner === NO_OWNER ? null : owner,
+          notes: notes.trim() || null,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          invalidateBoard(queryClient);
+          setOpen(false);
+          reset();
+          toast({
+            title: "App added",
+            description: `${res.name} is now on this term's board.`,
+          });
+        },
+        onError: (err: any) =>
+          toast({
+            title: "Could not add app",
+            description: err?.data?.message ?? "Try again.",
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+      <DialogTrigger asChild>
+        <Button size="sm" data-testid="button-add-app">
+          <PlusCircle className="h-4 w-4 mr-1.5" /> Add app
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add an app manually</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          For apps that aren't imported from Clever — like the custom rostering
+          programs. The app is added to the currently selected term's board.
+        </p>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Custom rostering programs</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {CUSTOM_ROSTERING_PROGRAMS.map((p) => (
+                <Button
+                  key={p}
+                  size="sm"
+                  variant={name === p ? "default" : "outline"}
+                  onClick={() => pickProgram(p)}
+                  data-testid={`button-program-${p}`}
+                >
+                  {p}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Click a program to fill in the fields, or type your own below.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-app-name">Name</Label>
+            <Input
+              id="add-app-name"
+              value={name}
+              placeholder="e.g. VLA"
+              onChange={(e) => setName(e.target.value)}
+              data-testid="input-app-name"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-app-category">Category / program label</Label>
+            <Input
+              id="add-app-category"
+              value={category}
+              placeholder="e.g. Custom Rostering — VLA"
+              onChange={(e) => setCategory(e.target.value)}
+              data-testid="input-app-category"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Owner</Label>
+            <Select value={owner} onValueChange={setOwner}>
+              <SelectTrigger><SelectValue placeholder="Who is responsible?" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_OWNER}>
+                  <span className="text-muted-foreground">No owner</span>
+                </SelectItem>
+                {userOptions.map((u) => (
+                  <SelectItem key={u.id} value={u.displayName}>
+                    {u.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-app-notes">Notes</Label>
+            <Textarea
+              id="add-app-notes"
+              value={notes}
+              rows={2}
+              placeholder="Optional — e.g. sections and enrollments handled by our custom rostering"
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            onClick={submit}
+            disabled={!name.trim() || createApp.isPending}
+            data-testid="button-add-app-submit"
+          >
+            {createApp.isPending ? "Adding..." : "Add app"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1040,6 +1224,11 @@ export default function Rostering() {
     false,
     parseBool,
   );
+  const [dayOneOnly, setDayOneOnly] = useStoredValue<boolean>(
+    "sageoak-rostering-day-one",
+    false,
+    parseBool,
+  );
   // A stored status that no longer exists (option removed/renamed) falls
   // back to "all" instead of silently filtering everything out.
   const statusFilter =
@@ -1066,6 +1255,7 @@ export default function Rostering() {
       );
     }
     if (openIssuesOnly) out = out.filter((r) => r.openIssueCount > 0);
+    if (dayOneOnly) out = out.filter((r) => r.dayOneCritical);
     out.sort((a, b) => {
       if (sortKey === "upvotes") return b.upvoteCount - a.upvoteCount;
       if (sortKey === "updated")
@@ -1073,7 +1263,7 @@ export default function Rostering() {
       return a.appName.localeCompare(b.appName);
     });
     return out;
-  }, [board, statusFilter, search, sortKey, openIssuesOnly]);
+  }, [board, statusFilter, search, sortKey, openIssuesOnly, dayOneOnly]);
 
   // Column-header sorting layered on top of the dropdown sort — when no
   // header is active, the dropdown order above is preserved.
@@ -1100,6 +1290,7 @@ export default function Rostering() {
         <div className="flex items-center gap-2">
           {isAdmin && <ArchiveDialog />}
           {isAdmin && sortedTerms.length > 0 && <TermAdminDialog terms={sortedTerms} />}
+          {isAdmin && termId != null && <AddAppDialog termId={termId} />}
         </div>
       </div>
 
@@ -1172,6 +1363,14 @@ export default function Rostering() {
           />
           Open issues only
         </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+          <Checkbox
+            checked={dayOneOnly}
+            onCheckedChange={(v) => setDayOneOnly(v === true)}
+            data-testid="checkbox-day-one-only"
+          />
+          Day 1 critical only
+        </label>
       </div>
 
       {isLoading ? (
@@ -1208,6 +1407,15 @@ export default function Rostering() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <span className="font-medium">{row.appName}</span>
+                        {row.dayOneCritical && (
+                          <Badge
+                            className="shrink-0 border-transparent bg-orange-100 text-orange-900 hover:bg-orange-100 dark:bg-orange-900/40 dark:text-orange-200"
+                            title="Critically needed for day one of the school year"
+                            data-testid={`badge-day-one-${row.applicationId}`}
+                          >
+                            Day 1
+                          </Badge>
+                        )}
                         {isRecent(row.updatedAt) && (
                           <span
                             className="h-2 w-2 rounded-full bg-amber-500 shrink-0"

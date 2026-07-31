@@ -425,6 +425,12 @@ export class FakeDb {
   async execute() {
     return { rows: [] };
   }
+
+  // Minimal transaction support: runs the callback against the same store.
+  // No rollback semantics — tests assert behavior, not atomicity.
+  async transaction<T>(fn: (tx: FakeDb) => Promise<T>): Promise<T> {
+    return fn(this);
+  }
 }
 
 export const fakeDb = new FakeDb();

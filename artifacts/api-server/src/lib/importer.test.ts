@@ -214,6 +214,42 @@ describe("tolerant header parsing", () => {
   });
 });
 
+describe("manually added apps are adopted, not duplicated", () => {
+  it("an import whose usage file names an existing manual app does not create a second application", async () => {
+    // Simulate an admin having manually added "VLA" before it ever appears
+    // in a usage upload.
+    fakeDb.rows(tables.applicationsTable).push({
+      id: 500,
+      name: "VLA",
+      category: "Custom Rostering — VLA",
+      cleverAppId: null,
+      dayOneCritical: false,
+      createdAt: new Date(),
+    });
+    ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content: "Application,Unique Users,Scoped Users\nVLA,40,50\nIXL,120,150\n",
+          },
+        ],
+        1,
+      ),
+    );
+    const apps = fakeDb.rows(tables.applicationsTable);
+    expect(apps.filter((a) => a.name === "VLA")).toHaveLength(1);
+    // Manual metadata is preserved — import must not overwrite it.
+    expect(apps.find((a) => a.name === "VLA")).toMatchObject({
+      id: 500,
+      category: "Custom Rostering — VLA",
+    });
+    // The genuinely new app is still created.
+    expect(apps.some((a) => a.name === "IXL")).toBe(true);
+  });
+});
+
 describe("snapshot replacement (upsert by snapshot date)", () => {
   it("re-importing the same snapshot date updates rows instead of duplicating", async () => {
     const first = ok(
@@ -354,6 +390,73 @@ describe("side effects", () => {
     expect(rows.find((r) => r.name === "Domain DNS")!.applicationId).toBeNull();
     // Already-linked rows are never re-pointed.
     expect(rows.find((r) => r.name === "Seesaw")!.applicationId).toBe(999);
+  });
+
+  it("re-links rows whose names differ only by punctuation or symbols", async () => {
+    fakeDb.rows(tables.raciRowsTable).push(
+      { id: 1, name: "Khan Academy ", applicationId: null },
+      { id: 2, name: "See-Saw!", applicationId: null },
+    );
+    await runImport(
+      [
+        EXPORT_PROPS,
+        {
+          name: "UsageByApp.csv",
+          content:
+            "Application,Unique Users,Scoped Users\nKhan Academy®,120,150\nSeesaw,80,150\n",
+        },
+      ],
+      1,
+    );
+    const apps = fakeDb.rows(tables.applicationsTable);
+    const khan = apps.find((a) => a.name === "Khan Academy®")!;
+    const seesaw = apps.find((a) => a.name === "Seesaw")!;
+    const rows = fakeDb.rows(tables.raciRowsTable);
+    expect(rows.find((r) => r.id === 1)!.applicationId).toBe(khan.id);
+    expect(rows.find((r) => r.id === 2)!.applicationId).toBe(seesaw.id);
+  });
+
+  it("does not fuzzy-link when two new apps collide on the normalized name", async () => {
+    fakeDb.rows(tables.raciRowsTable).push({ id: 1, name: "see saw", applicationId: null });
+    const result = ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content:
+              "Application,Unique Users,Scoped Users\nSee-Saw,120,150\nSeesaw,80,150\n",
+          },
+        ],
+        1,
+      ),
+    );
+    const rows = fakeDb.rows(tables.raciRowsTable);
+    expect(rows.find((r) => r.id === 1)!.applicationId).toBeNull();
+    expect(result.warnings.some((w) => w.includes('"see saw"'))).toBe(true);
+  });
+
+  it("warns about unlinked rows without assignments when the import added new apps", async () => {
+    fakeDb.rows(tables.raciRowsTable).push({
+      id: 1,
+      name: "Totally Different Name",
+      applicationId: null,
+    });
+    const result = ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content: "Application,Unique Users,Scoped Users\nIXL,120,150\n",
+          },
+        ],
+        1,
+      ),
+    );
+    const warning = result.warnings.find((w) => w.includes("could not be matched"));
+    expect(warning).toBeDefined();
+    expect(warning).toContain('"Totally Different Name"');
   });
 
   it("warns about RACI rows with assignments but no linked application", async () => {

@@ -242,6 +242,7 @@ export const GetRosteringBoardQueryParams = zod.object({
 export const GetRosteringBoardResponseItem = zod.object({
   "applicationId": zod.number(),
   "appName": zod.string(),
+  "dayOneCritical": zod.boolean(),
   "category": zod.string().nullish(),
   "statusId": zod.number(),
   "studentSharingStatus": zod.string(),
@@ -404,6 +405,47 @@ export const MarkIssuesSeenResponse = zod.object({
  */
 export const GetIssuesUnseenCountResponse = zod.object({
   "count": zod.number()
+})
+
+
+/**
+ * @summary Manually add an application not imported from Clever (admin)
+ */
+
+
+
+export const CreateAppBody = zod.object({
+  "name": zod.string().min(1),
+  "termId": zod.number(),
+  "category": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "studentSharingStatus": zod.string().optional(),
+  "staffSharingStatus": zod.string().optional()
+})
+
+export const CreateAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullish(),
+  "statusId": zod.number()
+})
+
+
+/**
+ * @summary Flag or unflag an app as day-one critical (admin)
+ */
+export const UpdateAppDayOneCriticalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAppDayOneCriticalBody = zod.object({
+  "dayOneCritical": zod.boolean()
+})
+
+export const UpdateAppDayOneCriticalResponse = zod.object({
+  "applicationId": zod.number(),
+  "dayOneCritical": zod.boolean()
 })
 
 
