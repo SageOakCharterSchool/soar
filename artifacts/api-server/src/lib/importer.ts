@@ -475,6 +475,7 @@ export async function runImport(
   }
 
   // --- Seed applications + not_started status rows for the current term ---
+  let newAppsAdded = false;
   if (appNames.size > 0) {
     const existingApps = await db.select().from(applicationsTable);
     const known = new Set(existingApps.map((a) => a.name));
@@ -485,6 +486,7 @@ export async function runImport(
         .insert(applicationsTable)
         .values(newNames.map((name) => ({ name })))
         .returning({ id: applicationsTable.id, name: applicationsTable.name });
+      newAppsAdded = true;
     }
     const [currentTerm] = await db
       .select()
@@ -500,9 +502,26 @@ export async function runImport(
         .where(isNull(raciRowsTable.applicationId));
       if (unlinkedRows.length > 0) {
         const norm = (s: string) => s.trim().toLowerCase();
+        // Fuzzy form: strip everything except letters/digits so names that
+        // differ only by spacing, punctuation, or symbols (e.g. "Khan
+        // Academy®" vs "Khan Academy ") still match.
+        const fuzzy = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
         const appByName = new Map(insertedApps.map((a) => [norm(a.name), a.id]));
+        // Only allow fuzzy matches that are unambiguous among the new apps.
+        const fuzzyCounts = new Map<string, number>();
+        for (const a of insertedApps) {
+          const key = fuzzy(a.name);
+          fuzzyCounts.set(key, (fuzzyCounts.get(key) ?? 0) + 1);
+        }
+        const appByFuzzy = new Map<string, number>();
+        for (const a of insertedApps) {
+          const key = fuzzy(a.name);
+          if (key.length > 0 && fuzzyCounts.get(key) === 1) {
+            appByFuzzy.set(key, a.id);
+          }
+        }
         for (const row of unlinkedRows) {
-          const appId = appByName.get(norm(row.name));
+          const appId = appByName.get(norm(row.name)) ?? appByFuzzy.get(fuzzy(row.name));
           if (appId != null) {
             await db
               .update(raciRowsTable)
@@ -554,6 +573,16 @@ export async function runImport(
       const names = orphaned.map((r) => `"${r.name}"`).join(", ");
       warnings.push(
         `${orphaned.length} RACI ${orphaned.length === 1 ? "row has" : "rows have"} people assigned but no linked application: ${names}. If an app was renamed in this import, open the RACI page and re-link ${orphaned.length === 1 ? "it" : "them"} manually.`,
+      );
+    }
+    // When this upload created new applications, also surface unlinked rows
+    // without assignments — a name mismatch (spacing, punctuation, rename)
+    // just prevented an automatic re-link and the board chip stays missing.
+    const missed = unlinked.filter((r) => !assignedRowIds.has(r.id));
+    if (newAppsAdded && missed.length > 0) {
+      const names = missed.map((r) => `"${r.name}"`).join(", ");
+      warnings.push(
+        `${missed.length} RACI ${missed.length === 1 ? "row" : "rows"} could not be matched to any application added by this import: ${names}. If the app name changed slightly, open the RACI page and re-link ${missed.length === 1 ? "it" : "them"} manually.`,
       );
     }
   }
