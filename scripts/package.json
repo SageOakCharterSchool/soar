@@ -26,6 +26,7 @@
     "og-preview-check": "tsx ./src/og-preview-check.ts",
     "issues-legacy-date-check": "tsx ./src/issues-legacy-date-check.ts",
     "settings-ui-check": "tsx ./src/settings-ui-check.ts",
+    "app-rename-delete-check": "tsx ./src/app-rename-delete-check.ts",
     "generate-raci-seed": "tsx ./src/generate-raci-seed.ts",
     "verify-migrations": "tsx ./src/verify-migrations.ts",
     "lint-migrations": "tsx ./src/lint-migrations.ts",
