@@ -23,6 +23,9 @@ import type {
   ActivityEvent,
   ApiMessage,
   AppEngagementRow,
+  AppRequest,
+  AppRequestInput,
+  AppRequestUpdate,
   AppSettings,
   AppSettingsUpdate,
   AppTermStatus,
@@ -52,6 +55,7 @@ import type {
   IssueInput,
   IssueUpdate,
   ListIssuesParams,
+  ListRequestsParams,
   LoginInput,
   PublicAppSettings,
   RaciAppOption,
@@ -2665,6 +2669,304 @@ export const useDeleteIssue = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteIssueMutationOptions(options));
+    }
+
+export const getListRequestsUrl = (params?: ListRequestsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/requests?${stringifiedParams}` : `/api/requests`
+}
+
+/**
+ * @summary List enhancement requests across all apps
+ */
+export const listRequests = async (params?: ListRequestsParams, options?: RequestInit): Promise<AppRequest[]> => {
+
+  return customFetch<AppRequest[]>(getListRequestsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRequestsQueryKey = (params?: ListRequestsParams,) => {
+    return [
+    `/api/requests`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listRequests>>, TError = ErrorType<unknown>>(params?: ListRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRequestsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRequests>>> = ({ signal }) => listRequests(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listRequests>>>
+export type ListRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List enhancement requests across all apps
+ */
+
+export function useListRequests<TData = Awaited<ReturnType<typeof listRequests>>, TError = ErrorType<unknown>>(
+ params?: ListRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRequestsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRequestUrl = () => {
+
+
+
+
+  return `/api/requests`
+}
+
+/**
+ * @summary Submit an enhancement request (any signed-in user)
+ */
+export const createRequest = async (appRequestInput: AppRequestInput, options?: RequestInit): Promise<AppRequest> => {
+
+  return customFetch<AppRequest>(getCreateRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(appRequestInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRequestMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRequest>>, TError,{data: BodyType<AppRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRequest>>, TError,{data: BodyType<AppRequestInput>}, TContext> => {
+
+const mutationKey = ['createRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRequest>>, {data: BodyType<AppRequestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createRequest>>>
+    export type CreateRequestMutationBody = BodyType<AppRequestInput>
+    export type CreateRequestMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Submit an enhancement request (any signed-in user)
+ */
+export const useCreateRequest = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRequest>>, TError,{data: BodyType<AppRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRequest>>,
+        TError,
+        {data: BodyType<AppRequestInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRequestMutationOptions(options));
+    }
+
+export const getUpdateRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/requests/${id}`
+}
+
+/**
+ * @summary Move a request through its review lifecycle (admin)
+ */
+export const updateRequest = async (id: number,
+    appRequestUpdate: AppRequestUpdate, options?: RequestInit): Promise<AppRequest> => {
+
+  return customFetch<AppRequest>(getUpdateRequestUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(appRequestUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRequest>>, TError,{id: number;data: BodyType<AppRequestUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRequest>>, TError,{id: number;data: BodyType<AppRequestUpdate>}, TContext> => {
+
+const mutationKey = ['updateRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRequest>>, {id: number;data: BodyType<AppRequestUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRequestMutationResult = NonNullable<Awaited<ReturnType<typeof updateRequest>>>
+    export type UpdateRequestMutationBody = BodyType<AppRequestUpdate>
+    export type UpdateRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Move a request through its review lifecycle (admin)
+ */
+export const useUpdateRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRequest>>, TError,{id: number;data: BodyType<AppRequestUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRequest>>,
+        TError,
+        {id: number;data: BodyType<AppRequestUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRequestMutationOptions(options));
+    }
+
+export const getDeleteRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/requests/${id}`
+}
+
+/**
+ * @summary Delete a request (admin)
+ */
+export const deleteRequest = async (id: number, options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDeleteRequestUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRequest>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRequest>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRequestMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRequest>>>
+
+    export type DeleteRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a request (admin)
+ */
+export const useDeleteRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRequest>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRequest>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteRequestMutationOptions(options));
     }
 
 export const getGetAppSettingsUrl = () => {

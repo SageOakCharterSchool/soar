@@ -694,6 +694,95 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /requests:
+    get:
+      operationId: listRequests
+      tags: [feedback]
+      summary: List enhancement requests across all apps
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [new, under_review, approved, completed, declined, all]
+      responses:
+        "200":
+          description: Requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppRequest"
+    post:
+      operationId: createRequest
+      tags: [feedback]
+      summary: Submit an enhancement request (any signed-in user)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppRequestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRequest"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Linked application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /requests/{id}:
+    patch:
+      operationId: updateRequest
+      tags: [feedback]
+      summary: Move a request through its review lifecycle (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppRequestUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRequest"
+    delete:
+      operationId: deleteRequest
+      tags: [feedback]
+      summary: Delete a request (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /settings:
     get:
       operationId: getAppSettings
@@ -1922,6 +2011,48 @@ components:
         status:
           type: string
           enum: [open, resolved]
+    AppRequestInput:
+      type: object
+      required: [requestType, title]
+      properties:
+        requestType:
+          type: string
+          enum: [lti_addon, nested_app, new_app, other]
+        title: { type: string, minLength: 1 }
+        details:
+          type: ["string", "null"]
+        applicationId:
+          type: ["integer", "null"]
+    AppRequest:
+      type: object
+      required: [id, applicationId, appName, userId, requesterName, requestType, title, details, status, createdAt, statusUpdatedAt]
+      properties:
+        id: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
+        appName:
+          type: ["string", "null"]
+        userId: { type: integer }
+        requesterName: { type: string }
+        requestType:
+          type: string
+          enum: [lti_addon, nested_app, new_app, other]
+        title: { type: string }
+        details:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [new, under_review, approved, completed, declined]
+        createdAt: { type: string }
+        statusUpdatedAt:
+          type: ["string", "null"]
+    AppRequestUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [new, under_review, approved, completed, declined]
     UsageSummary:
       type: object
       required: [hasData]

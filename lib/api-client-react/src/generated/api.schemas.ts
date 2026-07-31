@@ -560,6 +560,80 @@ export interface IssueUpdate {
   status: IssueUpdateStatus;
 }
 
+export type AppRequestInputRequestType = typeof AppRequestInputRequestType[keyof typeof AppRequestInputRequestType];
+
+
+export const AppRequestInputRequestType = {
+  lti_addon: 'lti_addon',
+  nested_app: 'nested_app',
+  new_app: 'new_app',
+  other: 'other',
+} as const;
+
+export interface AppRequestInput {
+  requestType: AppRequestInputRequestType;
+  /** @minLength 1 */
+  title: string;
+  /** @nullable */
+  details?: string | null;
+  /** @nullable */
+  applicationId?: number | null;
+}
+
+export type AppRequestRequestType = typeof AppRequestRequestType[keyof typeof AppRequestRequestType];
+
+
+export const AppRequestRequestType = {
+  lti_addon: 'lti_addon',
+  nested_app: 'nested_app',
+  new_app: 'new_app',
+  other: 'other',
+} as const;
+
+export type AppRequestStatus = typeof AppRequestStatus[keyof typeof AppRequestStatus];
+
+
+export const AppRequestStatus = {
+  new: 'new',
+  under_review: 'under_review',
+  approved: 'approved',
+  completed: 'completed',
+  declined: 'declined',
+} as const;
+
+export interface AppRequest {
+  id: number;
+  /** @nullable */
+  applicationId: number | null;
+  /** @nullable */
+  appName: string | null;
+  userId: number;
+  requesterName: string;
+  requestType: AppRequestRequestType;
+  title: string;
+  /** @nullable */
+  details: string | null;
+  status: AppRequestStatus;
+  createdAt: string;
+  /** @nullable */
+  statusUpdatedAt: string | null;
+}
+
+export type AppRequestUpdateStatus = typeof AppRequestUpdateStatus[keyof typeof AppRequestUpdateStatus];
+
+
+export const AppRequestUpdateStatus = {
+  new: 'new',
+  under_review: 'under_review',
+  approved: 'approved',
+  completed: 'completed',
+  declined: 'declined',
+} as const;
+
+export interface AppRequestUpdate {
+  status: AppRequestUpdateStatus;
+}
+
 export interface UsageSummary {
   hasData: boolean;
   /** @nullable */
@@ -781,6 +855,22 @@ export type ListIssuesStatus = typeof ListIssuesStatus[keyof typeof ListIssuesSt
 export const ListIssuesStatus = {
   open: 'open',
   resolved: 'resolved',
+  all: 'all',
+} as const;
+
+export type ListRequestsParams = {
+status?: ListRequestsStatus;
+};
+
+export type ListRequestsStatus = typeof ListRequestsStatus[keyof typeof ListRequestsStatus];
+
+
+export const ListRequestsStatus = {
+  new: 'new',
+  under_review: 'under_review',
+  approved: 'approved',
+  completed: 'completed',
+  declined: 'declined',
   all: 'all',
 } as const;
 

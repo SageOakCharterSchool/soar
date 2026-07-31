@@ -21,6 +21,7 @@ import Overview from "@/pages/Overview";
 import Rostering from "@/pages/Rostering";
 import Raci from "@/pages/Raci";
 import Issues from "@/pages/Issues";
+import Requests from "@/pages/Requests";
 import Upload from "@/pages/Upload";
 import Users from "@/pages/Users";
 import SettingsPage from "@/pages/SettingsPage";
@@ -199,6 +200,13 @@ function Layout({ children }: { children: React.ReactNode }) {
                 Issues
                 <IssuesNavBadge active={location === "/issues"} />
               </button>
+              <button
+                className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/requests" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                onClick={() => setLocation("/requests")}
+                data-testid="link-requests"
+              >
+                Requests
+              </button>
               {isAdmin && (
                 <>
                   <button 
@@ -266,6 +274,7 @@ function Router() {
         <Route path="/rostering" component={Rostering} />
         <Route path="/raci" component={Raci} />
         <Route path="/issues" component={Issues} />
+        <Route path="/requests" component={Requests} />
         <Route path="/upload">{() => <AdminRoute component={Upload} />}</Route>
         <Route path="/users">{() => <AdminRoute component={Users} />}</Route>
         <Route path="/settings">{() => <AdminRoute component={SettingsPage} />}</Route>

@@ -87,6 +87,31 @@ export const appIssuesTable = pgTable("app_issues", {
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
 
+// Enhancement requests: LTI add-ons, nested apps under a parent, brand-new
+// apps. Unlike issues, the linked application is optional (a brand-new app
+// request has nothing to point at) and survives app deletion via set null.
+export const appRequestsTable = pgTable("app_requests", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").references(() => applicationsTable.id, {
+    onDelete: "set null",
+  }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
+  requestType: text("request_type", {
+    enum: ["lti_addon", "nested_app", "new_app", "other"],
+  }).notNull(),
+  title: text("title").notNull(),
+  details: text("details"),
+  status: text("status", {
+    enum: ["new", "under_review", "approved", "completed", "declined"],
+  })
+    .notNull()
+    .default("new"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
+});
+
 export const appActivityTable = pgTable(
   "app_activity",
   {
@@ -104,6 +129,8 @@ export const appActivityTable = pgTable(
         "app_removed",
         "issue_reported",
         "issue_resolved",
+        "request_submitted",
+        "request_updated",
         "raci_change",
       ],
     }).notNull(),
@@ -163,6 +190,7 @@ export type Application = typeof applicationsTable.$inferSelect;
 export type AppTermStatus = typeof appTermStatusTable.$inferSelect;
 export type AppUpvote = typeof appUpvotesTable.$inferSelect;
 export type AppIssue = typeof appIssuesTable.$inferSelect;
+export type AppRequest = typeof appRequestsTable.$inferSelect;
 export type AppActivity = typeof appActivityTable.$inferSelect;
 export type AppActivityArchive = typeof appActivityArchiveTable.$inferSelect;
 export type PageLastSeen = typeof pageLastSeenTable.$inferSelect;

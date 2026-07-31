@@ -598,6 +598,95 @@ export const DeleteIssueResponse = zod.object({
 
 
 /**
+ * @summary List enhancement requests across all apps
+ */
+export const ListRequestsQueryParams = zod.object({
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined', 'all']).optional()
+})
+
+export const ListRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string().nullable(),
+  "userId": zod.number(),
+  "requesterName": zod.string(),
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined']),
+  "createdAt": zod.string(),
+  "statusUpdatedAt": zod.string().nullable()
+})
+export const ListRequestsResponse = zod.array(ListRequestsResponseItem)
+
+
+/**
+ * @summary Submit an enhancement request (any signed-in user)
+ */
+
+
+
+export const CreateRequestBody = zod.object({
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string().min(1),
+  "details": zod.string().nullish(),
+  "applicationId": zod.number().nullish()
+})
+
+export const CreateRequestResponse = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string().nullable(),
+  "userId": zod.number(),
+  "requesterName": zod.string(),
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined']),
+  "createdAt": zod.string(),
+  "statusUpdatedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Move a request through its review lifecycle (admin)
+ */
+export const UpdateRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRequestBody = zod.object({
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined'])
+})
+
+export const UpdateRequestResponse = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string().nullable(),
+  "userId": zod.number(),
+  "requesterName": zod.string(),
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined']),
+  "createdAt": zod.string(),
+  "statusUpdatedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Delete a request (admin)
+ */
+export const DeleteRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRequestResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Full application settings (admin only)
  */
 export const getAppSettingsResponseStaleOpenDaysMax = 365;
