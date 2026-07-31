@@ -99,6 +99,13 @@
       "when": 1784155222858,
       "tag": "0013_app_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784155222859,
+      "tag": "0014_deleted_apps",
+      "breakpoints": true
     }
   ]
 }

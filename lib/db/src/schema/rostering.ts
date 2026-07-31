@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   date,
+  jsonb,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -127,6 +128,7 @@ export const appActivityTable = pgTable(
         "app_added",
         "app_renamed",
         "app_removed",
+        "app_restored",
         "issue_reported",
         "issue_resolved",
         "request_submitted",
@@ -168,6 +170,19 @@ export const appActivityArchiveTable = pgTable(
   ],
 );
 
+export const deletedAppsTable = pgTable(
+  "deleted_apps",
+  {
+    id: serial("id").primaryKey(),
+    appName: text("app_name").notNull(),
+    payload: jsonb("payload").notNull().$type<DeletedAppPayload>(),
+    deletedBy: integer("deleted_by").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("deleted_apps_deleted_at_idx").on(t.deletedAt.desc())],
+);
 export const pageLastSeenTable = pgTable(
   "page_last_seen",
   {
@@ -194,3 +209,42 @@ export type AppRequest = typeof appRequestsTable.$inferSelect;
 export type AppActivity = typeof appActivityTable.$inferSelect;
 export type AppActivityArchive = typeof appActivityArchiveTable.$inferSelect;
 export type PageLastSeen = typeof pageLastSeenTable.$inferSelect;
+
+export type DeletedApp = typeof deletedAppsTable.$inferSelect;
+
+export type DeletedAppPayload = {
+  app: {
+    name: string;
+    category: string | null;
+    cleverAppId: string | null;
+    dayOneCritical: boolean;
+    createdAt: string;
+  };
+  statusRows: Array<{
+    termId: number;
+    studentSharingStatus: string;
+    staffSharingStatus: string;
+    syncMethod: string | null;
+    lastSyncedAt: string | null;
+    owner: string | null;
+    notes: string | null;
+    updatedAt: string;
+    updatedBy: number | null;
+  }>;
+  issues: Array<{
+    userId: number;
+    comment: string;
+    status: "open" | "resolved";
+    createdAt: string;
+    resolvedAt: string | null;
+  }>;
+  upvotes: Array<{ userId: number; createdAt: string }>;
+  activity: Array<{
+    termId: number | null;
+    eventType: string;
+    detail: string;
+    actorId: number | null;
+    createdAt: string;
+  }>;
+  raciRowIds: number[];
+};

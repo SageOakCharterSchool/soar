@@ -84,6 +84,7 @@ export * from './resourceUsageHistory';
 export * from './resourceUsagePoint';
 export * from './resourceUsageRow';
 export * from './resourceUsageSeries';
+export * from './restoredApp';
 export * from './rosteringLastSeen';
 export * from './rosteringSummary';
 export * from './rosteringUnseenCount';

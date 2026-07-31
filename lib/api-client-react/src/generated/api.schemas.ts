@@ -296,8 +296,18 @@ export interface DeletedApp {
   upvotes: number;
   activityEvents: number;
   raciRowsUnlinked: number;
+  /** Snapshot id usable to restore the deleted app. */
+  deletedAppId: number;
 }
 
+export interface RestoredApp {
+  applicationId: number;
+  name: string;
+  statusRows: number;
+  issues: number;
+  upvotes: number;
+  raciRowsRelinked: number;
+}
 export interface DayOneCriticalUpdate {
   dayOneCritical: boolean;
 }
@@ -473,6 +483,7 @@ export const ActivityEventEventType = {
   app_added: 'app_added',
   app_renamed: 'app_renamed',
   app_removed: 'app_removed',
+  app_restored: 'app_restored',
   issue_reported: 'issue_reported',
   issue_resolved: 'issue_resolved',
   raci_change: 'raci_change',
@@ -909,4 +920,3 @@ expectedName?: string;
  */
 expectedAssignments?: string;
 };
-

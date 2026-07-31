@@ -14,6 +14,8 @@ import {
   raciRowsTable,
   usageByAppTable,
   usageAppListTable,
+  deletedAppsTable,
+  type DeletedAppPayload,
   type User,
 } from "@workspace/db";
 import {
@@ -697,6 +699,57 @@ router.delete("/apps/:id", requireAdmin, async (req, res): Promise<void> => {
     count(appActivityTable),
     count(raciRowsTable),
   ]);
+  // Snapshot everything about to be removed so the delete can be undone.
+  const toIso = (v: unknown): string =>
+    v instanceof Date ? v.toISOString() : String(v);
+  const [statusRowsData, issuesData, upvotesData, activityData, raciRows] =
+    await Promise.all([
+      db.select().from(appTermStatusTable).where(eq(appTermStatusTable.applicationId, id)),
+      db.select().from(appIssuesTable).where(eq(appIssuesTable.applicationId, id)),
+      db.select().from(appUpvotesTable).where(eq(appUpvotesTable.applicationId, id)),
+      db.select().from(appActivityTable).where(eq(appActivityTable.applicationId, id)),
+      db
+        .select({ id: raciRowsTable.id })
+        .from(raciRowsTable)
+        .where(eq(raciRowsTable.applicationId, id)),
+    ]);
+  const payload: DeletedAppPayload = {
+    app: {
+      name: app.name,
+      category: app.category,
+      cleverAppId: app.cleverAppId,
+      dayOneCritical: app.dayOneCritical,
+      createdAt: toIso(app.createdAt),
+    },
+    statusRows: statusRowsData.map((s) => ({
+      termId: s.termId,
+      studentSharingStatus: s.studentSharingStatus,
+      staffSharingStatus: s.staffSharingStatus,
+      syncMethod: s.syncMethod,
+      lastSyncedAt: s.lastSyncedAt,
+      owner: s.owner,
+      notes: s.notes,
+      updatedAt: toIso(s.updatedAt),
+      updatedBy: s.updatedBy,
+    })),
+    issues: issuesData.map((i) => ({
+      userId: i.userId,
+      comment: i.comment,
+      status: i.status,
+      createdAt: toIso(i.createdAt),
+      resolvedAt: i.resolvedAt == null ? null : toIso(i.resolvedAt),
+    })),
+    upvotes: upvotesData.map((u) => ({ userId: u.userId, createdAt: toIso(u.createdAt) })),
+    activity: activityData.map((a) => ({
+      termId: a.termId,
+      eventType: a.eventType,
+      detail: a.detail,
+      actorId: a.actorId,
+      createdAt: toIso(a.createdAt),
+    })),
+    raciRowIds: raciRows.map((r) => r.id),
+  };
+  let deletedAppId = 0;
   await db.transaction(async (tx) => {
     // Related rows are removed explicitly (not left to FK cascades) so the
     // counts we report always match what actually happened.
@@ -715,6 +768,11 @@ router.delete("/apps/:id", requireAdmin, async (req, res): Promise<void> => {
       detail: `Removed app "${app.name}" (${statusRows} status row${statusRows === 1 ? "" : "s"}, ${issues} issue${issues === 1 ? "" : "s"}, ${upvotes} upvote${upvotes === 1 ? "" : "s"}, ${raciLinked} RACI row${raciLinked === 1 ? "" : "s"} unlinked)`,
       actorId: user.id,
     });
+    const [snapshot] = await tx
+      .insert(deletedAppsTable)
+      .values({ appName: app.name, payload, deletedBy: user.id })
+      .returning();
+    deletedAppId = snapshot?.id ?? 0;
   });
   emitRosteringActivity();
   res.json({
@@ -725,8 +783,146 @@ router.delete("/apps/:id", requireAdmin, async (req, res): Promise<void> => {
     upvotes,
     activityEvents,
     raciRowsUnlinked: raciLinked,
+    deletedAppId,
   });
 });
+
+// Restore an app deleted by mistake from its stored snapshot. Recreates the
+// app, its status rows, issues, upvotes and activity (skipping rows whose
+// term or user has since been removed), and re-links the RACI rows that were
+// unlinked by the delete — as long as they haven't been linked elsewhere.
+router.post(
+  "/apps/deleted/:id/restore",
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(raw ?? "", 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ message: "Invalid deleted app id" });
+      return;
+    }
+    const user = (req as Request & { user: User }).user;
+    const [snapshot] = await db
+      .select()
+      .from(deletedAppsTable)
+      .where(eq(deletedAppsTable.id, id));
+    if (!snapshot) {
+      res.status(404).json({ message: "Deleted app not found" });
+      return;
+    }
+    const payload = snapshot.payload;
+    // Same case-insensitive duplicate rule as app creation.
+    const existingApps = await db.select().from(applicationsTable);
+    const duplicate = existingApps.find(
+      (a) => a.name.trim().toLowerCase() === payload.app.name.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      res.status(409).json({
+        message: `An application named "${duplicate.name}" already exists, so "${payload.app.name}" can't be restored`,
+      });
+      return;
+    }
+    const [termRows, userRows] = await Promise.all([
+      db.select({ id: termsTable.id }).from(termsTable),
+      db.select({ id: usersTable.id }).from(usersTable),
+    ]);
+    const termIds = new Set(termRows.map((t) => t.id));
+    const userIds = new Set(userRows.map((u) => u.id));
+    let statusRowsRestored = 0;
+    let issuesRestored = 0;
+    let upvotesRestored = 0;
+    let raciRowsRelinked = 0;
+    let newAppId = 0;
+    await db.transaction(async (tx) => {
+      const [app] = await tx
+        .insert(applicationsTable)
+        .values({
+          name: payload.app.name,
+          category: payload.app.category,
+          cleverAppId: payload.app.cleverAppId,
+          dayOneCritical: payload.app.dayOneCritical,
+          createdAt: new Date(payload.app.createdAt),
+        })
+        .returning();
+      if (!app) throw new Error("Failed to recreate application");
+      newAppId = app.id;
+      for (const s of payload.statusRows) {
+        if (!termIds.has(s.termId)) continue;
+        await tx.insert(appTermStatusTable).values({
+          applicationId: app.id,
+          termId: s.termId,
+          studentSharingStatus: s.studentSharingStatus,
+          staffSharingStatus: s.staffSharingStatus,
+          syncMethod: s.syncMethod,
+          lastSyncedAt: s.lastSyncedAt,
+          owner: s.owner,
+          notes: s.notes,
+          updatedBy: s.updatedBy != null && userIds.has(s.updatedBy) ? s.updatedBy : null,
+        });
+        statusRowsRestored++;
+      }
+      for (const i of payload.issues) {
+        if (!userIds.has(i.userId)) continue;
+        await tx.insert(appIssuesTable).values({
+          applicationId: app.id,
+          userId: i.userId,
+          comment: i.comment,
+          status: i.status,
+          createdAt: new Date(i.createdAt),
+          resolvedAt: i.resolvedAt == null ? null : new Date(i.resolvedAt),
+        });
+        issuesRestored++;
+      }
+      for (const u of payload.upvotes) {
+        if (!userIds.has(u.userId)) continue;
+        await tx.insert(appUpvotesTable).values({
+          applicationId: app.id,
+          userId: u.userId,
+          createdAt: new Date(u.createdAt),
+        });
+        upvotesRestored++;
+      }
+      for (const a of payload.activity) {
+        await tx.insert(appActivityTable).values({
+          applicationId: app.id,
+          termId: a.termId != null && termIds.has(a.termId) ? a.termId : null,
+          eventType: a.eventType as "status_change",
+          detail: a.detail,
+          actorId: a.actorId != null && userIds.has(a.actorId) ? a.actorId : null,
+          createdAt: new Date(a.createdAt),
+        });
+      }
+      // Re-link the RACI rows the delete unlinked — only ones still unlinked.
+      // The `application_id IS NULL` predicate is part of the UPDATE itself so
+      // a concurrent admin's newer link can never be overwritten (no
+      // select-then-update race); count only rows the update actually touched.
+      for (const raciRowId of payload.raciRowIds) {
+        const updated = await tx
+          .update(raciRowsTable)
+          .set({ applicationId: app.id })
+          .where(and(eq(raciRowsTable.id, raciRowId), isNull(raciRowsTable.applicationId)))
+          .returning({ id: raciRowsTable.id });
+        if (updated.length > 0) raciRowsRelinked++;
+      }
+      await tx.insert(appActivityTable).values({
+        applicationId: app.id,
+        eventType: "app_restored",
+        detail: `Restored app "${payload.app.name}" (${statusRowsRestored} status row${statusRowsRestored === 1 ? "" : "s"}, ${issuesRestored} issue${issuesRestored === 1 ? "" : "s"}, ${upvotesRestored} upvote${upvotesRestored === 1 ? "" : "s"}, ${raciRowsRelinked} RACI row${raciRowsRelinked === 1 ? "" : "s"} re-linked)`,
+        actorId: user.id,
+      });
+      await tx.delete(deletedAppsTable).where(eq(deletedAppsTable.id, id));
+    });
+    emitRosteringActivity();
+    res.json({
+      applicationId: newAppId,
+      name: payload.app.name,
+      statusRows: statusRowsRestored,
+      issues: issuesRestored,
+      upvotes: upvotesRestored,
+      raciRowsRelinked,
+    });
+  },
+);
 
 router.patch("/apps/:id/day-one-critical", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

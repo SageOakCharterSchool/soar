@@ -367,6 +367,127 @@ describe("app rename and delete", () => {
     expect(events).toHaveLength(1);
     expect(events[0]?.applicationId).toBeNull();
     expect(events[0]?.detail).toContain('Removed app "VLA"');
+    // A restore snapshot is kept so the delete can be undone.
+    expect(res.body.deletedAppId).toBeGreaterThan(0);
+    const snapshots = fakeDb.rows(tables.deletedAppsTable);
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]).toMatchObject({ appName: "VLA", deletedBy: 1 });
+  });
+
+  it("restores a deleted app with related data and re-links RACI rows", async () => {
+    fakeDb.rows(tables.termsTable).push({ id: 1, name: "2026-27" });
+    fakeDb.rows(tables.appIssuesTable).forEach((i: any) => (i.userId = 2));
+    const admin = await loginAs(ADMIN);
+    const del = await admin.request("DELETE", "/apps/10");
+    expect(del.status).toBe(200);
+    const res = await admin.post(`/apps/deleted/${del.body.deletedAppId}/restore`);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      name: "VLA",
+      statusRows: 1,
+      issues: 1,
+      upvotes: 1,
+      raciRowsRelinked: 1,
+    });
+    const newId = res.body.applicationId;
+    const app = fakeDb.rows(tables.applicationsTable).find((a: any) => a.id === newId);
+    expect(app).toMatchObject({ name: "VLA", category: "Custom Rostering — VLA" });
+    expect(fakeDb.rows(tables.appTermStatusTable)).toHaveLength(1);
+    expect(fakeDb.rows(tables.appTermStatusTable)[0]).toMatchObject({
+      applicationId: newId,
+      termId: 1,
+    });
+    expect(fakeDb.rows(tables.appIssuesTable)[0]).toMatchObject({
+      applicationId: newId,
+      comment: "broken",
+    });
+    expect(fakeDb.rows(tables.appUpvotesTable)[0]).toMatchObject({
+      applicationId: newId,
+      userId: 2,
+    });
+    // The RACI row unlinked by the delete is re-linked to the restored app.
+    expect(fakeDb.rows(tables.raciRowsTable)[0]).toMatchObject({
+      id: 500,
+      applicationId: newId,
+    });
+    // Restore is logged and the snapshot is consumed.
+    const restoredEvents = fakeDb
+      .rows(tables.appActivityTable)
+      .filter((e: any) => e.eventType === "app_restored");
+    expect(restoredEvents).toHaveLength(1);
+    expect(restoredEvents[0]?.detail).toContain('Restored app "VLA"');
+    expect(fakeDb.rows(tables.deletedAppsTable)).toHaveLength(0);
+  });
+
+  it("does not re-link RACI rows that were linked elsewhere after the delete", async () => {
+    const admin = await loginAs(ADMIN);
+    const del = await admin.request("DELETE", "/apps/10");
+    expect(del.status).toBe(200);
+    // An admin links the freed RACI row to another app before the restore.
+    fakeDb.rows(tables.raciRowsTable)[0]!.applicationId = 11;
+    const res = await admin.post(`/apps/deleted/${del.body.deletedAppId}/restore`);
+    expect(res.status).toBe(200);
+    expect(res.body.raciRowsRelinked).toBe(0);
+    expect(fakeDb.rows(tables.raciRowsTable)[0]?.applicationId).toBe(11);
+  });
+
+  it("re-links RACI rows with a single conditional update (no select-then-update race)", async () => {
+    const admin = await loginAs(ADMIN);
+    const del = await admin.request("DELETE", "/apps/10");
+    expect(del.status).toBe(200);
+    // Capture the WHERE condition of every raciRows UPDATE issued by the
+    // restore. The `application_id IS NULL` guard must live inside the UPDATE
+    // itself — a separate select-then-update would let a concurrent admin's
+    // newer link be overwritten between the read and the write.
+    const captured: any[] = [];
+    const original = fakeDb.update.bind(fakeDb);
+    const spy = vi.spyOn(fakeDb, "update").mockImplementation(((table: any) => {
+      const chain = original(table);
+      if (table?.__label !== "raciRows") return chain;
+      return {
+        set: (vals: any) => ({
+          where: (cond: any) => {
+            captured.push(cond);
+            return chain.set(vals).where(cond);
+          },
+        }),
+      };
+    }) as any);
+    const res = await admin.post(`/apps/deleted/${del.body.deletedAppId}/restore`);
+    spy.mockRestore();
+    expect(res.status).toBe(200);
+    expect(res.body.raciRowsRelinked).toBe(1);
+    expect(captured.length).toBeGreaterThan(0);
+    const flatten = (c: any): any[] => (c?.type === "and" ? c.conds.flatMap(flatten) : [c]);
+    for (const cond of captured) {
+      const parts = flatten(cond);
+      expect(
+        parts.some((p) => p.type === "isNull" && p.col?.name === "applicationId"),
+      ).toBe(true);
+    }
+  });
+
+  it("rejects restoring when an app with the same name exists again", async () => {
+    const admin = await loginAs(ADMIN);
+    const del = await admin.request("DELETE", "/apps/10");
+    fakeDb.rows(tables.applicationsTable).push({
+      id: 12,
+      name: "vla",
+      category: null,
+      dayOneCritical: false,
+    });
+    const res = await admin.post(`/apps/deleted/${del.body.deletedAppId}/restore`);
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("already exists");
+    // Snapshot is kept so the conflict can be resolved and retried.
+    expect(fakeDb.rows(tables.deletedAppsTable)).toHaveLength(1);
+  });
+
+  it("requires admin to restore and 404s for unknown snapshots", async () => {
+    const staff = await loginAs(STAFF);
+    expect((await staff.post("/apps/deleted/1/restore")).status).toBe(403);
+    const admin = await loginAs(ADMIN);
+    expect((await admin.post("/apps/deleted/999/restore")).status).toBe(404);
   });
 });
 

@@ -454,6 +454,7 @@ export const tables = {
   appIssuesTable: makeTable("appIssues"),
   appRequestsTable: makeTable("appRequests"),
   pageLastSeenTable: makeTable("pageLastSeen"),
+  deletedAppsTable: makeTable("deletedApps"),
   usageKeyMetricsTable: makeTable("usageKeyMetrics"),
   usageByAppTable: makeTable("usageByApp"),
   usageBySchoolTable: makeTable("usageBySchool"),

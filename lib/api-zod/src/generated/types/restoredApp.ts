@@ -6,14 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface DeletedApp {
+export interface RestoredApp {
   applicationId: number;
   name: string;
   statusRows: number;
   issues: number;
   upvotes: number;
-  activityEvents: number;
-  raciRowsUnlinked: number;
-  /** Snapshot id usable to restore the deleted app. */
-  deletedAppId: number;
+  raciRowsRelinked: number;
 }

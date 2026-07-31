@@ -10,6 +10,7 @@ import {
   useCreateApp,
   useRenameApp,
   useDeleteApp,
+  useRestoreDeletedApp,
   useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
@@ -28,6 +29,7 @@ import {
 import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { useStoredId } from "@/hooks/useStoredId";
 import { useStoredValue, oneOf, parseBool } from "@/hooks/useStoredValue";
 import { RaciChips } from "@/components/RaciChips";
@@ -63,7 +65,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2, Trash2, AlertTriangle } from "lucide-react";
+import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2, Trash2, AlertTriangle, RotateCcw } from "lucide-react";
 import { SortableHead, useTableSort } from "@/hooks/useTableSort";
 
 const boardColumnAccessors = {
@@ -177,6 +179,7 @@ const EVENT_META: Record<
   app_added: { label: "New app", Icon: PlusCircle, cls: "text-sky-600 dark:text-sky-400" },
   app_renamed: { label: "App renamed", Icon: Pencil, cls: "text-sky-600 dark:text-sky-400" },
   app_removed: { label: "App removed", Icon: Trash2, cls: "text-red-600 dark:text-red-400" },
+  app_restored: { label: "App restored", Icon: RotateCcw, cls: "text-emerald-600 dark:text-emerald-400" },
   issue_reported: { label: "Issue reported", Icon: Flag, cls: "text-red-600 dark:text-red-400" },
   issue_resolved: { label: "Issue resolved", Icon: CheckCircle2, cls: "text-emerald-600 dark:text-emerald-400" },
   raci_change: { label: "RACI change", Icon: Users2, cls: "text-violet-600 dark:text-violet-400" },
@@ -672,6 +675,7 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const updateDayOne = useUpdateAppDayOneCritical();
   const renameApp = useRenameApp();
   const deleteApp = useDeleteApp();
+  const restoreApp = useRestoreDeletedApp();
   const [dayOneCritical, setDayOneCritical] = useState(row.dayOneCritical);
   const [appName, setAppName] = useState(row.appName);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -750,6 +754,34 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
           toast({
             title: "App deleted",
             description: `${res.name} was removed, along with ${res.statusRows} status row${res.statusRows === 1 ? "" : "s"}, ${res.issues} issue${res.issues === 1 ? "" : "s"} and ${res.upvotes} upvote${res.upvotes === 1 ? "" : "s"}.${res.raciRowsUnlinked > 0 ? ` ${res.raciRowsUnlinked} RACI row${res.raciRowsUnlinked === 1 ? " was" : "s were"} unlinked.` : ""}`,
+            action: (
+              <ToastAction
+                altText="Undo delete"
+                data-testid="button-undo-delete-app"
+                onClick={() =>
+                  restoreApp.mutate(
+                    { id: res.deletedAppId },
+                    {
+                      onSuccess: (restored) => {
+                        invalidateBoard(queryClient);
+                        toast({
+                          title: "App restored",
+                          description: `${restored.name} is back with ${restored.statusRows} status row${restored.statusRows === 1 ? "" : "s"}${restored.raciRowsRelinked > 0 ? ` and ${restored.raciRowsRelinked} RACI row${restored.raciRowsRelinked === 1 ? "" : "s"} re-linked` : ""}.`,
+                        });
+                      },
+                      onError: (err: any) =>
+                        toast({
+                          title: "Restore failed",
+                          description: err?.data?.message ?? "Try again.",
+                          variant: "destructive",
+                        }),
+                    },
+                  )
+                }
+              >
+                Undo
+              </ToastAction>
+            ),
           });
         },
         onError: (err: any) =>

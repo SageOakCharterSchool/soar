@@ -565,6 +565,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /apps/deleted/{id}/restore:
+    post:
+      operationId: restoreDeletedApp
+      tags: [rostering]
+      summary: Restore a deleted application from its snapshot (admin)
+      description: >-
+        Recreates an app deleted via the dashboard from its stored snapshot,
+        including status rows, issues, upvotes and activity, and re-links the
+        RACI rows the delete unlinked (unless they've since been linked to
+        another app). Rows referencing terms or users that no longer exist are
+        skipped. The snapshot is consumed on success.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Restored application with counts of restored related data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoredApp"
+        "404":
+          description: Deleted app snapshot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: An app with the same name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /apps/{id}/day-one-critical:
     patch:
       operationId: updateAppDayOneCritical
@@ -1683,7 +1718,7 @@ components:
         name: { type: string }
     DeletedApp:
       type: object
-      required: [applicationId, name, statusRows, issues, upvotes, activityEvents, raciRowsUnlinked]
+      required: [applicationId, name, statusRows, issues, upvotes, activityEvents, raciRowsUnlinked, deletedAppId]
       properties:
         applicationId: { type: integer }
         name: { type: string }
@@ -1692,6 +1727,19 @@ components:
         upvotes: { type: integer }
         activityEvents: { type: integer }
         raciRowsUnlinked: { type: integer }
+        deletedAppId:
+          type: integer
+          description: Snapshot id usable to restore the deleted app.
+    RestoredApp:
+      type: object
+      required: [applicationId, name, statusRows, issues, upvotes, raciRowsRelinked]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+        statusRows: { type: integer }
+        issues: { type: integer }
+        upvotes: { type: integer }
+        raciRowsRelinked: { type: integer }
     DayOneCriticalUpdate:
       type: object
       required: [dayOneCritical]
@@ -1941,7 +1989,7 @@ components:
           type: ["integer", "null"]
         eventType:
           type: string
-          enum: [status_change, app_added, app_renamed, app_removed, issue_reported, issue_resolved, raci_change]
+          enum: [status_change, app_added, app_renamed, app_removed, app_restored, issue_reported, issue_resolved, raci_change]
         detail: { type: string }
         actorName:
           type: ["string", "null"]
