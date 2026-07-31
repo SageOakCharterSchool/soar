@@ -502,6 +502,69 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /apps/{id}:
+    patch:
+      operationId: renameApp
+      tags: [rostering]
+      summary: Rename an application (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameAppInput"
+      responses:
+        "200":
+          description: Renamed application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenamedApp"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: App not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: Name already used, or app is matched by imports under its current name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+    delete:
+      operationId: deleteApp
+      tags: [rostering]
+      summary: Delete an application and its related data (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted application with counts of removed related data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedApp"
+        "404":
+          description: App not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /apps/{id}/day-one-critical:
     patch:
       operationId: updateAppDayOneCritical
@@ -1516,6 +1579,30 @@ components:
         category:
           type: ["string", "null"]
         statusId: { type: integer }
+    RenameAppInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+    RenamedApp:
+      type: object
+      required: [applicationId, name]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+    DeletedApp:
+      type: object
+      required: [applicationId, name, statusRows, issues, upvotes, activityEvents, raciRowsUnlinked]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+        statusRows: { type: integer }
+        issues: { type: integer }
+        upvotes: { type: integer }
+        activityEvents: { type: integer }
+        raciRowsUnlinked: { type: integer }
     DayOneCriticalUpdate:
       type: object
       required: [dayOneCritical]
@@ -1765,7 +1852,7 @@ components:
           type: ["integer", "null"]
         eventType:
           type: string
-          enum: [status_change, app_added, issue_reported, issue_resolved, raci_change]
+          enum: [status_change, app_added, app_renamed, app_removed, issue_reported, issue_resolved, raci_change]
         detail: { type: string }
         actorName:
           type: ["string", "null"]

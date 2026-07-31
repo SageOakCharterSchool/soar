@@ -97,7 +97,15 @@ export const appActivityTable = pgTable(
     }),
     termId: integer("term_id").references(() => termsTable.id, { onDelete: "cascade" }),
     eventType: text("event_type", {
-      enum: ["status_change", "app_added", "issue_reported", "issue_resolved", "raci_change"],
+      enum: [
+        "status_change",
+        "app_added",
+        "app_renamed",
+        "app_removed",
+        "issue_reported",
+        "issue_resolved",
+        "raci_change",
+      ],
     }).notNull(),
     detail: text("detail").notNull(),
     actorId: integer("actor_id").references(() => usersTable.id, { onDelete: "set null" }),

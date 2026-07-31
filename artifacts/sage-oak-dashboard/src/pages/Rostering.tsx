@@ -8,6 +8,8 @@ import {
   useUpdateAppTermStatus,
   useUpdateAppDayOneCritical,
   useCreateApp,
+  useRenameApp,
+  useDeleteApp,
   useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
@@ -61,7 +63,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2 } from "lucide-react";
+import { ThumbsUp, Flag, Pencil, Settings2, History, PlusCircle, CheckCircle2, RefreshCw, Archive, Download, Users2, Trash2, AlertTriangle } from "lucide-react";
 import { SortableHead, useTableSort } from "@/hooks/useTableSort";
 
 const boardColumnAccessors = {
@@ -173,6 +175,8 @@ const EVENT_META: Record<
 > = {
   status_change: { label: "Status change", Icon: RefreshCw, cls: "text-amber-600 dark:text-amber-400" },
   app_added: { label: "New app", Icon: PlusCircle, cls: "text-sky-600 dark:text-sky-400" },
+  app_renamed: { label: "App renamed", Icon: Pencil, cls: "text-sky-600 dark:text-sky-400" },
+  app_removed: { label: "App removed", Icon: Trash2, cls: "text-red-600 dark:text-red-400" },
   issue_reported: { label: "Issue reported", Icon: Flag, cls: "text-red-600 dark:text-red-400" },
   issue_resolved: { label: "Issue resolved", Icon: CheckCircle2, cls: "text-emerald-600 dark:text-emerald-400" },
   raci_change: { label: "RACI change", Icon: Users2, cls: "text-violet-600 dark:text-violet-400" },
@@ -666,12 +670,18 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
   const updateDayOne = useUpdateAppDayOneCritical();
+  const renameApp = useRenameApp();
+  const deleteApp = useDeleteApp();
   const [dayOneCritical, setDayOneCritical] = useState(row.dayOneCritical);
+  const [appName, setAppName] = useState(row.appName);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { data: userOptions = [] } = useListUserOptions();
   const { options: statusOptions, activeOptions } = useStatusOptions();
 
   const openWith = () => {
     setDayOneCritical(row.dayOneCritical);
+    setAppName(row.appName);
+    setConfirmingDelete(false);
     setForm({
       studentSharingStatus: row.studentSharingStatus,
       staffSharingStatus: row.staffSharingStatus,
@@ -682,7 +692,27 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
     });
   };
 
-  const save = () =>
+  const save = () => {
+    const newName = appName.trim();
+    if (newName && newName !== row.appName) {
+      renameApp.mutate(
+        { id: row.applicationId, data: { name: newName } },
+        {
+          onSuccess: (res) => {
+            invalidateBoard(queryClient);
+            toast({ title: "App renamed", description: `Now shown as ${res.name}.` });
+          },
+          onError: (err: any) => {
+            setAppName(row.appName);
+            toast({
+              title: "Rename failed",
+              description: err?.data?.message ?? "Try again.",
+              variant: "destructive",
+            });
+          },
+        },
+      );
+    }
     update.mutate(
       { id: row.statusId, data: form },
       {
@@ -706,6 +736,28 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
         },
         onError: (err: any) =>
           toast({ title: "Save failed", description: err?.data?.message ?? "Try again.", variant: "destructive" }),
+      },
+    );
+  };
+
+  const confirmDelete = () =>
+    deleteApp.mutate(
+      { id: row.applicationId },
+      {
+        onSuccess: (res) => {
+          invalidateBoard(queryClient);
+          setOpen(false);
+          toast({
+            title: "App deleted",
+            description: `${res.name} was removed, along with ${res.statusRows} status row${res.statusRows === 1 ? "" : "s"}, ${res.issues} issue${res.issues === 1 ? "" : "s"} and ${res.upvotes} upvote${res.upvotes === 1 ? "" : "s"}.${res.raciRowsUnlinked > 0 ? ` ${res.raciRowsUnlinked} RACI row${res.raciRowsUnlinked === 1 ? " was" : "s were"} unlinked.` : ""}`,
+          });
+        },
+        onError: (err: any) =>
+          toast({
+            title: "Delete failed",
+            description: err?.data?.message ?? "Try again.",
+            variant: "destructive",
+          }),
       },
     );
 
@@ -751,6 +803,22 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
           <DialogTitle>Edit {row.appName}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5 col-span-2">
+            <Label htmlFor="edit-app-name">App name</Label>
+            <Input
+              id="edit-app-name"
+              value={appName}
+              onChange={(e) => setAppName(e.target.value)}
+              data-testid="input-edit-app-name"
+            />
+            {appName.trim() !== row.appName && (
+              <p className="text-xs text-muted-foreground">
+                Renaming keeps this app's history, issues and RACI links. Apps
+                that come from usage imports can't be renamed, since imports
+                match apps by name.
+              </p>
+            )}
+          </div>
           {statusSelect("studentSharingStatus", "Student data sharing")}
           {statusSelect("staffSharingStatus", "Staff data sharing")}
           <label className="col-span-2 flex items-center gap-2 text-sm cursor-pointer">
@@ -814,12 +882,53 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={save} disabled={update.isPending}>
-            {update.isPending ? "Saving..." : "Save"}
-          </Button>
-        </DialogFooter>
+        {confirmingDelete ? (
+          <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 space-y-2" data-testid="confirm-delete-app">
+            <div className="flex items-start gap-2 text-sm">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-destructive" />
+              <div>
+                <p className="font-medium">Delete {row.appName}?</p>
+                <p className="text-muted-foreground">
+                  This permanently removes the app from every term's board,
+                  along with its issues{row.openIssueCount > 0 ? ` (${row.openIssueCount} open)` : ""},
+                  upvotes{row.upvoteCount > 0 ? ` (${row.upvoteCount})` : ""} and activity
+                  history.{row.raci.length > 0 ? ` ${row.raci.length} RACI assignment${row.raci.length === 1 ? "" : "s"} will be kept but unlinked from this app.` : ""} This can't be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setConfirmingDelete(false)}>
+                Keep app
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={confirmDelete}
+                disabled={deleteApp.isPending}
+                data-testid="button-confirm-delete-app"
+              >
+                {deleteApp.isPending ? "Deleting..." : "Delete app"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setConfirmingDelete(true)}
+              data-testid="button-delete-app"
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" /> Delete app
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={save} disabled={update.isPending || renameApp.isPending}>
+                {update.isPending ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

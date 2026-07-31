@@ -38,6 +38,7 @@ import type {
   DayOneCriticalUpdate,
   DeleteRaciMemberParams,
   DeleteRaciRowParams,
+  DeletedApp,
   GetAdditionalResourcesHistoryParams,
   GetDailyUsageParams,
   GetRosteringActivityArchiveParams,
@@ -67,6 +68,8 @@ import type {
   RaciRow,
   RaciRowInput,
   RaciRowUpdate,
+  RenameAppInput,
+  RenamedApp,
   ResourceUsageHistory,
   ResourceUsageRow,
   RosteringLastSeen,
@@ -2077,6 +2080,149 @@ export const useCreateApp = <TError = ErrorType<ApiMessage>,
         TContext
       > => {
       return useMutation(getCreateAppMutationOptions(options));
+    }
+
+export const getRenameAppUrl = (id: number,) => {
+
+
+
+
+  return `/api/apps/${id}`
+}
+
+/**
+ * @summary Rename an application (admin)
+ */
+export const renameApp = async (id: number,
+    renameAppInput: RenameAppInput, options?: RequestInit): Promise<RenamedApp> => {
+
+  return customFetch<RenamedApp>(getRenameAppUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(renameAppInput)
+  }
+);}
+
+
+
+
+
+export const getRenameAppMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameApp>>, TError,{id: number;data: BodyType<RenameAppInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renameApp>>, TError,{id: number;data: BodyType<RenameAppInput>}, TContext> => {
+
+const mutationKey = ['renameApp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameApp>>, {id: number;data: BodyType<RenameAppInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renameApp(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameAppMutationResult = NonNullable<Awaited<ReturnType<typeof renameApp>>>
+    export type RenameAppMutationBody = BodyType<RenameAppInput>
+    export type RenameAppMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Rename an application (admin)
+ */
+export const useRenameApp = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameApp>>, TError,{id: number;data: BodyType<RenameAppInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renameApp>>,
+        TError,
+        {id: number;data: BodyType<RenameAppInput>},
+        TContext
+      > => {
+      return useMutation(getRenameAppMutationOptions(options));
+    }
+
+export const getDeleteAppUrl = (id: number,) => {
+
+
+
+
+  return `/api/apps/${id}`
+}
+
+/**
+ * @summary Delete an application and its related data (admin)
+ */
+export const deleteApp = async (id: number, options?: RequestInit): Promise<DeletedApp> => {
+
+  return customFetch<DeletedApp>(getDeleteAppUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAppMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteApp>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteApp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteApp>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteApp(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAppMutationResult = NonNullable<Awaited<ReturnType<typeof deleteApp>>>
+
+    export type DeleteAppMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Delete an application and its related data (admin)
+ */
+export const useDeleteApp = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteApp>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAppMutationOptions(options));
     }
 
 export const getUpdateAppDayOneCriticalUrl = (id: number,) => {

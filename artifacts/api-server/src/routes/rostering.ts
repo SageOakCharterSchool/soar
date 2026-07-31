@@ -11,12 +11,16 @@ import {
   pageLastSeenTable,
   termsTable,
   usersTable,
+  raciRowsTable,
+  usageByAppTable,
+  usageAppListTable,
   type User,
 } from "@workspace/db";
 import {
   UpdateAppTermStatusBody,
   UpdateAppDayOneCriticalBody,
   CreateAppBody,
+  RenameAppBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
@@ -63,7 +67,7 @@ router.get("/rostering/activity", requireAuth, async (req, res): Promise<void> =
   res.json(
     rows.map((r) => ({
       ...r,
-      appName: r.appName ?? "RACI",
+      appName: r.appName ?? (r.eventType === "app_removed" ? "App removed" : "RACI"),
       createdAt: r.createdAt.toISOString(),
     })),
   );
@@ -575,6 +579,153 @@ router.post("/apps", requireAdmin, async (req, res): Promise<void> => {
     }
     throw err;
   }
+});
+
+// Rename an application. Imports match apps by exact name, so renaming an
+// app that appears in imported usage reports would break that matching (the
+// next import would re-create the old name as a duplicate app). Those renames
+// are rejected; manually added apps never appear in usage data and can always
+// be renamed.
+router.patch("/apps/:id", requireAdmin, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw ?? "", 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ message: "Invalid application id" });
+    return;
+  }
+  const parsed = RenameAppBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const name = parsed.data.name.trim();
+  if (!name) {
+    res.status(400).json({ message: "Name is required" });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const [app] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, id));
+  if (!app) {
+    res.status(404).json({ message: "Application not found" });
+    return;
+  }
+  if (app.name === name) {
+    res.json({ applicationId: app.id, name: app.name });
+    return;
+  }
+  // Case-insensitive duplicate check (same rule as app creation) so a rename
+  // can't create "Zoom"/"zoom" near-duplicates that fragment history.
+  const existingApps = await db.select().from(applicationsTable);
+  const duplicate = existingApps.find(
+    (a) => a.id !== id && a.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (duplicate) {
+    res.status(409).json({
+      message: `An application named "${duplicate.name}" already exists`,
+    });
+    return;
+  }
+  // Block renames of apps that imports know by their current name — unless
+  // the change is only capitalization/whitespace, which the importer's
+  // matching treats as the same app anyway.
+  const current = app.name.trim().toLowerCase();
+  if (current !== name.toLowerCase()) {
+    const usageMatch = (value: string) => value.trim().toLowerCase() === current;
+    const [byApp, byList] = await Promise.all([
+      db.select({ application: usageByAppTable.application }).from(usageByAppTable),
+      db.select({ appName: usageAppListTable.appName }).from(usageAppListTable),
+    ]);
+    if (
+      byApp.some((r) => usageMatch(r.application)) ||
+      byList.some((r) => usageMatch(r.appName))
+    ) {
+      res.status(409).json({
+        message: `"${app.name}" appears in imported usage reports, which match apps by name. Renaming it would make the next import re-create "${app.name}" as a separate app, so it can't be renamed here.`,
+      });
+      return;
+    }
+  }
+  const [updated] = await db
+    .update(applicationsTable)
+    .set({ name })
+    .where(eq(applicationsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ message: "Application not found" });
+    return;
+  }
+  await db.insert(appActivityTable).values({
+    applicationId: updated.id,
+    eventType: "app_renamed",
+    detail: `Renamed "${app.name}" to "${updated.name}"`,
+    actorId: user.id,
+  });
+  emitRosteringActivity();
+  res.json({ applicationId: updated.id, name: updated.name });
+});
+
+// Delete an application and its related data. Status rows, issues, upvotes
+// and activity are removed by cascade; RACI rows keep their people but are
+// unlinked from the app. A tombstone activity event (not tied to the deleted
+// app, so it survives the cascade) records who removed what.
+router.delete("/apps/:id", requireAdmin, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw ?? "", 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ message: "Invalid application id" });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const [app] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, id));
+  if (!app) {
+    res.status(404).json({ message: "Application not found" });
+    return;
+  }
+  const count = async (table: typeof appTermStatusTable | typeof appIssuesTable | typeof appUpvotesTable | typeof appActivityTable | typeof raciRowsTable) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const t = table as any;
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(t)
+      .where(eq(t.applicationId, id));
+    return row?.count ?? 0;
+  };
+  const [statusRows, issues, upvotes, activityEvents, raciLinked] = await Promise.all([
+    count(appTermStatusTable),
+    count(appIssuesTable),
+    count(appUpvotesTable),
+    count(appActivityTable),
+    count(raciRowsTable),
+  ]);
+  await db.transaction(async (tx) => {
+    // Related rows are removed explicitly (not left to FK cascades) so the
+    // counts we report always match what actually happened.
+    await tx
+      .update(raciRowsTable)
+      .set({ applicationId: null })
+      .where(eq(raciRowsTable.applicationId, id));
+    await tx.delete(appTermStatusTable).where(eq(appTermStatusTable.applicationId, id));
+    await tx.delete(appIssuesTable).where(eq(appIssuesTable.applicationId, id));
+    await tx.delete(appUpvotesTable).where(eq(appUpvotesTable.applicationId, id));
+    await tx.delete(appActivityTable).where(eq(appActivityTable.applicationId, id));
+    await tx.delete(applicationsTable).where(eq(applicationsTable.id, id));
+    await tx.insert(appActivityTable).values({
+      applicationId: null,
+      eventType: "app_removed",
+      detail: `Removed app "${app.name}" (${statusRows} status row${statusRows === 1 ? "" : "s"}, ${issues} issue${issues === 1 ? "" : "s"}, ${upvotes} upvote${upvotes === 1 ? "" : "s"}, ${raciLinked} RACI row${raciLinked === 1 ? "" : "s"} unlinked)`,
+      actorId: user.id,
+    });
+  });
+  emitRosteringActivity();
+  res.json({
+    applicationId: app.id,
+    name: app.name,
+    statusRows,
+    issues,
+    upvotes,
+    activityEvents,
+    raciRowsUnlinked: raciLinked,
+  });
 });
 
 router.patch("/apps/:id/day-one-critical", requireAdmin, async (req, res): Promise<void> => {

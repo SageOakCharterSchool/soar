@@ -324,7 +324,7 @@ export const GetRosteringActivityResponseItem = zod.object({
   "applicationId": zod.number().nullable(),
   "appName": zod.string(),
   "termId": zod.number().nullish(),
-  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved', 'raci_change']),
+  "eventType": zod.enum(['status_change', 'app_added', 'app_renamed', 'app_removed', 'issue_reported', 'issue_resolved', 'raci_change']),
   "detail": zod.string(),
   "actorName": zod.string().nullish(),
   "createdAt": zod.string()
@@ -429,6 +429,44 @@ export const CreateAppResponse = zod.object({
   "name": zod.string(),
   "category": zod.string().nullish(),
   "statusId": zod.number()
+})
+
+
+/**
+ * @summary Rename an application (admin)
+ */
+export const RenameAppParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const RenameAppBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const RenameAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Delete an application and its related data (admin)
+ */
+export const DeleteAppParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string(),
+  "statusRows": zod.number(),
+  "issues": zod.number(),
+  "upvotes": zod.number(),
+  "activityEvents": zod.number(),
+  "raciRowsUnlinked": zod.number()
 })
 
 

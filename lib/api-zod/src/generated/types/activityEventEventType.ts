@@ -12,6 +12,8 @@ export type ActivityEventEventType = typeof ActivityEventEventType[keyof typeof 
 export const ActivityEventEventType = {
   status_change: 'status_change',
   app_added: 'app_added',
+  app_renamed: 'app_renamed',
+  app_removed: 'app_removed',
   issue_reported: 'issue_reported',
   issue_resolved: 'issue_resolved',
   raci_change: 'raci_change',

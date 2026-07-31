@@ -252,6 +252,124 @@ describe("GET /api/uploads/log", () => {
   });
 });
 
+describe("app rename and delete", () => {
+  beforeEach(() => {
+    fakeDb.rows(tables.applicationsTable).push(
+      { id: 10, name: "VLA", category: "Custom Rostering — VLA", dayOneCritical: false },
+      { id: 11, name: "Seesaw", category: null, dayOneCritical: false },
+    );
+    fakeDb.rows(tables.appTermStatusTable).push(
+      { id: 100, applicationId: 10, termId: 1, studentSharingStatus: "not_started", staffSharingStatus: "not_started" },
+    );
+    fakeDb.rows(tables.appIssuesTable).push(
+      { id: 200, applicationId: 10, status: "open", comment: "broken" },
+    );
+    fakeDb.rows(tables.appUpvotesTable).push({ id: 300, applicationId: 10, userId: 2 });
+    fakeDb.rows(tables.appActivityTable).push({
+      id: 400,
+      applicationId: 10,
+      termId: 1,
+      eventType: "app_added",
+      detail: "Added manually",
+      actorId: 1,
+      createdAt: new Date("2026-07-01T00:00:00Z"),
+    });
+    fakeDb.rows(tables.raciRowsTable).push({ id: 500, name: "VLA", applicationId: 10 });
+    // Seesaw appears in imported usage data; VLA does not.
+    fakeDb.rows(tables.usageByAppTable).push({
+      application: "Seesaw",
+      uniqueUsers: 10,
+      scopedUsers: 20,
+      snapshotDate: "2026-06-30",
+    });
+    state.idCounter = 1000;
+  });
+
+  it("requires admin", async () => {
+    const staff = await loginAs(STAFF);
+    expect((await staff.request("PATCH", "/apps/10", { name: "X" })).status).toBe(403);
+    expect((await staff.request("DELETE", "/apps/10")).status).toBe(403);
+  });
+
+  it("renames a manually added app and logs activity", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.request("PATCH", "/apps/10", { name: "VLA Program" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ applicationId: 10, name: "VLA Program" });
+    expect(fakeDb.rows(tables.applicationsTable).find((a: any) => a.id === 10)?.name).toBe(
+      "VLA Program",
+    );
+    // RACI link is by id, so it survives the rename.
+    expect(fakeDb.rows(tables.raciRowsTable)[0]?.applicationId).toBe(10);
+    const events = fakeDb
+      .rows(tables.appActivityTable)
+      .filter((e: any) => e.eventType === "app_renamed");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.detail).toContain('"VLA" to "VLA Program"');
+  });
+
+  it("rejects renaming to an existing app name (case-insensitive)", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.request("PATCH", "/apps/10", { name: "seesaw" });
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects renaming apps matched by imported usage data", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.request("PATCH", "/apps/11", { name: "Seesaw Classroom" });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("usage reports");
+  });
+
+  it("404s for unknown apps", async () => {
+    const admin = await loginAs(ADMIN);
+    expect((await admin.request("PATCH", "/apps/999", { name: "X" })).status).toBe(404);
+    expect((await admin.request("DELETE", "/apps/999")).status).toBe(404);
+  });
+
+  it("returns rename and remove events from the activity feed", async () => {
+    const admin = await loginAs(ADMIN);
+    expect((await admin.request("PATCH", "/apps/10", { name: "VLA Program" })).status).toBe(200);
+    expect((await admin.request("DELETE", "/apps/11")).status).toBe(200);
+    const res = await admin.get("/rostering/activity");
+    expect(res.status).toBe(200);
+    const byType = new Map(res.body.map((e: any) => [e.eventType, e]));
+    expect(byType.has("app_renamed")).toBe(true);
+    expect(byType.has("app_removed")).toBe(true);
+    // Removed-app events aren't tied to an application row anymore; they get
+    // a stable placeholder name instead of the RACI fallback.
+    expect((byType.get("app_removed") as any).appName).toBe("App removed");
+  });
+
+  it("deletes an app with related data and unlinks RACI rows", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.request("DELETE", "/apps/10");
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      applicationId: 10,
+      name: "VLA",
+      statusRows: 1,
+      issues: 1,
+      upvotes: 1,
+      activityEvents: 1,
+      raciRowsUnlinked: 1,
+    });
+    expect(fakeDb.rows(tables.applicationsTable).some((a: any) => a.id === 10)).toBe(false);
+    expect(fakeDb.rows(tables.appTermStatusTable)).toHaveLength(0);
+    expect(fakeDb.rows(tables.appIssuesTable)).toHaveLength(0);
+    expect(fakeDb.rows(tables.appUpvotesTable)).toHaveLength(0);
+    // RACI row is kept but unlinked.
+    expect(fakeDb.rows(tables.raciRowsTable)[0]).toMatchObject({ id: 500, applicationId: null });
+    // A tombstone activity event survives (not tied to the deleted app).
+    const events = fakeDb
+      .rows(tables.appActivityTable)
+      .filter((e: any) => e.eventType === "app_removed");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.applicationId).toBeNull();
+    expect(events[0]?.detail).toContain('Removed app "VLA"');
+  });
+});
+
 describe("key read endpoints", () => {
   it("requires auth on usage endpoints", async () => {
     const anon = new Client();
