@@ -21,6 +21,8 @@ export * from './authConfig';
 export * from './boardRow';
 export * from './brandingSettings';
 export * from './dailyUsageRow';
+export * from './dayOneCriticalState';
+export * from './dayOneCriticalUpdate';
 export * from './deleteRaciMemberParams';
 export * from './deleteRaciRowParams';
 export * from './dropdownOption';

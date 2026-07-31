@@ -12,7 +12,7 @@ import {
   usersTable,
   type User,
 } from "@workspace/db";
-import { UpdateAppTermStatusBody } from "@workspace/api-zod";
+import { UpdateAppTermStatusBody, UpdateAppDayOneCriticalBody } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
 import { getRaciPeopleByApp } from "../lib/raciPeople";
@@ -291,6 +291,7 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
       applicationId: applicationsTable.id,
       appName: applicationsTable.name,
       category: applicationsTable.category,
+      dayOneCritical: applicationsTable.dayOneCritical,
       statusId: appTermStatusTable.id,
       studentSharingStatus: appTermStatusTable.studentSharingStatus,
       staffSharingStatus: appTermStatusTable.staffSharingStatus,
@@ -459,6 +460,30 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
     updatedAt: row.updatedAt.toISOString(),
     updatedByName: updater?.displayName ?? null,
   });
+});
+
+router.patch("/apps/:id/day-one-critical", requireAdmin, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw ?? "", 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ message: "Invalid application id" });
+    return;
+  }
+  const parsed = UpdateAppDayOneCriticalBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .update(applicationsTable)
+    .set({ dayOneCritical: parsed.data.dayOneCritical })
+    .where(eq(applicationsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ message: "Application not found" });
+    return;
+  }
+  res.json({ applicationId: row.id, dayOneCritical: row.dayOneCritical });
 });
 
 export default router;

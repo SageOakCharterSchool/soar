@@ -6,6 +6,7 @@ import {
   useToggleUpvote,
   useReportIssue,
   useUpdateAppTermStatus,
+  useUpdateAppDayOneCritical,
   useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
@@ -663,10 +664,13 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
+  const updateDayOne = useUpdateAppDayOneCritical();
+  const [dayOneCritical, setDayOneCritical] = useState(row.dayOneCritical);
   const { data: userOptions = [] } = useListUserOptions();
   const { options: statusOptions, activeOptions } = useStatusOptions();
 
-  const openWith = () =>
+  const openWith = () => {
+    setDayOneCritical(row.dayOneCritical);
     setForm({
       studentSharingStatus: row.studentSharingStatus,
       staffSharingStatus: row.staffSharingStatus,
@@ -675,12 +679,27 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
       owner: row.owner ?? undefined,
       notes: row.notes ?? undefined,
     });
+  };
 
   const save = () =>
     update.mutate(
       { id: row.statusId, data: form },
       {
         onSuccess: () => {
+          if (dayOneCritical !== row.dayOneCritical) {
+            updateDayOne.mutate(
+              { id: row.applicationId, data: { dayOneCritical } },
+              {
+                onSuccess: () => invalidateBoard(queryClient),
+                onError: (err: any) =>
+                  toast({
+                    title: "Day 1 flag not saved",
+                    description: err?.data?.message ?? "Try again.",
+                    variant: "destructive",
+                  }),
+              },
+            );
+          }
           invalidateBoard(queryClient);
           setOpen(false);
         },
@@ -733,6 +752,14 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
         <div className="grid grid-cols-2 gap-4">
           {statusSelect("studentSharingStatus", "Student data sharing")}
           {statusSelect("staffSharingStatus", "Staff data sharing")}
+          <label className="col-span-2 flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={dayOneCritical}
+              onCheckedChange={(v) => setDayOneCritical(v === true)}
+              data-testid="checkbox-day-one-critical"
+            />
+            Critically needed for day one of the school year
+          </label>
           <div className="space-y-1.5">
             <Label>Sync method</Label>
             <Select
@@ -1040,6 +1067,11 @@ export default function Rostering() {
     false,
     parseBool,
   );
+  const [dayOneOnly, setDayOneOnly] = useStoredValue<boolean>(
+    "sageoak-rostering-day-one",
+    false,
+    parseBool,
+  );
   // A stored status that no longer exists (option removed/renamed) falls
   // back to "all" instead of silently filtering everything out.
   const statusFilter =
@@ -1066,6 +1098,7 @@ export default function Rostering() {
       );
     }
     if (openIssuesOnly) out = out.filter((r) => r.openIssueCount > 0);
+    if (dayOneOnly) out = out.filter((r) => r.dayOneCritical);
     out.sort((a, b) => {
       if (sortKey === "upvotes") return b.upvoteCount - a.upvoteCount;
       if (sortKey === "updated")
@@ -1073,7 +1106,7 @@ export default function Rostering() {
       return a.appName.localeCompare(b.appName);
     });
     return out;
-  }, [board, statusFilter, search, sortKey, openIssuesOnly]);
+  }, [board, statusFilter, search, sortKey, openIssuesOnly, dayOneOnly]);
 
   // Column-header sorting layered on top of the dropdown sort — when no
   // header is active, the dropdown order above is preserved.
@@ -1172,6 +1205,14 @@ export default function Rostering() {
           />
           Open issues only
         </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+          <Checkbox
+            checked={dayOneOnly}
+            onCheckedChange={(v) => setDayOneOnly(v === true)}
+            data-testid="checkbox-day-one-only"
+          />
+          Day 1 critical only
+        </label>
       </div>
 
       {isLoading ? (
@@ -1208,6 +1249,15 @@ export default function Rostering() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         <span className="font-medium">{row.appName}</span>
+                        {row.dayOneCritical && (
+                          <Badge
+                            className="shrink-0 border-transparent bg-orange-100 text-orange-900 hover:bg-orange-100 dark:bg-orange-900/40 dark:text-orange-200"
+                            title="Critically needed for day one of the school year"
+                            data-testid={`badge-day-one-${row.applicationId}`}
+                          >
+                            Day 1
+                          </Badge>
+                        )}
                         {isRecent(row.updatedAt) && (
                           <span
                             className="h-2 w-2 rounded-full bg-amber-500 shrink-0"

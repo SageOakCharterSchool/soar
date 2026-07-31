@@ -242,6 +242,7 @@ export const GetRosteringBoardQueryParams = zod.object({
 export const GetRosteringBoardResponseItem = zod.object({
   "applicationId": zod.number(),
   "appName": zod.string(),
+  "dayOneCritical": zod.boolean(),
   "category": zod.string().nullish(),
   "statusId": zod.number(),
   "studentSharingStatus": zod.string(),
@@ -404,6 +405,23 @@ export const MarkIssuesSeenResponse = zod.object({
  */
 export const GetIssuesUnseenCountResponse = zod.object({
   "count": zod.number()
+})
+
+
+/**
+ * @summary Flag or unflag an app as day-one critical (admin)
+ */
+export const UpdateAppDayOneCriticalParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAppDayOneCriticalBody = zod.object({
+  "dayOneCritical": zod.boolean()
+})
+
+export const UpdateAppDayOneCriticalResponse = zod.object({
+  "applicationId": zod.number(),
+  "dayOneCritical": zod.boolean()
 })
 
 

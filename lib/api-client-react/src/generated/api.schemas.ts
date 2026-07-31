@@ -256,6 +256,15 @@ export interface AppTermStatusUpdate {
   notes?: string | null;
 }
 
+export interface DayOneCriticalUpdate {
+  dayOneCritical: boolean;
+}
+
+export interface DayOneCriticalState {
+  applicationId: number;
+  dayOneCritical: boolean;
+}
+
 export type RaciValue = string;
 
 export interface RaciBoardPerson {
@@ -266,6 +275,7 @@ export interface RaciBoardPerson {
 export interface BoardRow {
   applicationId: number;
   appName: string;
+  dayOneCritical: boolean;
   /** @nullable */
   category?: string | null;
   statusId: number;

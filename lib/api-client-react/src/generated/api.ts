@@ -32,6 +32,8 @@ import type {
   AuthConfig,
   BoardRow,
   DailyUsageRow,
+  DayOneCriticalState,
+  DayOneCriticalUpdate,
   DeleteRaciMemberParams,
   DeleteRaciRowParams,
   GetAdditionalResourcesHistoryParams,
@@ -2003,6 +2005,78 @@ export function useGetIssuesUnseenCount<TData = Awaited<ReturnType<typeof getIss
 
 
 
+
+export const getUpdateAppDayOneCriticalUrl = (id: number,) => {
+
+
+
+
+  return `/api/apps/${id}/day-one-critical`
+}
+
+/**
+ * @summary Flag or unflag an app as day-one critical (admin)
+ */
+export const updateAppDayOneCritical = async (id: number,
+    dayOneCriticalUpdate: DayOneCriticalUpdate, options?: RequestInit): Promise<DayOneCriticalState> => {
+
+  return customFetch<DayOneCriticalState>(getUpdateAppDayOneCriticalUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dayOneCriticalUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAppDayOneCriticalMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAppDayOneCritical>>, TError,{id: number;data: BodyType<DayOneCriticalUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAppDayOneCritical>>, TError,{id: number;data: BodyType<DayOneCriticalUpdate>}, TContext> => {
+
+const mutationKey = ['updateAppDayOneCritical'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAppDayOneCritical>>, {id: number;data: BodyType<DayOneCriticalUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAppDayOneCritical(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAppDayOneCriticalMutationResult = NonNullable<Awaited<ReturnType<typeof updateAppDayOneCritical>>>
+    export type UpdateAppDayOneCriticalMutationBody = BodyType<DayOneCriticalUpdate>
+    export type UpdateAppDayOneCriticalMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Flag or unflag an app as day-one critical (admin)
+ */
+export const useUpdateAppDayOneCritical = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAppDayOneCritical>>, TError,{id: number;data: BodyType<DayOneCriticalUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAppDayOneCritical>>,
+        TError,
+        {id: number;data: BodyType<DayOneCriticalUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAppDayOneCriticalMutationOptions(options));
+    }
 
 export const getToggleUpvoteUrl = (id: number,) => {
 

@@ -466,6 +466,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosteringUnseenCount"
+  /apps/{id}/day-one-critical:
+    patch:
+      operationId: updateAppDayOneCritical
+      tags: [rostering]
+      summary: Flag or unflag an app as day-one critical (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DayOneCriticalUpdate"
+      responses:
+        "200":
+          description: New flag state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DayOneCriticalState"
+        "404":
+          description: App not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /apps/{id}/upvote:
     post:
       operationId: toggleUpvote
@@ -1424,12 +1453,24 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+    DayOneCriticalUpdate:
+      type: object
+      required: [dayOneCritical]
+      properties:
+        dayOneCritical: { type: boolean }
+    DayOneCriticalState:
+      type: object
+      required: [applicationId, dayOneCritical]
+      properties:
+        applicationId: { type: integer }
+        dayOneCritical: { type: boolean }
     BoardRow:
       type: object
-      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, upvoteCount, upvotedByMe, openIssueCount, raci]
+      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, dayOneCritical, upvoteCount, upvotedByMe, openIssueCount, raci]
       properties:
         applicationId: { type: integer }
         appName: { type: string }
+        dayOneCritical: { type: boolean }
         category:
           type: ["string", "null"]
         statusId: { type: integer }

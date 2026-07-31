@@ -85,6 +85,13 @@
       "when": 1784155222856,
       "tag": "0011_user_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784155222857,
+      "tag": "0012_day_one_critical",
+      "breakpoints": true
     }
   ]
 }

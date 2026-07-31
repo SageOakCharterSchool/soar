@@ -1,5 +1,6 @@
 import {
   pgTable,
+  boolean,
   text,
   serial,
   integer,
@@ -19,6 +20,8 @@ export const applicationsTable = pgTable("applications", {
   category: text("category"),
   // Reserved for the future Clever API integration phase.
   cleverAppId: text("clever_app_id").unique(),
+  // Manual admin flag: app is critically needed for day one of the school year.
+  dayOneCritical: boolean("day_one_critical").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
