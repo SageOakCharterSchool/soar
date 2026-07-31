@@ -481,6 +481,87 @@ describe("GET /api/rostering/board", () => {
   });
 });
 
+describe("POST /api/apps (manual app creation)", () => {
+  it("requires admin", async () => {
+    const term = seedTerm();
+    const body = { name: "VLA", termId: term.id };
+    expect((await new Client().post("/apps", body)).status).toBe(401);
+    const staff = await loginAs(STAFF);
+    expect((await staff.post("/apps", body)).status).toBe(403);
+  });
+
+  it("rejects an invalid body", async () => {
+    const admin = await loginAs(ADMIN);
+    expect((await admin.post("/apps", {})).status).toBe(400);
+    expect((await admin.post("/apps", { name: "", termId: 1 })).status).toBe(400);
+    expect((await admin.post("/apps", { name: "   ", termId: seedTerm().id })).status).toBe(400);
+  });
+
+  it("returns 404 for an unknown term", async () => {
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", { name: "VLA", termId: 99999 });
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects duplicate names case-insensitively with 409", async () => {
+    const term = seedTerm();
+    seedApp("Zoom");
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", { name: "  zoom ", termId: term.id });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("Zoom");
+  });
+
+  it("rejects an inactive sharing status option", async () => {
+    const term = seedTerm();
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", {
+      name: "VLA",
+      termId: term.id,
+      studentSharingStatus: "definitely_not_a_status",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("creates the app, its status row for the term, and an activity event", async () => {
+    const term = seedTerm();
+    const admin = await loginAs(ADMIN);
+    const res = await admin.post("/apps", {
+      name: "VLA",
+      termId: term.id,
+      category: "Custom Rostering — VLA",
+      owner: "Administrator",
+      notes: "Sections and enrollments handled by custom rostering",
+      studentSharingStatus: "in_progress",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ name: "VLA", category: "Custom Rostering — VLA" });
+
+    const app = fakeDb
+      .rows(tables.applicationsTable)
+      .find((a) => a.name === "VLA");
+    expect(app).toBeTruthy();
+    const status = fakeDb
+      .rows(tables.appTermStatusTable)
+      .find((s) => s.applicationId === app!.id && s.termId === term.id);
+    expect(status).toMatchObject({
+      studentSharingStatus: "in_progress",
+      staffSharingStatus: "not_started",
+      owner: "Administrator",
+    });
+    const activity = fakeDb
+      .rows(tables.appActivityTable)
+      .find((e) => e.applicationId === app!.id);
+    expect(activity).toMatchObject({ eventType: "app_added" });
+    expect(activity!.detail).toContain("Added manually");
+
+    // The new app appears on the board for that term.
+    const board = await admin.get(`/rostering/board?termId=${term.id}`);
+    expect(board.status).toBe(200);
+    expect(board.body.some((r: any) => r.appName === "VLA")).toBe(true);
+  });
+});
+
 describe("PATCH /api/apps/:id/day-one-critical", () => {
   it("requires admin", async () => {
     const app = seedApp("Alpha");

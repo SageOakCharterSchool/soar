@@ -214,6 +214,42 @@ describe("tolerant header parsing", () => {
   });
 });
 
+describe("manually added apps are adopted, not duplicated", () => {
+  it("an import whose usage file names an existing manual app does not create a second application", async () => {
+    // Simulate an admin having manually added "VLA" before it ever appears
+    // in a usage upload.
+    fakeDb.rows(tables.applicationsTable).push({
+      id: 500,
+      name: "VLA",
+      category: "Custom Rostering — VLA",
+      cleverAppId: null,
+      dayOneCritical: false,
+      createdAt: new Date(),
+    });
+    ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content: "Application,Unique Users,Scoped Users\nVLA,40,50\nIXL,120,150\n",
+          },
+        ],
+        1,
+      ),
+    );
+    const apps = fakeDb.rows(tables.applicationsTable);
+    expect(apps.filter((a) => a.name === "VLA")).toHaveLength(1);
+    // Manual metadata is preserved — import must not overwrite it.
+    expect(apps.find((a) => a.name === "VLA")).toMatchObject({
+      id: 500,
+      category: "Custom Rostering — VLA",
+    });
+    // The genuinely new app is still created.
+    expect(apps.some((a) => a.name === "IXL")).toBe(true);
+  });
+});
+
 describe("snapshot replacement (upsert by snapshot date)", () => {
   it("re-importing the same snapshot date updates rows instead of duplicating", async () => {
     const first = ok(

@@ -409,6 +409,30 @@ export const GetIssuesUnseenCountResponse = zod.object({
 
 
 /**
+ * @summary Manually add an application not imported from Clever (admin)
+ */
+
+
+
+export const CreateAppBody = zod.object({
+  "name": zod.string().min(1),
+  "termId": zod.number(),
+  "category": zod.string().nullish(),
+  "owner": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "studentSharingStatus": zod.string().optional(),
+  "staffSharingStatus": zod.string().optional()
+})
+
+export const CreateAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullish(),
+  "statusId": zod.number()
+})
+
+
+/**
  * @summary Flag or unflag an app as day-one critical (admin)
  */
 export const UpdateAppDayOneCriticalParams = zod.object({

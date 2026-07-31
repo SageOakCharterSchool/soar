@@ -31,6 +31,8 @@ import type {
   ArchivedActivityEvent,
   AuthConfig,
   BoardRow,
+  CreateAppInput,
+  CreatedApp,
   DailyUsageRow,
   DayOneCriticalState,
   DayOneCriticalUpdate,
@@ -2005,6 +2007,77 @@ export function useGetIssuesUnseenCount<TData = Awaited<ReturnType<typeof getIss
 
 
 
+
+export const getCreateAppUrl = () => {
+
+
+
+
+  return `/api/apps`
+}
+
+/**
+ * @summary Manually add an application not imported from Clever (admin)
+ */
+export const createApp = async (createAppInput: CreateAppInput, options?: RequestInit): Promise<CreatedApp> => {
+
+  return customFetch<CreatedApp>(getCreateAppUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createAppInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAppMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createApp>>, TError,{data: BodyType<CreateAppInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createApp>>, TError,{data: BodyType<CreateAppInput>}, TContext> => {
+
+const mutationKey = ['createApp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createApp>>, {data: BodyType<CreateAppInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createApp(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAppMutationResult = NonNullable<Awaited<ReturnType<typeof createApp>>>
+    export type CreateAppMutationBody = BodyType<CreateAppInput>
+    export type CreateAppMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Manually add an application not imported from Clever (admin)
+ */
+export const useCreateApp = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createApp>>, TError,{data: BodyType<CreateAppInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createApp>>,
+        TError,
+        {data: BodyType<CreateAppInput>},
+        TContext
+      > => {
+      return useMutation(getCreateAppMutationOptions(options));
+    }
 
 export const getUpdateAppDayOneCriticalUrl = (id: number,) => {
 

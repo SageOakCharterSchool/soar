@@ -256,6 +256,28 @@ export interface AppTermStatusUpdate {
   notes?: string | null;
 }
 
+export interface CreateAppInput {
+  /** @minLength 1 */
+  name: string;
+  termId: number;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  owner?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  studentSharingStatus?: string;
+  staffSharingStatus?: string;
+}
+
+export interface CreatedApp {
+  applicationId: number;
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  statusId: number;
+}
+
 export interface DayOneCriticalUpdate {
   dayOneCritical: boolean;
 }

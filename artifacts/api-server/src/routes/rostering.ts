@@ -9,10 +9,15 @@ import {
   appActivityTable,
   appActivityArchiveTable,
   pageLastSeenTable,
+  termsTable,
   usersTable,
   type User,
 } from "@workspace/db";
-import { UpdateAppTermStatusBody, UpdateAppDayOneCriticalBody } from "@workspace/api-zod";
+import {
+  UpdateAppTermStatusBody,
+  UpdateAppDayOneCriticalBody,
+  CreateAppBody,
+} from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { emitRosteringActivity, onRosteringActivity } from "../lib/activityEvents";
 import { getRaciPeopleByApp } from "../lib/raciPeople";
@@ -460,6 +465,116 @@ router.patch("/rostering/status/:id", requireAdmin, async (req, res): Promise<vo
     updatedAt: row.updatedAt.toISOString(),
     updatedByName: updater?.displayName ?? null,
   });
+});
+
+// Manually register an application that is not imported from Clever (e.g.
+// custom rostering programs). Creates the app plus its status row for the
+// given term so it appears on the board immediately.
+router.post("/apps", requireAdmin, async (req, res): Promise<void> => {
+  const parsed = CreateAppBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const user = (req as Request & { user: User }).user;
+  const name = parsed.data.name.trim();
+  if (!name) {
+    res.status(400).json({ message: "Name is required" });
+    return;
+  }
+  const [term] = await db
+    .select()
+    .from(termsTable)
+    .where(eq(termsTable.id, parsed.data.termId));
+  if (!term) {
+    res.status(404).json({ message: "Term not found" });
+    return;
+  }
+  // Case-insensitive duplicate check so "Zoom" and "zoom" can't coexist —
+  // imports match by exact name, so near-duplicates would fragment history.
+  const existingApps = await db.select().from(applicationsTable);
+  const duplicate = existingApps.find(
+    (a) => a.name.trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (duplicate) {
+    res.status(409).json({
+      message: `An application named "${duplicate.name}" already exists`,
+    });
+    return;
+  }
+  // New sharing statuses must be active configured options (same rule as the
+  // status edit endpoint).
+  const settings = await readAppSettings();
+  const activeStatuses = new Set(
+    settings.sharingStatusOptions.filter((o) => o.active).map((o) => o.value),
+  );
+  for (const field of ["studentSharingStatus", "staffSharingStatus"] as const) {
+    const value = parsed.data[field];
+    if (value !== undefined && !activeStatuses.has(value)) {
+      res.status(400).json({
+        message: `"${value}" is not an active sharing status option`,
+      });
+      return;
+    }
+  }
+  const category = parsed.data.category?.trim() || null;
+  try {
+    // App + status row + activity event are created atomically so a manual
+    // app can never exist without its board row.
+    const created = await db.transaction(async (tx) => {
+      const [app] = await tx
+        .insert(applicationsTable)
+        .values({ name, category })
+        .returning();
+      if (!app) throw new Error("Application insert returned no row");
+      const [status] = await tx
+        .insert(appTermStatusTable)
+        .values({
+          applicationId: app.id,
+          termId: term.id,
+          ...(parsed.data.studentSharingStatus !== undefined
+            ? { studentSharingStatus: parsed.data.studentSharingStatus }
+            : {}),
+          ...(parsed.data.staffSharingStatus !== undefined
+            ? { staffSharingStatus: parsed.data.staffSharingStatus }
+            : {}),
+          owner: parsed.data.owner?.trim() || null,
+          notes: parsed.data.notes?.trim() || null,
+          updatedBy: user.id,
+        })
+        .returning();
+      if (!status) throw new Error("Status insert returned no row");
+      await tx.insert(appActivityTable).values({
+        applicationId: app.id,
+        termId: term.id,
+        eventType: "app_added",
+        detail: category ? `Added manually (${category})` : "Added manually",
+        actorId: user.id,
+      });
+      return { app, status };
+    });
+    emitRosteringActivity();
+    res.status(201).json({
+      applicationId: created.app.id,
+      name: created.app.name,
+      category: created.app.category ?? null,
+      statusId: created.status.id,
+    });
+  } catch (err) {
+    // Unique violation (23505): another request created the same name after
+    // our preflight check — report it as a duplicate, not a server error.
+    if (
+      err != null &&
+      typeof err === "object" &&
+      ("code" in err ? (err as { code?: string }).code : undefined) === "23505"
+    ) {
+      res.status(409).json({
+        message: `An application named "${name}" already exists`,
+      });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.patch("/apps/:id/day-one-critical", requireAdmin, async (req, res): Promise<void> => {

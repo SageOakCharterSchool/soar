@@ -20,6 +20,8 @@ export * from './archivedActivityEvent';
 export * from './authConfig';
 export * from './boardRow';
 export * from './brandingSettings';
+export * from './createAppInput';
+export * from './createdApp';
 export * from './dailyUsageRow';
 export * from './dayOneCriticalState';
 export * from './dayOneCriticalUpdate';

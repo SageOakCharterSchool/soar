@@ -7,6 +7,7 @@ import {
   useReportIssue,
   useUpdateAppTermStatus,
   useUpdateAppDayOneCritical,
+  useCreateApp,
   useListUserOptions,
   useCreateTerm,
   useUpdateTerm,
@@ -879,6 +880,162 @@ function ReportIssueDialog({ row }: { row: BoardRow }) {
   );
 }
 
+// The custom rostering programs whose sections/enrollments are managed
+// outside Clever; offered as one-click choices when manually adding an app.
+const CUSTOM_ROSTERING_PROGRAMS = ["VLA", "PLA", "HS", "OakSchool", "MTSS", "Sped"];
+
+function AddAppDialog({ termId }: { termId: number }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [notes, setNotes] = useState("");
+  const [owner, setOwner] = useState<string>(NO_OWNER);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const createApp = useCreateApp();
+  const { data: userOptions = [] } = useListUserOptions();
+
+  const reset = () => {
+    setName("");
+    setCategory("");
+    setNotes("");
+    setOwner(NO_OWNER);
+  };
+
+  const pickProgram = (program: string) => {
+    setName(program);
+    setCategory(`Custom Rostering — ${program}`);
+  };
+
+  const submit = () => {
+    if (!name.trim()) return;
+    createApp.mutate(
+      {
+        data: {
+          name: name.trim(),
+          termId,
+          category: category.trim() || null,
+          owner: owner === NO_OWNER ? null : owner,
+          notes: notes.trim() || null,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          invalidateBoard(queryClient);
+          setOpen(false);
+          reset();
+          toast({
+            title: "App added",
+            description: `${res.name} is now on this term's board.`,
+          });
+        },
+        onError: (err: any) =>
+          toast({
+            title: "Could not add app",
+            description: err?.data?.message ?? "Try again.",
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+      <DialogTrigger asChild>
+        <Button size="sm" data-testid="button-add-app">
+          <PlusCircle className="h-4 w-4 mr-1.5" /> Add app
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add an app manually</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          For apps that aren't imported from Clever — like the custom rostering
+          programs. The app is added to the currently selected term's board.
+        </p>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Custom rostering programs</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {CUSTOM_ROSTERING_PROGRAMS.map((p) => (
+                <Button
+                  key={p}
+                  size="sm"
+                  variant={name === p ? "default" : "outline"}
+                  onClick={() => pickProgram(p)}
+                  data-testid={`button-program-${p}`}
+                >
+                  {p}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Click a program to fill in the fields, or type your own below.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-app-name">Name</Label>
+            <Input
+              id="add-app-name"
+              value={name}
+              placeholder="e.g. VLA"
+              onChange={(e) => setName(e.target.value)}
+              data-testid="input-app-name"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-app-category">Category / program label</Label>
+            <Input
+              id="add-app-category"
+              value={category}
+              placeholder="e.g. Custom Rostering — VLA"
+              onChange={(e) => setCategory(e.target.value)}
+              data-testid="input-app-category"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Owner</Label>
+            <Select value={owner} onValueChange={setOwner}>
+              <SelectTrigger><SelectValue placeholder="Who is responsible?" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_OWNER}>
+                  <span className="text-muted-foreground">No owner</span>
+                </SelectItem>
+                {userOptions.map((u) => (
+                  <SelectItem key={u.id} value={u.displayName}>
+                    {u.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-app-notes">Notes</Label>
+            <Textarea
+              id="add-app-notes"
+              value={notes}
+              rows={2}
+              placeholder="Optional — e.g. sections and enrollments handled by our custom rostering"
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            onClick={submit}
+            disabled={!name.trim() || createApp.isPending}
+            data-testid="button-add-app-submit"
+          >
+            {createApp.isPending ? "Adding..." : "Add app"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TermAdminDialog({ terms }: { terms: Term[] }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -1133,6 +1290,7 @@ export default function Rostering() {
         <div className="flex items-center gap-2">
           {isAdmin && <ArchiveDialog />}
           {isAdmin && sortedTerms.length > 0 && <TermAdminDialog terms={sortedTerms} />}
+          {isAdmin && termId != null && <AddAppDialog termId={termId} />}
         </div>
       </div>
 

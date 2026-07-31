@@ -466,6 +466,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosteringUnseenCount"
+  /apps:
+    post:
+      operationId: createApp
+      tags: [rostering]
+      summary: Manually add an application not imported from Clever (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppInput"
+      responses:
+        "201":
+          description: Created application with its status row for the term
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApp"
+        "400":
+          description: Invalid body or inactive sharing status option
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Term not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: An application with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /apps/{id}/day-one-critical:
     patch:
       operationId: updateAppDayOneCritical
@@ -1453,6 +1489,33 @@ components:
           type: ["string", "null"]
         notes:
           type: ["string", "null"]
+    CreateAppInput:
+      type: object
+      required: [name, termId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        termId: { type: integer }
+        category:
+          type: ["string", "null"]
+        owner:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        studentSharingStatus:
+          type: string
+        staffSharingStatus:
+          type: string
+    CreatedApp:
+      type: object
+      required: [applicationId, name, statusId]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+        category:
+          type: ["string", "null"]
+        statusId: { type: integer }
     DayOneCriticalUpdate:
       type: object
       required: [dayOneCritical]
