@@ -243,6 +243,7 @@ export const GetRosteringBoardResponseItem = zod.object({
   "applicationId": zod.number(),
   "appName": zod.string(),
   "dayOneCritical": zod.boolean(),
+  "hidden": zod.boolean(),
   "category": zod.string().nullish(),
   "statusId": zod.number(),
   "studentSharingStatus": zod.string(),
@@ -413,6 +414,7 @@ export const GetIssuesUnseenCountResponse = zod.object({
  */
 
 
+
 export const CreateAppBody = zod.object({
   "name": zod.string().min(1),
   "termId": zod.number(),
@@ -437,6 +439,8 @@ export const CreateAppResponse = zod.object({
 export const RenameAppParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const RenameAppBody = zod.object({
@@ -467,6 +471,7 @@ export const DeleteAppResponse = zod.object({
   "deletedAppId": zod.number().describe('Snapshot id usable to restore the deleted app.')
 })
 
+
 /**
  * Recreates an app deleted via the dashboard from its stored snapshot, including status rows, issues, upvotes and activity, and re-links the RACI rows the delete unlinked (unless they've since been linked to another app). Rows referencing terms or users that no longer exist are skipped. The snapshot is consumed on success.
  * @summary Restore a deleted application from its snapshot (admin)
@@ -474,6 +479,34 @@ export const DeleteAppResponse = zod.object({
 export const RestoreDeletedAppParams = zod.object({
   "id": zod.coerce.number()
 })
+
+export const RestoreDeletedAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string(),
+  "statusRows": zod.number(),
+  "issues": zod.number(),
+  "upvotes": zod.number(),
+  "raciRowsRelinked": zod.number()
+})
+
+
+/**
+ * @summary Hide or unhide an app on the rostering board (admin)
+ */
+export const UpdateAppHiddenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAppHiddenBody = zod.object({
+  "hidden": zod.boolean()
+})
+
+export const UpdateAppHiddenResponse = zod.object({
+  "applicationId": zod.number(),
+  "hidden": zod.boolean()
+})
+
+
 /**
  * @summary Flag or unflag an app as day-one critical (admin)
  */
@@ -511,6 +544,8 @@ export const ToggleUpvoteResponse = zod.object({
 export const ReportIssueParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const ReportIssueBody = zod.object({
@@ -627,6 +662,7 @@ export const ListRequestsResponse = zod.array(ListRequestsResponseItem)
  */
 
 
+
 export const CreateRequestBody = zod.object({
   "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
   "title": zod.string().min(1),
@@ -693,6 +729,7 @@ export const DeleteRequestResponse = zod.object({
 export const getAppSettingsResponseStaleOpenDaysMax = 365;
 
 
+
 export const GetAppSettingsResponse = zod.object({
   "staleOpenDays": zod.number().min(1).max(getAppSettingsResponseStaleOpenDaysMax),
   "sharingStatusOptions": zod.array(zod.object({
@@ -728,6 +765,7 @@ export const GetAppSettingsResponse = zod.object({
 export const updateAppSettingsBodyStaleOpenDaysMax = 365;
 
 
+
 export const UpdateAppSettingsBody = zod.object({
   "staleOpenDays": zod.number().min(1).max(updateAppSettingsBodyStaleOpenDaysMax).optional(),
   "sharingStatusOptions": zod.array(zod.object({
@@ -757,6 +795,7 @@ export const UpdateAppSettingsBody = zod.object({
 })
 
 export const updateAppSettingsResponseStaleOpenDaysMax = 365;
+
 
 
 export const UpdateAppSettingsResponse = zod.object({
@@ -792,6 +831,7 @@ export const UpdateAppSettingsResponse = zod.object({
  * @summary Settings subset needed by all signed-in users
  */
 export const getPublicAppSettingsResponseStaleOpenDaysMax = 365;
+
 
 
 export const GetPublicAppSettingsResponse = zod.object({
@@ -921,6 +961,7 @@ export const GetAdditionalResourcesResponse = zod.array(GetAdditionalResourcesRe
  * @summary Per-resource usage across recent snapshot dates
  */
 export const getAdditionalResourcesHistoryQueryLimitMax = 60;
+
 
 
 export const GetAdditionalResourcesHistoryQueryParams = zod.object({
@@ -1085,6 +1126,7 @@ export const ListRaciAppOptionsResponse = zod.array(ListRaciAppOptionsResponseIt
  */
 
 
+
 export const CreateRaciRowBody = zod.object({
   "teamId": zod.number(),
   "name": zod.string().min(1),
@@ -1112,6 +1154,8 @@ export const CreateRaciRowResponse = zod.object({
 export const UpdateRaciRowParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const UpdateRaciRowBody = zod.object({
@@ -1158,6 +1202,7 @@ export const DeleteRaciRowResponse = zod.object({
  */
 
 
+
 export const CreateRaciMemberBody = zod.object({
   "teamId": zod.number(),
   "name": zod.string().min(1)
@@ -1178,6 +1223,8 @@ export const CreateRaciMemberResponse = zod.object({
 export const UpdateRaciMemberParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const UpdateRaciMemberBody = zod.object({
@@ -1236,6 +1283,9 @@ export const RenameRaciCategoryParams = zod.object({
 })
 
 
+
+
+
 export const RenameRaciCategoryBody = zod.object({
   "from": zod.string().min(1),
   "to": zod.string().min(1)
@@ -1246,11 +1296,3 @@ export const RenameRaciCategoryResponse = zod.object({
 })
 
 
-export const RestoreDeletedAppResponse = zod.object({
-  "applicationId": zod.number(),
-  "name": zod.string(),
-  "statusRows": zod.number(),
-  "issues": zod.number(),
-  "upvotes": zod.number(),
-  "raciRowsRelinked": zod.number()
-})

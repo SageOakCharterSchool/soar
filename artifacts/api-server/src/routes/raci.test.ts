@@ -114,6 +114,7 @@ beforeEach(() => {
     id: 50,
     name: "Zoom",
     category: "Communication",
+    hidden: false,
   });
   fakeDb.rows(tables.raciTeamsTable).push(
     { id: 10, name: "IT Leads", sortOrder: 0 },
@@ -734,6 +735,7 @@ describe("rostering board RACI people", () => {
       id: 51,
       name: "Canva",
       category: "Creative",
+      hidden: false,
     });
     fakeDb.rows(tables.raciRowsTable).push({
       id: 32,

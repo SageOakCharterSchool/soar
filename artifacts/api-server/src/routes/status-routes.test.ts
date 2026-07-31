@@ -118,7 +118,7 @@ function seedTerm(overrides: Record<string, unknown> = {}) {
 }
 
 function seedApp(name: string, category: string | null = "Math") {
-  const app = { id: ++state.idCounter, name, category, dayOneCritical: false, createdAt: new Date() };
+  const app = { id: ++state.idCounter, name, category, dayOneCritical: false, hidden: false, createdAt: new Date() };
   fakeDb.rows(tables.applicationsTable).push(app);
   return app;
 }
@@ -679,6 +679,58 @@ describe("requests (enhancement requests)", () => {
     expect((await admin.delete(`/requests/${id}`)).status).toBe(200);
     expect((await admin.delete(`/requests/${id}`)).status).toBe(404);
     expect(fakeDb.rows(tables.appRequestsTable)).toHaveLength(0);
+  });
+});
+
+describe("PATCH /api/apps/:id/hidden", () => {
+  it("requires admin", async () => {
+    const app = seedApp("Alpha");
+    expect((await new Client().patch(`/apps/${app.id}/hidden`, { hidden: true })).status).toBe(401);
+    const staff = await loginAs(STAFF);
+    expect((await staff.patch(`/apps/${app.id}/hidden`, { hidden: true })).status).toBe(403);
+  });
+
+  it("rejects an invalid body and unknown apps", async () => {
+    const app = seedApp("Alpha");
+    const admin = await loginAs(ADMIN);
+    expect((await admin.patch(`/apps/${app.id}/hidden`, {})).status).toBe(400);
+    expect((await admin.patch(`/apps/${app.id}/hidden`, { hidden: "yes" })).status).toBe(400);
+    expect((await admin.patch("/apps/99999/hidden", { hidden: true })).status).toBe(404);
+  });
+
+  it("toggles the flag and the board reports it", async () => {
+    const term = seedTerm();
+    const app = seedApp("Alpha");
+    seedStatus(app.id, term.id);
+    const admin = await loginAs(ADMIN);
+    const on = await admin.patch(`/apps/${app.id}/hidden`, { hidden: true });
+    expect(on.status).toBe(200);
+    expect(on.body).toEqual({ applicationId: app.id, hidden: true });
+    const board = await admin.get(`/rostering/board?termId=${term.id}`);
+    const row = board.body.find((r: any) => r.applicationId === app.id);
+    expect(row.hidden).toBe(true);
+    const off = await admin.patch(`/apps/${app.id}/hidden`, { hidden: false });
+    expect(off.body).toEqual({ applicationId: app.id, hidden: false });
+  });
+
+  it("excludes hidden apps from the board for non-admins", async () => {
+    const term = seedTerm();
+    const visible = seedApp("Visible App");
+    const secret = seedApp("Hidden App");
+    seedStatus(visible.id, term.id);
+    seedStatus(secret.id, term.id);
+    const admin = await loginAs(ADMIN);
+    await admin.patch(`/apps/${secret.id}/hidden`, { hidden: true });
+
+    const staff = await loginAs(STAFF);
+    const staffBoard = await staff.get(`/rostering/board?termId=${term.id}`);
+    expect(staffBoard.body.map((r: any) => r.appName)).toEqual(["Visible App"]);
+
+    const adminBoard = await admin.get(`/rostering/board?termId=${term.id}`);
+    expect(adminBoard.body.map((r: any) => r.appName).sort()).toEqual([
+      "Hidden App",
+      "Visible App",
+    ]);
   });
 });
 

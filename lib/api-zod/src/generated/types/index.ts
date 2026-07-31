@@ -10,6 +10,8 @@ export * from './activityEvent';
 export * from './activityEventEventType';
 export * from './apiMessage';
 export * from './appEngagementRow';
+export * from './appHiddenState';
+export * from './appHiddenUpdate';
 export * from './appRequest';
 export * from './appRequestInput';
 export * from './appRequestInputRequestType';

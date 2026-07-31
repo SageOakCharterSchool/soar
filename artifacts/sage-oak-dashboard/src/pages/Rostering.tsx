@@ -7,6 +7,7 @@ import {
   useReportIssue,
   useUpdateAppTermStatus,
   useUpdateAppDayOneCritical,
+  useUpdateAppHidden,
   useCreateApp,
   useRenameApp,
   useDeleteApp,
@@ -673,10 +674,12 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
   const { toast } = useToast();
   const update = useUpdateAppTermStatus();
   const updateDayOne = useUpdateAppDayOneCritical();
+  const updateHidden = useUpdateAppHidden();
   const renameApp = useRenameApp();
   const deleteApp = useDeleteApp();
   const restoreApp = useRestoreDeletedApp();
   const [dayOneCritical, setDayOneCritical] = useState(row.dayOneCritical);
+  const [hidden, setHidden] = useState(row.hidden);
   const [appName, setAppName] = useState(row.appName);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { data: userOptions = [] } = useListUserOptions();
@@ -684,6 +687,7 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
 
   const openWith = () => {
     setDayOneCritical(row.dayOneCritical);
+    setHidden(row.hidden);
     setAppName(row.appName);
     setConfirmingDelete(false);
     setForm({
@@ -742,6 +746,30 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
           toast({ title: "Save failed", description: err?.data?.message ?? "Try again.", variant: "destructive" }),
       },
     );
+    // Independent of the status save (mirrors the rename flow) so a status
+    // error can't silently drop a requested hide/unhide.
+    if (hidden !== row.hidden) {
+      updateHidden.mutate(
+              { id: row.applicationId, data: { hidden } },
+              {
+                onSuccess: () => {
+                  invalidateBoard(queryClient);
+                  toast({
+                    title: hidden ? "App hidden" : "App unhidden",
+                    description: hidden
+                      ? "It's off the board. Use the \"Show hidden apps\" filter to see it again."
+                      : "It's back on the board for everyone.",
+                  });
+                },
+                onError: (err: any) =>
+                  toast({
+                    title: "Hidden flag not saved",
+                    description: err?.data?.message ?? "Try again.",
+                    variant: "destructive",
+                  }),
+        },
+      );
+    }
   };
 
   const confirmDelete = () =>
@@ -860,6 +888,15 @@ function EditStatusDialog({ row, termId }: { row: BoardRow; termId: number }) {
               data-testid="checkbox-day-one-critical"
             />
             Critically needed for day one of the school year
+          </label>
+          <label className="col-span-2 flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={hidden}
+              onCheckedChange={(v) => setHidden(v === true)}
+              data-testid="checkbox-app-hidden"
+            />
+            Hide this app from the rostering board (keeps its history; admins
+            can show hidden apps with the filter)
           </label>
           <div className="space-y-1.5">
             <Label>Sync method</Label>
@@ -1370,6 +1407,11 @@ export default function Rostering() {
     false,
     parseBool,
   );
+  const [showHidden, setShowHidden] = useStoredValue<boolean>(
+    "sageoak-rostering-show-hidden",
+    false,
+    parseBool,
+  );
   // A stored status that no longer exists (option removed/renamed) falls
   // back to "all" instead of silently filtering everything out.
   const statusFilter =
@@ -1381,6 +1423,8 @@ export default function Rostering() {
 
   const rows = useMemo(() => {
     let out = [...(board ?? [])];
+    // Hidden apps stay off the board for everyone; admins can opt in to see them.
+    if (!(isAdmin && showHidden)) out = out.filter((r) => !r.hidden);
     if (statusFilter !== "all") {
       out = out.filter(
         (r) => r.studentSharingStatus === statusFilter || r.staffSharingStatus === statusFilter,
@@ -1404,7 +1448,7 @@ export default function Rostering() {
       return a.appName.localeCompare(b.appName);
     });
     return out;
-  }, [board, statusFilter, search, sortKey, openIssuesOnly, dayOneOnly]);
+  }, [board, statusFilter, search, sortKey, openIssuesOnly, dayOneOnly, isAdmin, showHidden]);
 
   // Column-header sorting layered on top of the dropdown sort — when no
   // header is active, the dropdown order above is preserved.
@@ -1512,6 +1556,16 @@ export default function Rostering() {
           />
           Day 1 critical only
         </label>
+        {isAdmin && (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <Checkbox
+              checked={showHidden}
+              onCheckedChange={(v) => setShowHidden(v === true)}
+              data-testid="checkbox-show-hidden"
+            />
+            Show hidden apps
+          </label>
+        )}
       </div>
 
       {isLoading ? (
@@ -1555,6 +1609,16 @@ export default function Rostering() {
                             data-testid={`badge-day-one-${row.applicationId}`}
                           >
                             Day 1
+                          </Badge>
+                        )}
+                        {row.hidden && (
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0"
+                            title="Hidden from the rostering board"
+                            data-testid={`badge-hidden-${row.applicationId}`}
+                          >
+                            Hidden
                           </Badge>
                         )}
                         {isRecent(row.updatedAt) && (

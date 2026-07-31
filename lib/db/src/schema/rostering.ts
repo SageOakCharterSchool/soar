@@ -23,6 +23,8 @@ export const applicationsTable = pgTable("applications", {
   cleverAppId: text("clever_app_id").unique(),
   // Manual admin flag: app is critically needed for day one of the school year.
   dayOneCritical: boolean("day_one_critical").notNull().default(false),
+  // Admin flag: hide the app from the rostering board without deleting it.
+  hidden: boolean("hidden").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -218,6 +220,8 @@ export type DeletedAppPayload = {
     category: string | null;
     cleverAppId: string | null;
     dayOneCritical: boolean;
+    // Optional: snapshots taken before the hidden flag existed omit it.
+    hidden?: boolean;
     createdAt: string;
   };
   statusRows: Array<{

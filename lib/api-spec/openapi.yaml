@@ -600,6 +600,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /apps/{id}/hidden:
+    patch:
+      operationId: updateAppHidden
+      tags: [rostering]
+      summary: Hide or unhide an app on the rostering board (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppHiddenUpdate"
+      responses:
+        "200":
+          description: New hidden state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppHiddenState"
+        "404":
+          description: App not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /apps/{id}/day-one-critical:
     patch:
       operationId: updateAppDayOneCritical
@@ -1740,6 +1769,17 @@ components:
         issues: { type: integer }
         upvotes: { type: integer }
         raciRowsRelinked: { type: integer }
+    AppHiddenUpdate:
+      type: object
+      required: [hidden]
+      properties:
+        hidden: { type: boolean }
+    AppHiddenState:
+      type: object
+      required: [applicationId, hidden]
+      properties:
+        applicationId: { type: integer }
+        hidden: { type: boolean }
     DayOneCriticalUpdate:
       type: object
       required: [dayOneCritical]
@@ -1753,11 +1793,12 @@ components:
         dayOneCritical: { type: boolean }
     BoardRow:
       type: object
-      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, dayOneCritical, upvoteCount, upvotedByMe, openIssueCount, raci]
+      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, dayOneCritical, hidden, upvoteCount, upvotedByMe, openIssueCount, raci]
       properties:
         applicationId: { type: integer }
         appName: { type: string }
         dayOneCritical: { type: boolean }
+        hidden: { type: boolean }
         category:
           type: ["string", "null"]
         statusId: { type: integer }

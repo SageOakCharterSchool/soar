@@ -21,6 +21,7 @@ import {
 import {
   UpdateAppTermStatusBody,
   UpdateAppDayOneCriticalBody,
+  UpdateAppHiddenBody,
   CreateAppBody,
   RenameAppBody,
 } from "@workspace/api-zod";
@@ -303,6 +304,7 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
       appName: applicationsTable.name,
       category: applicationsTable.category,
       dayOneCritical: applicationsTable.dayOneCritical,
+      hidden: applicationsTable.hidden,
       statusId: appTermStatusTable.id,
       studentSharingStatus: appTermStatusTable.studentSharingStatus,
       staffSharingStatus: appTermStatusTable.staffSharingStatus,
@@ -316,7 +318,13 @@ router.get("/rostering/board", requireAuth, async (req, res): Promise<void> => {
     .from(appTermStatusTable)
     .innerJoin(applicationsTable, eq(appTermStatusTable.applicationId, applicationsTable.id))
     .leftJoin(usersTable, eq(appTermStatusTable.updatedBy, usersTable.id))
-    .where(eq(appTermStatusTable.termId, termId))
+    .where(
+      // Hidden apps are admin-only; enforcing here keeps direct API callers
+      // from seeing them, not just the UI filter.
+      user.role === "admin"
+        ? eq(appTermStatusTable.termId, termId)
+        : and(eq(appTermStatusTable.termId, termId), eq(applicationsTable.hidden, false)),
+    )
     .orderBy(applicationsTable.name);
 
   const upvotes = await db
@@ -719,6 +727,7 @@ router.delete("/apps/:id", requireAdmin, async (req, res): Promise<void> => {
       category: app.category,
       cleverAppId: app.cleverAppId,
       dayOneCritical: app.dayOneCritical,
+      hidden: app.hidden,
       createdAt: toIso(app.createdAt),
     },
     statusRows: statusRowsData.map((s) => ({
@@ -841,6 +850,7 @@ router.post(
           category: payload.app.category,
           cleverAppId: payload.app.cleverAppId,
           dayOneCritical: payload.app.dayOneCritical,
+          hidden: payload.app.hidden ?? false,
           createdAt: new Date(payload.app.createdAt),
         })
         .returning();
@@ -946,6 +956,30 @@ router.patch("/apps/:id/day-one-critical", requireAdmin, async (req, res): Promi
     return;
   }
   res.json({ applicationId: row.id, dayOneCritical: row.dayOneCritical });
+});
+
+router.patch("/apps/:id/hidden", requireAdmin, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw ?? "", 10);
+  if (Number.isNaN(id)) {
+    res.status(400).json({ message: "Invalid application id" });
+    return;
+  }
+  const parsed = UpdateAppHiddenBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .update(applicationsTable)
+    .set({ hidden: parsed.data.hidden })
+    .where(eq(applicationsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ message: "Application not found" });
+    return;
+  }
+  res.json({ applicationId: row.id, hidden: row.hidden });
 });
 
 export default router;

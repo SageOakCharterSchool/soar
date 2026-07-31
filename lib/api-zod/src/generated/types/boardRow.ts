@@ -11,6 +11,7 @@ export interface BoardRow {
   applicationId: number;
   appName: string;
   dayOneCritical: boolean;
+  hidden: boolean;
   /** @nullable */
   category?: string | null;
   statusId: number;

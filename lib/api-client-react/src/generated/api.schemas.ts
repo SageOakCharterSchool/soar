@@ -308,6 +308,16 @@ export interface RestoredApp {
   upvotes: number;
   raciRowsRelinked: number;
 }
+
+export interface AppHiddenUpdate {
+  hidden: boolean;
+}
+
+export interface AppHiddenState {
+  applicationId: number;
+  hidden: boolean;
+}
+
 export interface DayOneCriticalUpdate {
   dayOneCritical: boolean;
 }
@@ -328,6 +338,7 @@ export interface BoardRow {
   applicationId: number;
   appName: string;
   dayOneCritical: boolean;
+  hidden: boolean;
   /** @nullable */
   category?: string | null;
   statusId: number;
@@ -920,3 +931,4 @@ expectedName?: string;
  */
 expectedAssignments?: string;
 };
+
