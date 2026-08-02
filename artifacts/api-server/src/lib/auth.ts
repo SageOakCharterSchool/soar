@@ -31,10 +31,17 @@ export function buildSessionMiddleware(): RequestHandler {
     resave: false,
     saveUninitialized: false,
     name: "sageoak.sid",
+    // The Replit preview pane embeds the app in a cross-site iframe, so the
+    // session cookie must be SameSite=None even in development. Browsers only
+    // accept SameSite=None cookies when they are Secure; the dev preview is
+    // served over HTTPS through a proxy (trust proxy is set), so "auto" marks
+    // the cookie Secure for proxied HTTPS requests while still allowing plain
+    // HTTP in local tools/tests (supertest) where Secure would block it.
+    proxy: true,
     cookie: {
       httpOnly: true,
-      sameSite: isProduction ? "none" : "lax",
-      secure: isProduction,
+      sameSite: "none",
+      secure: isProduction ? true : ("auto" as const),
       maxAge: 1000 * 60 * 60 * 24 * 14,
     },
   });

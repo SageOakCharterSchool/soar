@@ -66,15 +66,20 @@ describe("buildSessionMiddleware() cookie configuration", () => {
     expect(cookie.sameSite).toBe("none");
   });
 
-  it("uses non-secure, sameSite 'lax' cookies in development", async () => {
+  it("uses sameSite 'none' with proxy-aware 'auto' secure cookies in development", async () => {
+    // The Replit preview pane embeds the dev app in a cross-site iframe, so
+    // the cookie must be SameSite=None there too. secure:"auto" (with
+    // proxy:true) marks it Secure for proxied HTTPS requests while still
+    // working over plain HTTP in supertest.
     process.env.NODE_ENV = "development";
     const { buildSessionMiddleware } = await freshAuthLib();
     buildSessionMiddleware();
 
     expect(capturedOptions).toHaveLength(1);
     const cookie = cookieOf(capturedOptions[0]);
-    expect(cookie.secure).toBe(false);
-    expect(cookie.sameSite).toBe("lax");
+    expect(cookie.secure).toBe("auto");
+    expect(cookie.sameSite).toBe("none");
+    expect(capturedOptions[0].proxy).toBe(true);
   });
 
   it("always sets httpOnly and a 14-day maxAge", async () => {
