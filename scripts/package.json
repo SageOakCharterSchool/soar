@@ -29,7 +29,6 @@
     "settings-ui-check": "tsx ./src/settings-ui-check.ts",
     "app-rename-delete-check": "tsx ./src/app-rename-delete-check.ts",
     "generate-raci-seed": "tsx ./src/generate-raci-seed.ts",
-    "add-saas-vendor-raci-rows": "tsx ./src/add-saas-vendor-raci-rows.ts",
     "verify-migrations": "tsx ./src/verify-migrations.ts",
     "lint-migrations": "tsx ./src/lint-migrations.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
