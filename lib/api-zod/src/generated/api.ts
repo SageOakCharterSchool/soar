@@ -56,6 +56,14 @@ export const GetCurrentUserResponse = zod.object({
 
 
 /**
+ * @summary Permanently delete the logged-in user's own account
+ */
+export const DeleteOwnAccountResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Public auth configuration (which sign-in methods are enabled)
  */
 export const GetAuthConfigResponse = zod.object({

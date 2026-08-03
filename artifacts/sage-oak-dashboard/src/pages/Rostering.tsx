@@ -184,6 +184,7 @@ const EVENT_META: Record<
   issue_reported: { label: "Issue reported", Icon: Flag, cls: "text-red-600 dark:text-red-400" },
   issue_resolved: { label: "Issue resolved", Icon: CheckCircle2, cls: "text-emerald-600 dark:text-emerald-400" },
   raci_change: { label: "RACI change", Icon: Users2, cls: "text-violet-600 dark:text-violet-400" },
+  account_self_deleted: { label: "Account deleted", Icon: Trash2, cls: "text-red-600 dark:text-red-400" },
 };
 
 function RecentActivity({ termId }: { termId: number }) {

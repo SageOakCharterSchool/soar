@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   useGetRosteringUnseenCount,
   getGetRosteringUnseenCountQueryKey,
@@ -12,7 +12,14 @@ import {
 } from "@workspace/api-client-react";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
 import { useTheme } from "@/hooks/useTheme";
-import { Moon, Sun } from "lucide-react";
+import { ChevronDown, Moon, Sun, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
@@ -157,6 +164,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     query: { enabled: !!user } as any,
   });
   useAccentColor(settings?.branding.accentColor);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   if (!user) {
     return <Login />;
@@ -257,13 +265,34 @@ function Layout({ children }: { children: React.ReactNode }) {
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <div className="text-sm text-right">
-              <div className="font-medium">{user.displayName}</div>
-              <div className="text-xs text-muted-foreground capitalize">{user.role}</div>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="text-sm text-right inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted/50"
+                  data-testid="button-account-menu"
+                >
+                  <span>
+                    <span className="block font-medium">{user.displayName}</span>
+                    <span className="block text-xs text-muted-foreground capitalize">{user.role}</span>
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => setDeleteAccountOpen(true)}
+                  data-testid="button-delete-account"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete my account…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground">
               Sign out
             </button>
+            <DeleteAccountDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />
           </div>
         </div>
       </header>

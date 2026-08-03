@@ -85,6 +85,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /auth/account:
+    delete:
+      operationId: deleteOwnAccount
+      tags: [auth]
+      summary: Permanently delete the logged-in user's own account
+      responses:
+        "200":
+          description: Account deleted and session ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: Refused because this is the last remaining admin account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /auth/config:
     get:
       operationId: getAuthConfig

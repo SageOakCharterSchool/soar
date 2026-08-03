@@ -72,6 +72,10 @@ args = "raci-conflict"
 task = "workflow.run"
 args = "requests-ui-check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "account-delete"
+
 [[workflows.workflow]]
 name = "typecheck"
 author = "agent"
@@ -219,6 +223,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/scripts run requests-ui-check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "account-delete"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run account-delete-ui-check"
 
 [workflows.workflow.metadata]
 isValidation = true

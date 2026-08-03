@@ -28,6 +28,7 @@
     "issues-legacy-date-check": "tsx ./src/issues-legacy-date-check.ts",
     "settings-ui-check": "tsx ./src/settings-ui-check.ts",
     "app-rename-delete-check": "tsx ./src/app-rename-delete-check.ts",
+    "account-delete-ui-check": "tsx ./src/account-delete-ui-check.ts",
     "generate-raci-seed": "tsx ./src/generate-raci-seed.ts",
     "add-saas-vendor-raci-rows": "tsx ./src/add-saas-vendor-raci-rows.ts",
     "verify-migrations": "tsx ./src/verify-migrations.ts",

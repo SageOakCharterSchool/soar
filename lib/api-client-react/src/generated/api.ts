@@ -423,6 +423,77 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
 
 
 
+export const getDeleteOwnAccountUrl = () => {
+
+
+
+
+  return `/api/auth/account`
+}
+
+/**
+ * @summary Permanently delete the logged-in user's own account
+ */
+export const deleteOwnAccount = async ( options?: RequestInit): Promise<ApiMessage> => {
+
+  return customFetch<ApiMessage>(getDeleteOwnAccountUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOwnAccountMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOwnAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOwnAccount>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteOwnAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOwnAccount>>, void> = () => {
+
+
+          return  deleteOwnAccount(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOwnAccountMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOwnAccount>>>
+
+    export type DeleteOwnAccountMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Permanently delete the logged-in user's own account
+ */
+export const useDeleteOwnAccount = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOwnAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOwnAccount>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteOwnAccountMutationOptions(options));
+    }
+
 export const getGetAuthConfigUrl = () => {
 
 
