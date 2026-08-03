@@ -243,6 +243,7 @@ export const GetRosteringBoardResponseItem = zod.object({
   "applicationId": zod.number(),
   "appName": zod.string(),
   "dayOneCritical": zod.boolean(),
+  "hidden": zod.boolean(),
   "category": zod.string().nullish(),
   "statusId": zod.number(),
   "studentSharingStatus": zod.string(),
@@ -324,7 +325,7 @@ export const GetRosteringActivityResponseItem = zod.object({
   "applicationId": zod.number().nullable(),
   "appName": zod.string(),
   "termId": zod.number().nullish(),
-  "eventType": zod.enum(['status_change', 'app_added', 'issue_reported', 'issue_resolved', 'raci_change']),
+  "eventType": zod.enum(['status_change', 'app_added', 'app_renamed', 'app_removed', 'app_restored', 'issue_reported', 'issue_resolved', 'raci_change']),
   "detail": zod.string(),
   "actorName": zod.string().nullish(),
   "createdAt": zod.string()
@@ -409,6 +410,30 @@ export const GetIssuesUnseenCountResponse = zod.object({
 
 
 /**
+ * @summary When the logged-in user last viewed the Requests page
+ */
+export const GetRequestsLastSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Record that the logged-in user just viewed the Requests page
+ */
+export const MarkRequestsSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Number of request events newer than the user's last Requests visit
+ */
+export const GetRequestsUnseenCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
  * @summary Manually add an application not imported from Clever (admin)
  */
 
@@ -429,6 +454,80 @@ export const CreateAppResponse = zod.object({
   "name": zod.string(),
   "category": zod.string().nullish(),
   "statusId": zod.number()
+})
+
+
+/**
+ * @summary Rename an application (admin)
+ */
+export const RenameAppParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const RenameAppBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const RenameAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Delete an application and its related data (admin)
+ */
+export const DeleteAppParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string(),
+  "statusRows": zod.number(),
+  "issues": zod.number(),
+  "upvotes": zod.number(),
+  "activityEvents": zod.number(),
+  "raciRowsUnlinked": zod.number(),
+  "deletedAppId": zod.number().describe('Snapshot id usable to restore the deleted app.')
+})
+
+
+/**
+ * Recreates an app deleted via the dashboard from its stored snapshot, including status rows, issues, upvotes and activity, and re-links the RACI rows the delete unlinked (unless they've since been linked to another app). Rows referencing terms or users that no longer exist are skipped. The snapshot is consumed on success.
+ * @summary Restore a deleted application from its snapshot (admin)
+ */
+export const RestoreDeletedAppParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RestoreDeletedAppResponse = zod.object({
+  "applicationId": zod.number(),
+  "name": zod.string(),
+  "statusRows": zod.number(),
+  "issues": zod.number(),
+  "upvotes": zod.number(),
+  "raciRowsRelinked": zod.number()
+})
+
+
+/**
+ * @summary Hide or unhide an app on the rostering board (admin)
+ */
+export const UpdateAppHiddenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAppHiddenBody = zod.object({
+  "hidden": zod.boolean()
+})
+
+export const UpdateAppHiddenResponse = zod.object({
+  "applicationId": zod.number(),
+  "hidden": zod.boolean()
 })
 
 
@@ -555,6 +654,95 @@ export const DeleteIssueParams = zod.object({
 })
 
 export const DeleteIssueResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List enhancement requests across all apps
+ */
+export const ListRequestsQueryParams = zod.object({
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined', 'all']).optional()
+})
+
+export const ListRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string().nullable(),
+  "userId": zod.number(),
+  "requesterName": zod.string(),
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined']),
+  "createdAt": zod.string(),
+  "statusUpdatedAt": zod.string().nullable()
+})
+export const ListRequestsResponse = zod.array(ListRequestsResponseItem)
+
+
+/**
+ * @summary Submit an enhancement request (any signed-in user)
+ */
+
+
+
+export const CreateRequestBody = zod.object({
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string().min(1),
+  "details": zod.string().nullish(),
+  "applicationId": zod.number().nullish()
+})
+
+export const CreateRequestResponse = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string().nullable(),
+  "userId": zod.number(),
+  "requesterName": zod.string(),
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined']),
+  "createdAt": zod.string(),
+  "statusUpdatedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Move a request through its review lifecycle (admin)
+ */
+export const UpdateRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRequestBody = zod.object({
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined'])
+})
+
+export const UpdateRequestResponse = zod.object({
+  "id": zod.number(),
+  "applicationId": zod.number().nullable(),
+  "appName": zod.string().nullable(),
+  "userId": zod.number(),
+  "requesterName": zod.string(),
+  "requestType": zod.enum(['lti_addon', 'nested_app', 'new_app', 'other']),
+  "title": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['new', 'under_review', 'approved', 'completed', 'declined']),
+  "createdAt": zod.string(),
+  "statusUpdatedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Delete a request (admin)
+ */
+export const DeleteRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRequestResponse = zod.object({
   "message": zod.string()
 })
 

@@ -6,6 +6,8 @@ import {
   getGetRosteringUnseenCountQueryKey,
   useGetIssuesUnseenCount,
   getGetIssuesUnseenCountQueryKey,
+  useGetRequestsUnseenCount,
+  getGetRequestsUnseenCountQueryKey,
   useGetPublicAppSettings,
 } from "@workspace/api-client-react";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
@@ -21,6 +23,7 @@ import Overview from "@/pages/Overview";
 import Rostering from "@/pages/Rostering";
 import Raci from "@/pages/Raci";
 import Issues from "@/pages/Issues";
+import Requests from "@/pages/Requests";
 import Upload from "@/pages/Upload";
 import Users from "@/pages/Users";
 import SettingsPage from "@/pages/SettingsPage";
@@ -134,6 +137,18 @@ function IssuesNavBadge({ active }: { active: boolean }) {
   );
 }
 
+function RequestsNavBadge({ active }: { active: boolean }) {
+  const { data } = useGetRequestsUnseenCount(UNSEEN_QUERY_OPTIONS);
+  useActivityEventRefresh(getGetRequestsUnseenCountQueryKey());
+  return (
+    <NavBadge
+      count={data?.count ?? 0}
+      active={active}
+      testId="badge-requests-unseen"
+      label="requests"
+    />
+  );
+}
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -198,6 +213,14 @@ function Layout({ children }: { children: React.ReactNode }) {
               >
                 Issues
                 <IssuesNavBadge active={location === "/issues"} />
+              </button>
+              <button
+                className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center ${location === "/requests" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                onClick={() => setLocation("/requests")}
+                data-testid="link-requests"
+              >
+                Requests
+                <RequestsNavBadge active={location === "/requests"} />
               </button>
               {isAdmin && (
                 <>
@@ -266,6 +289,7 @@ function Router() {
         <Route path="/rostering" component={Rostering} />
         <Route path="/raci" component={Raci} />
         <Route path="/issues" component={Issues} />
+        <Route path="/requests" component={Requests} />
         <Route path="/upload">{() => <AdminRoute component={Upload} />}</Route>
         <Route path="/users">{() => <AdminRoute component={Users} />}</Route>
         <Route path="/settings">{() => <AdminRoute component={SettingsPage} />}</Route>

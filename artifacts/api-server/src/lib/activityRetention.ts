@@ -52,7 +52,7 @@ export async function pruneOldActivity(): Promise<number> {
       .values({
         originalId: row.id,
         applicationId: row.applicationId,
-        appName: row.appName ?? "RACI",
+        appName: row.appName ?? (row.eventType === "app_removed" ? "App removed" : "RACI"),
         termId: row.termId,
         eventType: row.eventType,
         detail: row.detail,

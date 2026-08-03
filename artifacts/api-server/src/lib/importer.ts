@@ -478,8 +478,19 @@ export async function runImport(
   let newAppsAdded = false;
   if (appNames.size > 0) {
     const existingApps = await db.select().from(applicationsTable);
-    const known = new Set(existingApps.map((a) => a.name));
-    const newNames = [...appNames].filter((n) => !known.has(n));
+    // Case/whitespace-insensitive matching: admins can rename e.g. "Seesaw"
+    // to "seesaw", and report names sometimes vary in casing — neither should
+    // re-create the app as a duplicate.
+    const canon = (s: string) => s.trim().toLowerCase();
+    const known = new Set(existingApps.map((a) => canon(a.name)));
+    const newNames: string[] = [];
+    for (const n of appNames) {
+      const key = canon(n);
+      if (!known.has(key)) {
+        known.add(key); // dedupe case-variants within the same batch
+        newNames.push(n);
+      }
+    }
     let insertedApps: Array<{ id: number; name: string }> = [];
     if (newNames.length > 0) {
       insertedApps = await db

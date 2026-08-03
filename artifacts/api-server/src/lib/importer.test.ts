@@ -248,6 +248,50 @@ describe("manually added apps are adopted, not duplicated", () => {
     // The genuinely new app is still created.
     expect(apps.some((a) => a.name === "IXL")).toBe(true);
   });
+
+  it("a case/whitespace-only rename of an imported app does not get re-created as a duplicate", async () => {
+    // Simulate an admin having renamed the imported "Seesaw" to "seesaw".
+    fakeDb.rows(tables.applicationsTable).push({
+      id: 501,
+      name: "seesaw",
+      category: null,
+      cleverAppId: null,
+      dayOneCritical: false,
+      createdAt: new Date(),
+    });
+    ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content: "Application,Unique Users,Scoped Users\nSeesaw,40,50\n Seesaw ,10,20\n",
+          },
+        ],
+        1,
+      ),
+    );
+    const apps = fakeDb.rows(tables.applicationsTable);
+    expect(apps.filter((a: any) => String(a.name).trim().toLowerCase() === "seesaw")).toHaveLength(1);
+    expect(apps.find((a: any) => String(a.name).trim().toLowerCase() === "seesaw")?.id).toBe(501);
+  });
+
+  it("case-variants within one import batch create only one application", async () => {
+    ok(
+      await runImport(
+        [
+          EXPORT_PROPS,
+          {
+            name: "UsageByApp.csv",
+            content: "Application,Unique Users,Scoped Users\nZoom,40,50\nzoom,10,20\n",
+          },
+        ],
+        1,
+      ),
+    );
+    const apps = fakeDb.rows(tables.applicationsTable);
+    expect(apps.filter((a: any) => String(a.name).trim().toLowerCase() === "zoom")).toHaveLength(1);
+  });
 });
 
 describe("snapshot replacement (upsert by snapshot date)", () => {

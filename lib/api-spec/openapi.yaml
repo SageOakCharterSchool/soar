@@ -466,6 +466,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosteringUnseenCount"
+  /requests/last-seen:
+    get:
+      operationId: getRequestsLastSeen
+      tags: [requests]
+      summary: When the logged-in user last viewed the Requests page
+      responses:
+        "200":
+          description: Last seen timestamp (null if never visited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+    post:
+      operationId: markRequestsSeen
+      tags: [requests]
+      summary: Record that the logged-in user just viewed the Requests page
+      responses:
+        "200":
+          description: Previous last-seen timestamp before this visit (null if first visit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringLastSeen"
+  /requests/unseen-count:
+    get:
+      operationId: getRequestsUnseenCount
+      tags: [requests]
+      summary: Number of request events newer than the user's last Requests visit
+      responses:
+        "200":
+          description: Count of unseen request events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosteringUnseenCount"
   /apps:
     post:
       operationId: createApp
@@ -498,6 +533,133 @@ paths:
                 $ref: "#/components/schemas/ApiMessage"
         "409":
           description: An application with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /apps/{id}:
+    patch:
+      operationId: renameApp
+      tags: [rostering]
+      summary: Rename an application (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameAppInput"
+      responses:
+        "200":
+          description: Renamed application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenamedApp"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: App not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: Name already used, or app is matched by imports under its current name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+    delete:
+      operationId: deleteApp
+      tags: [rostering]
+      summary: Delete an application and its related data (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted application with counts of removed related data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedApp"
+        "404":
+          description: App not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /apps/deleted/{id}/restore:
+    post:
+      operationId: restoreDeletedApp
+      tags: [rostering]
+      summary: Restore a deleted application from its snapshot (admin)
+      description: >-
+        Recreates an app deleted via the dashboard from its stored snapshot,
+        including status rows, issues, upvotes and activity, and re-links the
+        RACI rows the delete unlinked (unless they've since been linked to
+        another app). Rows referencing terms or users that no longer exist are
+        skipped. The snapshot is consumed on success.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Restored application with counts of restored related data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoredApp"
+        "404":
+          description: Deleted app snapshot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: An app with the same name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /apps/{id}/hidden:
+    patch:
+      operationId: updateAppHidden
+      tags: [rostering]
+      summary: Hide or unhide an app on the rostering board (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppHiddenUpdate"
+      responses:
+        "200":
+          description: New hidden state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppHiddenState"
+        "404":
+          description: App not found
           content:
             application/json:
               schema:
@@ -619,6 +781,95 @@ paths:
       operationId: deleteIssue
       tags: [feedback]
       summary: Delete an issue and its related activity (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /requests:
+    get:
+      operationId: listRequests
+      tags: [feedback]
+      summary: List enhancement requests across all apps
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [new, under_review, approved, completed, declined, all]
+      responses:
+        "200":
+          description: Requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppRequest"
+    post:
+      operationId: createRequest
+      tags: [feedback]
+      summary: Submit an enhancement request (any signed-in user)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppRequestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRequest"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "404":
+          description: Linked application not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /requests/{id}:
+    patch:
+      operationId: updateRequest
+      tags: [feedback]
+      summary: Move a request through its review lifecycle (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppRequestUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRequest"
+    delete:
+      operationId: deleteRequest
+      tags: [feedback]
+      summary: Delete a request (admin)
       parameters:
         - name: id
           in: path
@@ -1516,6 +1767,54 @@ components:
         category:
           type: ["string", "null"]
         statusId: { type: integer }
+    RenameAppInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+    RenamedApp:
+      type: object
+      required: [applicationId, name]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+    DeletedApp:
+      type: object
+      required: [applicationId, name, statusRows, issues, upvotes, activityEvents, raciRowsUnlinked, deletedAppId]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+        statusRows: { type: integer }
+        issues: { type: integer }
+        upvotes: { type: integer }
+        activityEvents: { type: integer }
+        raciRowsUnlinked: { type: integer }
+        deletedAppId:
+          type: integer
+          description: Snapshot id usable to restore the deleted app.
+    RestoredApp:
+      type: object
+      required: [applicationId, name, statusRows, issues, upvotes, raciRowsRelinked]
+      properties:
+        applicationId: { type: integer }
+        name: { type: string }
+        statusRows: { type: integer }
+        issues: { type: integer }
+        upvotes: { type: integer }
+        raciRowsRelinked: { type: integer }
+    AppHiddenUpdate:
+      type: object
+      required: [hidden]
+      properties:
+        hidden: { type: boolean }
+    AppHiddenState:
+      type: object
+      required: [applicationId, hidden]
+      properties:
+        applicationId: { type: integer }
+        hidden: { type: boolean }
     DayOneCriticalUpdate:
       type: object
       required: [dayOneCritical]
@@ -1529,11 +1828,12 @@ components:
         dayOneCritical: { type: boolean }
     BoardRow:
       type: object
-      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, dayOneCritical, upvoteCount, upvotedByMe, openIssueCount, raci]
+      required: [applicationId, appName, statusId, studentSharingStatus, staffSharingStatus, dayOneCritical, hidden, upvoteCount, upvotedByMe, openIssueCount, raci]
       properties:
         applicationId: { type: integer }
         appName: { type: string }
         dayOneCritical: { type: boolean }
+        hidden: { type: boolean }
         category:
           type: ["string", "null"]
         statusId: { type: integer }
@@ -1765,7 +2065,7 @@ components:
           type: ["integer", "null"]
         eventType:
           type: string
-          enum: [status_change, app_added, issue_reported, issue_resolved, raci_change]
+          enum: [status_change, app_added, app_renamed, app_removed, app_restored, issue_reported, issue_resolved, raci_change]
         detail: { type: string }
         actorName:
           type: ["string", "null"]
@@ -1835,6 +2135,48 @@ components:
         status:
           type: string
           enum: [open, resolved]
+    AppRequestInput:
+      type: object
+      required: [requestType, title]
+      properties:
+        requestType:
+          type: string
+          enum: [lti_addon, nested_app, new_app, other]
+        title: { type: string, minLength: 1 }
+        details:
+          type: ["string", "null"]
+        applicationId:
+          type: ["integer", "null"]
+    AppRequest:
+      type: object
+      required: [id, applicationId, appName, userId, requesterName, requestType, title, details, status, createdAt, statusUpdatedAt]
+      properties:
+        id: { type: integer }
+        applicationId:
+          type: ["integer", "null"]
+        appName:
+          type: ["string", "null"]
+        userId: { type: integer }
+        requesterName: { type: string }
+        requestType:
+          type: string
+          enum: [lti_addon, nested_app, new_app, other]
+        title: { type: string }
+        details:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [new, under_review, approved, completed, declined]
+        createdAt: { type: string }
+        statusUpdatedAt:
+          type: ["string", "null"]
+    AppRequestUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [new, under_review, approved, completed, declined]
     UsageSummary:
       type: object
       required: [hasData]

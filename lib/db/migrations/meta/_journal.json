@@ -92,6 +92,27 @@
       "when": 1784155222857,
       "tag": "0012_day_one_critical",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784155222858,
+      "tag": "0013_app_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784155222859,
+      "tag": "0014_deleted_apps",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1785535000000,
+      "tag": "0015_app_hidden",
+      "breakpoints": true
     }
   ]
 }

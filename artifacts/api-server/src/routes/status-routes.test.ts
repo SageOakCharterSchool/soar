@@ -118,7 +118,7 @@ function seedTerm(overrides: Record<string, unknown> = {}) {
 }
 
 function seedApp(name: string, category: string | null = "Math") {
-  const app = { id: ++state.idCounter, name, category, dayOneCritical: false, createdAt: new Date() };
+  const app = { id: ++state.idCounter, name, category, dayOneCritical: false, hidden: false, createdAt: new Date() };
   fakeDb.rows(tables.applicationsTable).push(app);
   return app;
 }
@@ -559,6 +559,178 @@ describe("POST /api/apps (manual app creation)", () => {
     const board = await admin.get(`/rostering/board?termId=${term.id}`);
     expect(board.status).toBe(200);
     expect(board.body.some((r: any) => r.appName === "VLA")).toBe(true);
+  });
+});
+
+describe("requests (enhancement requests)", () => {
+  it("requires a signed-in user to create or list", async () => {
+    const anon = new Client();
+    expect((await anon.post("/requests", { requestType: "other", title: "x" })).status).toBe(401);
+    expect((await anon.get("/requests")).status).toBe(401);
+  });
+
+  it("staff can submit a request linked to an app", async () => {
+    const app = seedApp("Canvas");
+    const staff = await loginAs(STAFF);
+    const res = await staff.post("/requests", {
+      requestType: "lti_addon",
+      title: "IXL LTI integration",
+      details: "Teachers want grades to sync",
+      applicationId: app.id,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      appName: "Canvas",
+      requesterName: "Staff Member",
+      requestType: "lti_addon",
+      status: "new",
+    });
+    const activity = fakeDb
+      .rows(tables.appActivityTable)
+      .find((e) => e.eventType === "request_submitted");
+    expect(activity).toBeTruthy();
+    expect(activity!.detail).toContain("IXL LTI integration");
+  });
+
+  it("allows a brand-new app request with no linked app", async () => {
+    const staff = await loginAs(STAFF);
+    const res = await staff.post("/requests", {
+      requestType: "new_app",
+      title: "Add Book Creator",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.applicationId).toBeNull();
+    expect(res.body.appName).toBeNull();
+  });
+
+  it("rejects an invalid body or unknown app", async () => {
+    const staff = await loginAs(STAFF);
+    expect((await staff.post("/requests", { title: "no type" })).status).toBe(400);
+    expect(
+      (await staff.post("/requests", { requestType: "other", title: "   " })).status,
+    ).toBe(400);
+    expect(
+      (
+        await staff.post("/requests", {
+          requestType: "nested_app",
+          title: "x",
+          applicationId: 9999,
+        })
+      ).status,
+    ).toBe(404);
+  });
+
+  it("bounds oversized titles in the recorded activity detail", async () => {
+    const staff = await loginAs(STAFF);
+    const hostile = `<img src=x onerror=alert(1)>${"A".repeat(5000)}`;
+    const res = await staff.post("/requests", { requestType: "other", title: hostile });
+    expect(res.status).toBe(201);
+    const activity = fakeDb
+      .rows(tables.appActivityTable)
+      .find((e) => e.eventType === "request_submitted");
+    const detail = activity!.detail as string;
+    expect(detail.length).toBeLessThan(200);
+    expect(detail).toContain("...");
+  });
+
+  it("rejects an invalid status filter with 400", async () => {
+    const staff = await loginAs(STAFF);
+    expect((await staff.get("/requests?status=bogus")).status).toBe(400);
+  });
+
+  it("lists requests with optional status filter", async () => {
+    const app = seedApp("Canvas");
+    const staff = await loginAs(STAFF);
+    await staff.post("/requests", { requestType: "lti_addon", title: "A", applicationId: app.id });
+    await staff.post("/requests", { requestType: "new_app", title: "B" });
+    const all = await staff.get("/requests");
+    expect(all.status).toBe(200);
+    expect(all.body).toHaveLength(2);
+    const onlyNew = await staff.get("/requests?status=new");
+    expect(onlyNew.body).toHaveLength(2);
+    expect(await (await staff.get("/requests?status=declined")).body).toHaveLength(0);
+  });
+
+  it("only admins can change status, and transitions are recorded", async () => {
+    const staff = await loginAs(STAFF);
+    const created = await staff.post("/requests", { requestType: "other", title: "Thing" });
+    const id = created.body.id;
+    expect((await staff.patch(`/requests/${id}`, { status: "approved" })).status).toBe(403);
+
+    const admin = await loginAs(ADMIN);
+    expect((await admin.patch(`/requests/${id}`, { status: "not_a_status" })).status).toBe(400);
+    expect((await admin.patch(`/requests/9999`, { status: "approved" })).status).toBe(404);
+    const res = await admin.patch(`/requests/${id}`, { status: "under_review" });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("under_review");
+    expect(res.body.statusUpdatedAt).toBeTruthy();
+    const activity = fakeDb
+      .rows(tables.appActivityTable)
+      .find((e) => e.eventType === "request_updated");
+    expect(activity!.detail).toContain("under review");
+  });
+
+  it("only admins can delete a request", async () => {
+    const staff = await loginAs(STAFF);
+    const created = await staff.post("/requests", { requestType: "other", title: "Bye" });
+    const id = created.body.id;
+    expect((await staff.delete(`/requests/${id}`)).status).toBe(403);
+    const admin = await loginAs(ADMIN);
+    expect((await admin.delete(`/requests/${id}`)).status).toBe(200);
+    expect((await admin.delete(`/requests/${id}`)).status).toBe(404);
+    expect(fakeDb.rows(tables.appRequestsTable)).toHaveLength(0);
+  });
+});
+
+describe("PATCH /api/apps/:id/hidden", () => {
+  it("requires admin", async () => {
+    const app = seedApp("Alpha");
+    expect((await new Client().patch(`/apps/${app.id}/hidden`, { hidden: true })).status).toBe(401);
+    const staff = await loginAs(STAFF);
+    expect((await staff.patch(`/apps/${app.id}/hidden`, { hidden: true })).status).toBe(403);
+  });
+
+  it("rejects an invalid body and unknown apps", async () => {
+    const app = seedApp("Alpha");
+    const admin = await loginAs(ADMIN);
+    expect((await admin.patch(`/apps/${app.id}/hidden`, {})).status).toBe(400);
+    expect((await admin.patch(`/apps/${app.id}/hidden`, { hidden: "yes" })).status).toBe(400);
+    expect((await admin.patch("/apps/99999/hidden", { hidden: true })).status).toBe(404);
+  });
+
+  it("toggles the flag and the board reports it", async () => {
+    const term = seedTerm();
+    const app = seedApp("Alpha");
+    seedStatus(app.id, term.id);
+    const admin = await loginAs(ADMIN);
+    const on = await admin.patch(`/apps/${app.id}/hidden`, { hidden: true });
+    expect(on.status).toBe(200);
+    expect(on.body).toEqual({ applicationId: app.id, hidden: true });
+    const board = await admin.get(`/rostering/board?termId=${term.id}`);
+    const row = board.body.find((r: any) => r.applicationId === app.id);
+    expect(row.hidden).toBe(true);
+    const off = await admin.patch(`/apps/${app.id}/hidden`, { hidden: false });
+    expect(off.body).toEqual({ applicationId: app.id, hidden: false });
+  });
+
+  it("excludes hidden apps from the board for non-admins", async () => {
+    const term = seedTerm();
+    const visible = seedApp("Visible App");
+    const secret = seedApp("Hidden App");
+    seedStatus(visible.id, term.id);
+    seedStatus(secret.id, term.id);
+    const admin = await loginAs(ADMIN);
+    await admin.patch(`/apps/${secret.id}/hidden`, { hidden: true });
+
+    const staff = await loginAs(STAFF);
+    const staffBoard = await staff.get(`/rostering/board?termId=${term.id}`);
+    expect(staffBoard.body.map((r: any) => r.appName)).toEqual(["Visible App"]);
+
+    const adminBoard = await admin.get(`/rostering/board?termId=${term.id}`);
+    expect(adminBoard.body.map((r: any) => r.appName).sort()).toEqual([
+      "Hidden App",
+      "Visible App",
+    ]);
   });
 });
 

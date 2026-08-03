@@ -278,6 +278,46 @@ export interface CreatedApp {
   statusId: number;
 }
 
+export interface RenameAppInput {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface RenamedApp {
+  applicationId: number;
+  name: string;
+}
+
+export interface DeletedApp {
+  applicationId: number;
+  name: string;
+  statusRows: number;
+  issues: number;
+  upvotes: number;
+  activityEvents: number;
+  raciRowsUnlinked: number;
+  /** Snapshot id usable to restore the deleted app. */
+  deletedAppId: number;
+}
+
+export interface RestoredApp {
+  applicationId: number;
+  name: string;
+  statusRows: number;
+  issues: number;
+  upvotes: number;
+  raciRowsRelinked: number;
+}
+
+export interface AppHiddenUpdate {
+  hidden: boolean;
+}
+
+export interface AppHiddenState {
+  applicationId: number;
+  hidden: boolean;
+}
+
 export interface DayOneCriticalUpdate {
   dayOneCritical: boolean;
 }
@@ -298,6 +338,7 @@ export interface BoardRow {
   applicationId: number;
   appName: string;
   dayOneCritical: boolean;
+  hidden: boolean;
   /** @nullable */
   category?: string | null;
   statusId: number;
@@ -451,6 +492,9 @@ export type ActivityEventEventType = typeof ActivityEventEventType[keyof typeof 
 export const ActivityEventEventType = {
   status_change: 'status_change',
   app_added: 'app_added',
+  app_renamed: 'app_renamed',
+  app_removed: 'app_removed',
+  app_restored: 'app_restored',
   issue_reported: 'issue_reported',
   issue_resolved: 'issue_resolved',
   raci_change: 'raci_change',
@@ -536,6 +580,80 @@ export const IssueUpdateStatus = {
 
 export interface IssueUpdate {
   status: IssueUpdateStatus;
+}
+
+export type AppRequestInputRequestType = typeof AppRequestInputRequestType[keyof typeof AppRequestInputRequestType];
+
+
+export const AppRequestInputRequestType = {
+  lti_addon: 'lti_addon',
+  nested_app: 'nested_app',
+  new_app: 'new_app',
+  other: 'other',
+} as const;
+
+export interface AppRequestInput {
+  requestType: AppRequestInputRequestType;
+  /** @minLength 1 */
+  title: string;
+  /** @nullable */
+  details?: string | null;
+  /** @nullable */
+  applicationId?: number | null;
+}
+
+export type AppRequestRequestType = typeof AppRequestRequestType[keyof typeof AppRequestRequestType];
+
+
+export const AppRequestRequestType = {
+  lti_addon: 'lti_addon',
+  nested_app: 'nested_app',
+  new_app: 'new_app',
+  other: 'other',
+} as const;
+
+export type AppRequestStatus = typeof AppRequestStatus[keyof typeof AppRequestStatus];
+
+
+export const AppRequestStatus = {
+  new: 'new',
+  under_review: 'under_review',
+  approved: 'approved',
+  completed: 'completed',
+  declined: 'declined',
+} as const;
+
+export interface AppRequest {
+  id: number;
+  /** @nullable */
+  applicationId: number | null;
+  /** @nullable */
+  appName: string | null;
+  userId: number;
+  requesterName: string;
+  requestType: AppRequestRequestType;
+  title: string;
+  /** @nullable */
+  details: string | null;
+  status: AppRequestStatus;
+  createdAt: string;
+  /** @nullable */
+  statusUpdatedAt: string | null;
+}
+
+export type AppRequestUpdateStatus = typeof AppRequestUpdateStatus[keyof typeof AppRequestUpdateStatus];
+
+
+export const AppRequestUpdateStatus = {
+  new: 'new',
+  under_review: 'under_review',
+  approved: 'approved',
+  completed: 'completed',
+  declined: 'declined',
+} as const;
+
+export interface AppRequestUpdate {
+  status: AppRequestUpdateStatus;
 }
 
 export interface UsageSummary {
@@ -759,6 +877,22 @@ export type ListIssuesStatus = typeof ListIssuesStatus[keyof typeof ListIssuesSt
 export const ListIssuesStatus = {
   open: 'open',
   resolved: 'resolved',
+  all: 'all',
+} as const;
+
+export type ListRequestsParams = {
+status?: ListRequestsStatus;
+};
+
+export type ListRequestsStatus = typeof ListRequestsStatus[keyof typeof ListRequestsStatus];
+
+
+export const ListRequestsStatus = {
+  new: 'new',
+  under_review: 'under_review',
+  approved: 'approved',
+  completed: 'completed',
+  declined: 'declined',
   all: 'all',
 } as const;
 

@@ -1,0 +1,23 @@
+Add a one-time script that seeds new RACI rows for third-party vendors that don't yet have a named Accountable owner. This is a one-off data-entry task, not a new feature — no schema changes, no new endpoints, no UI changes.
+
+Context
+
+raci_rows already supports this: it has a free-text category column and a nullable applicationId (see lib/db/src/schema/raci.ts). Rows don't need to link to anything in the applications table — the "Custom Development" category under Software Squad already has rows like "GitHub" and "DNS for custom sites" with no linked app.
+Creating a row already goes through POST /raci/rows (body { teamId, name, category }, admin-only) in artifacts/api-server/src/routes/raci.ts. Use that endpoint rather than writing to the database directly, so the existing activity-log entry (RACI: added "<name>" to <team>) and sort-order handling stay correct.
+Team: Software Squad. Get its teamId from GET /raci (find the team whose name is exactly "Software Squad").
+New category name: "SaaS & Third-Party Services".
+Leave every new row with no R/A/C/I assignments — ownership gets filled in by hand afterward in the UI (matches the "No A" state already visible on unassigned rows).
+
+Rows to add (one per vendor, all under the new category): Clerk, Google Workspace, Mailgun, Resend, Supabase, LocationIQ, Canva, Lovable, Snowflake, Replit, Google Cloud Platform (SageOakCMS), IncidentIQ, Railway, AWS, WP Engine, GoDaddy, Route53, ClickUp, Apple Developer Program, Google Play Console, Chrome Web Store
+
+Requirements for the script
+
+Follow the existing pattern in scripts/src/staff-access-check.ts and scripts/src/prod-login-check.ts: a tsx script under scripts/src/, driven by fetch, using API_BASE_URL (or REPLIT_DEV_DOMAIN) for the target host and ADMIN_EMAIL/ADMIN_PASSWORD env vars for login — don't hardcode credentials.
+Log in via POST /auth/login, then call GET /raci to find the Software Squad teamId and every existing row name currently on that team (across all categories, not just the new one — e.g. "GitHub" already exists under "Custom Development" and must not be duplicated).
+Idempotent: for each name in the list above, skip it (case-insensitive, trimmed match) if a row with that name already exists anywhere on the Software Squad team; otherwise create it via POST /raci/rows with category: "SaaS & Third-Party Services". Re-running the script must never create duplicates.
+Support a --dry-run flag that logs what would be created/skipped without calling POST /raci/rows.
+Print a summary at the end: rows created, rows skipped (with reason: already existed).
+This is meant to run against the real, populated matrix (unlike staff-access-check.ts, which explicitly refuses production) — don't add a production guard. Just log the resolved API_BASE_URL clearly before doing anything, so it's obvious which environment is being written to.
+Add an entry in scripts/package.json, e.g. "add-saas-vendor-raci-rows": "tsx ./src/add-saas-vendor-raci-rows.ts", runnable as pnpm --filter @workspace/scripts run add-saas-vendor-raci-rows -- --dry-run.
+
+After it's built: run it once with --dry-run against the target environment to confirm the resolved team id and the list of names-to-create/skip look right, then run it again without the flag to actually create the rows.
