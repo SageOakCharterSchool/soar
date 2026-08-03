@@ -16,6 +16,4 @@
 - [Count-based toast waits are flaky](toast-count-waits-flaky.md) — TOAST_LIMIT caps visible count and toasts auto-dismiss ~5s; wait on unique toast text started before the action instead.
 - [Drizzle text enum is TS-only](drizzle-text-enum-ts-only.md) — text({enum}) has no DB constraint; widening allowed values is a schema-type edit, not a migration.
 - [RACI link lifecycle](raci-link-lifecycle.md) — board chips die silently when app re-imports orphan raci_rows.application_id; app-creating code must relink by name.
-- [Data-writing scripts credential rule](script-credential-rule.md) — scripts that write real data must require ADMIN_EMAIL/ADMIN_PASSWORD from env and fail loudly; hardcoded fallbacks get rejected in code review.
-- [Forcing sign-out via react-query cache](react-query-forced-signout.md) — clear()/invalidate alone won't show login after server-side session death; setQueryData(currentUserKey, null) first.
 - [GitHub push via connector token](github-push-via-connector.md) — when Git pane auth is broken, the GitHub connector token can push over HTTPS; must override lfs.url to GitHub or LFS hangs on the ssh proxy.

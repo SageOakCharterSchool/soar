@@ -56,14 +56,6 @@ export const GetCurrentUserResponse = zod.object({
 
 
 /**
- * @summary Permanently delete the logged-in user's own account
- */
-export const DeleteOwnAccountResponse = zod.object({
-  "message": zod.string()
-})
-
-
-/**
  * @summary Public auth configuration (which sign-in methods are enabled)
  */
 export const GetAuthConfigResponse = zod.object({
@@ -413,30 +405,6 @@ export const MarkIssuesSeenResponse = zod.object({
  * @summary Number of issue events newer than the user's last Issues visit
  */
 export const GetIssuesUnseenCountResponse = zod.object({
-  "count": zod.number()
-})
-
-
-/**
- * @summary When the logged-in user last viewed the Requests page
- */
-export const GetRequestsLastSeenResponse = zod.object({
-  "lastSeenAt": zod.string().nullable()
-})
-
-
-/**
- * @summary Record that the logged-in user just viewed the Requests page
- */
-export const MarkRequestsSeenResponse = zod.object({
-  "lastSeenAt": zod.string().nullable()
-})
-
-
-/**
- * @summary Number of request events newer than the user's last Requests visit
- */
-export const GetRequestsUnseenCountResponse = zod.object({
   "count": zod.number()
 })
 

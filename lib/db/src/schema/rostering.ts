@@ -136,7 +136,6 @@ export const appActivityTable = pgTable(
         "request_submitted",
         "request_updated",
         "raci_change",
-        "account_self_deleted",
       ],
     }).notNull(),
     detail: text("detail").notNull(),

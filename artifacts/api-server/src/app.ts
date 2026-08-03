@@ -38,12 +38,9 @@ if (process.env.NODE_ENV !== "production") {
   app.use(cors({ credentials: true, origin: true }));
 }
 
-// CSRF guard: session cookies use SameSite=None everywhere (required for the
-// Replit preview / production iframe embedding), so reject state-changing
-// requests whose Origin header does not match the request host. Enforced only
-// in production: development intentionally allows credentialed cross-origin
-// requests (see the CORS block above) for the Vite dev server and preview
-// proxy, whose origins differ from the API host.
+// CSRF guard: session cookies use SameSite=None in production (required for
+// iframe embedding), so reject state-changing requests whose Origin header
+// does not match the request host.
 app.use((req, res, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
   const origin = req.headers.origin;

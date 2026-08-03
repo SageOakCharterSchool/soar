@@ -1,11 +1,10 @@
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   db,
   applicationsTable,
   appRequestsTable,
   appActivityTable,
-  pageLastSeenTable,
   termsTable,
   usersTable,
   type User,
@@ -151,63 +150,6 @@ router.get("/requests", requireAuth, async (req, res): Promise<void> => {
   );
 });
 
-const REQUESTS_PAGE = "requests";
-const REQUEST_EVENT_TYPES = ["request_submitted", "request_updated"] as const;
-
-router.get("/requests/last-seen", requireAuth, async (req, res): Promise<void> => {
-  const user = (req as Request & { user: User }).user;
-  const [row] = await db
-    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
-    .from(pageLastSeenTable)
-    .where(
-      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, REQUESTS_PAGE)),
-    );
-  res.json({ lastSeenAt: row ? row.lastSeenAt.toISOString() : null });
-});
-
-router.get("/requests/unseen-count", requireAuth, async (req, res): Promise<void> => {
-  const user = (req as Request & { user: User }).user;
-  const [row] = await db
-    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
-    .from(pageLastSeenTable)
-    .where(
-      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, REQUESTS_PAGE)),
-    );
-  const [result] = row
-    ? await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(appActivityTable)
-        .where(
-          and(
-            inArray(appActivityTable.eventType, REQUEST_EVENT_TYPES),
-            gt(appActivityTable.createdAt, row.lastSeenAt),
-          ),
-        )
-    : await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(appActivityTable)
-        .where(inArray(appActivityTable.eventType, REQUEST_EVENT_TYPES));
-  res.json({ count: result?.count ?? 0 });
-});
-
-router.post("/requests/last-seen", requireAuth, async (req, res): Promise<void> => {
-  const user = (req as Request & { user: User }).user;
-  const [previous] = await db
-    .select({ lastSeenAt: pageLastSeenTable.lastSeenAt })
-    .from(pageLastSeenTable)
-    .where(
-      and(eq(pageLastSeenTable.userId, user.id), eq(pageLastSeenTable.page, REQUESTS_PAGE)),
-    );
-  await db
-    .insert(pageLastSeenTable)
-    .values({ userId: user.id, page: REQUESTS_PAGE, lastSeenAt: new Date() })
-    .onConflictDoUpdate({
-      target: [pageLastSeenTable.userId, pageLastSeenTable.page],
-      set: { lastSeenAt: new Date() },
-    });
-  res.json({ lastSeenAt: previous ? previous.lastSeenAt.toISOString() : null });
-});
-
 router.patch("/requests/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw ?? "", 10);
@@ -276,35 +218,6 @@ router.delete("/requests/:id", requireAdmin, async (req, res): Promise<void> => 
     res.status(404).json({ message: "Request not found" });
     return;
   }
-  // Remove the activity events logged for this request so deleting it leaves
-  // no trace in the unseen-count or activity history (mirrors issue deletion;
-  // also used by automated checks cleaning up synthetic test requests).
-  const typeLabel = REQUEST_TYPE_LABELS[request.requestType] ?? request.requestType;
-  const [app] = request.applicationId
-    ? await db
-        .select()
-        .from(applicationsTable)
-        .where(eq(applicationsTable.id, request.applicationId))
-    : [undefined];
-  const titleSnippet = snippet(request.title);
-  await db
-    .delete(appActivityTable)
-    .where(
-      and(
-        request.applicationId
-          ? eq(appActivityTable.applicationId, request.applicationId)
-          : isNull(appActivityTable.applicationId),
-        inArray(appActivityTable.eventType, REQUEST_EVENT_TYPES),
-        inArray(appActivityTable.detail, [
-          app
-            ? `Request submitted for ${app.name}: ${titleSnippet} (${typeLabel})`
-            : `Request submitted: ${titleSnippet} (${typeLabel})`,
-          ...["new", "under review", "approved", "completed", "declined"].map(
-            (s) => `Request "${titleSnippet}" moved to ${s}`,
-          ),
-        ]),
-      ),
-    );
   await db.delete(appRequestsTable).where(eq(appRequestsTable.id, id));
   emitRosteringActivity();
   res.json({ message: "Request deleted" });

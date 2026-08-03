@@ -85,30 +85,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
-  /auth/account:
-    delete:
-      operationId: deleteOwnAccount
-      tags: [auth]
-      summary: Permanently delete the logged-in user's own account
-      responses:
-        "200":
-          description: Account deleted and session ended
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiMessage"
-        "401":
-          description: Not logged in
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiMessage"
-        "409":
-          description: Refused because this is the last remaining admin account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiMessage"
   /auth/config:
     get:
       operationId: getAuthConfig
@@ -486,41 +462,6 @@ paths:
       responses:
         "200":
           description: Count of unseen issue events
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RosteringUnseenCount"
-  /requests/last-seen:
-    get:
-      operationId: getRequestsLastSeen
-      tags: [requests]
-      summary: When the logged-in user last viewed the Requests page
-      responses:
-        "200":
-          description: Last seen timestamp (null if never visited)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RosteringLastSeen"
-    post:
-      operationId: markRequestsSeen
-      tags: [requests]
-      summary: Record that the logged-in user just viewed the Requests page
-      responses:
-        "200":
-          description: Previous last-seen timestamp before this visit (null if first visit)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RosteringLastSeen"
-  /requests/unseen-count:
-    get:
-      operationId: getRequestsUnseenCount
-      tags: [requests]
-      summary: Number of request events newer than the user's last Requests visit
-      responses:
-        "200":
-          description: Count of unseen request events
           content:
             application/json:
               schema:

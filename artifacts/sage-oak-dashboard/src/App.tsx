@@ -1,25 +1,16 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   useGetRosteringUnseenCount,
   getGetRosteringUnseenCountQueryKey,
   useGetIssuesUnseenCount,
   getGetIssuesUnseenCountQueryKey,
-  useGetRequestsUnseenCount,
-  getGetRequestsUnseenCountQueryKey,
   useGetPublicAppSettings,
 } from "@workspace/api-client-react";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
 import { useTheme } from "@/hooks/useTheme";
-import { ChevronDown, Moon, Sun, Trash2 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { Moon, Sun } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
@@ -144,18 +135,6 @@ function IssuesNavBadge({ active }: { active: boolean }) {
   );
 }
 
-function RequestsNavBadge({ active }: { active: boolean }) {
-  const { data } = useGetRequestsUnseenCount(UNSEEN_QUERY_OPTIONS);
-  useActivityEventRefresh(getGetRequestsUnseenCountQueryKey());
-  return (
-    <NavBadge
-      count={data?.count ?? 0}
-      active={active}
-      testId="badge-requests-unseen"
-      label="requests"
-    />
-  );
-}
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -164,7 +143,6 @@ function Layout({ children }: { children: React.ReactNode }) {
     query: { enabled: !!user } as any,
   });
   useAccentColor(settings?.branding.accentColor);
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
 
   if (!user) {
     return <Login />;
@@ -223,12 +201,11 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <IssuesNavBadge active={location === "/issues"} />
               </button>
               <button
-                className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center ${location === "/requests" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/requests" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                 onClick={() => setLocation("/requests")}
                 data-testid="link-requests"
               >
                 Requests
-                <RequestsNavBadge active={location === "/requests"} />
               </button>
               {isAdmin && (
                 <>
@@ -265,34 +242,13 @@ function Layout({ children }: { children: React.ReactNode }) {
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="text-sm text-right inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted/50"
-                  data-testid="button-account-menu"
-                >
-                  <span>
-                    <span className="block font-medium">{user.displayName}</span>
-                    <span className="block text-xs text-muted-foreground capitalize">{user.role}</span>
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => setDeleteAccountOpen(true)}
-                  data-testid="button-delete-account"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete my account…
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="text-sm text-right">
+              <div className="font-medium">{user.displayName}</div>
+              <div className="text-xs text-muted-foreground capitalize">{user.role}</div>
+            </div>
             <button onClick={logout} className="text-sm text-muted-foreground hover:text-foreground">
               Sign out
             </button>
-            <DeleteAccountDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />
           </div>
         </div>
       </header>

@@ -1,10 +1,9 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { eq, sql } from "drizzle-orm";
-import { db, usersTable, appActivityTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { db, usersTable } from "@workspace/db";
 import { LoginBody } from "@workspace/api-zod";
 import { getSessionUser, toUserDto, DEFAULT_DEV_ADMIN_PASSWORD } from "../lib/auth";
-import { emitRosteringActivity } from "../lib/activityEvents";
 import {
   isGoogleSsoEnabled,
   buildAuthUrl,
@@ -55,54 +54,6 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
   res.json(toUserDto(user));
-});
-
-// Serializes concurrent self-deletes so two admins can't each pass the
-// "another admin exists" check and delete simultaneously, leaving zero admins.
-const LAST_ADMIN_LOCK_KEY = 429011;
-
-class LastAdminError extends Error {}
-
-router.delete("/auth/account", async (req, res): Promise<void> => {
-  const user = await getSessionUser(req);
-  if (!user) {
-    res.status(401).json({ message: "Not logged in" });
-    return;
-  }
-  try {
-    // Audit insert + delete run in one transaction under an advisory lock so
-    // the last-admin check is race-free and a failed delete can't leave a
-    // stray audit event.
-    await db.transaction(async (tx) => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(${LAST_ADMIN_LOCK_KEY})`);
-      if (user.role === "admin") {
-        const admins = await tx
-          .select({ id: usersTable.id })
-          .from(usersTable)
-          .where(eq(usersTable.role, "admin"));
-        if (!admins.some((a) => a.id !== user.id)) throw new LastAdminError();
-      }
-      // The actor FK is set null by the delete; the detail text keeps who it was.
-      await tx.insert(appActivityTable).values({
-        eventType: "account_self_deleted",
-        detail: `${user.displayName} (${user.email}) deleted their own account`,
-        actorId: user.id,
-      });
-      await tx.delete(usersTable).where(eq(usersTable.id, user.id));
-    });
-  } catch (err) {
-    if (err instanceof LastAdminError) {
-      res.status(409).json({
-        message:
-          "You are the only admin. Add another admin before deleting your account, or everyone would be locked out.",
-      });
-      return;
-    }
-    throw err;
-  }
-  await new Promise<void>((resolve) => req.session.destroy(() => resolve()));
-  emitRosteringActivity();
-  res.json({ message: "Account deleted" });
 });
 
 router.get("/auth/config", (_req, res): void => {
