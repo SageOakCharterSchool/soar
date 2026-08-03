@@ -410,6 +410,30 @@ export const GetIssuesUnseenCountResponse = zod.object({
 
 
 /**
+ * @summary When the logged-in user last viewed the Requests page
+ */
+export const GetRequestsLastSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Record that the logged-in user just viewed the Requests page
+ */
+export const MarkRequestsSeenResponse = zod.object({
+  "lastSeenAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Number of request events newer than the user's last Requests visit
+ */
+export const GetRequestsUnseenCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
  * @summary Manually add an application not imported from Clever (admin)
  */
 
