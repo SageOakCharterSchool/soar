@@ -372,23 +372,25 @@ export default function Overview() {
                         <button
                           type="button"
                           onClick={() => setExpandedResource(r.link)}
-                          className="w-full flex items-center justify-between gap-2 text-sm rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left cursor-pointer"
+                          className="w-full grid grid-cols-[minmax(0,1fr)_7rem_auto_max-content] items-center gap-3 text-sm rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left cursor-pointer"
                           title="Click to see full usage history"
                           data-testid={`resource-row-${r.link}`}
                         >
                           <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
-                          <span className="flex items-center gap-3 shrink-0">
+                          <span className="w-28 justify-self-start">
                             <ResourceSparkline points={points} />
+                          </span>
+                          <span className="justify-self-start">
                             <ResourceTrendBadge points={points} />
+                          </span>
+                          <span className="tabular-nums whitespace-nowrap">
                             {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
-                              <span className="tabular-nums whitespace-nowrap">
-                                {[
-                                  resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
-                                  resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </span>
+                              [
+                                resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
+                                resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
                             )}
                           </span>
                         </button>
