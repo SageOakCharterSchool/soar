@@ -244,8 +244,8 @@ function Router() {
         <Route path="/" component={Overview} />
         <Route path="/rostering" component={Rostering} />
         <Route path="/raci" component={Raci} />
-        <Route path="/issues" component={Issues} />
-        <Route path="/requests" component={Requests} />
+        <Route path="/issues">{() => <AdminRoute component={Issues} />}</Route>
+        <Route path="/requests">{() => <AdminRoute component={Requests} />}</Route>
         <Route path="/upload">{() => <AdminRoute component={Upload} />}</Route>
         <Route path="/users">{() => <AdminRoute component={Users} />}</Route>
         <Route path="/settings">{() => <AdminRoute component={SettingsPage} />}</Route>
