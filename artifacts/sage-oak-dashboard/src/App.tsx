@@ -4,8 +4,6 @@ import { useEffect } from "react";
 import {
   useGetRosteringUnseenCount,
   getGetRosteringUnseenCountQueryKey,
-  useGetIssuesUnseenCount,
-  getGetIssuesUnseenCountQueryKey,
   useGetPublicAppSettings,
 } from "@workspace/api-client-react";
 import { useActivityEventRefresh } from "@/hooks/useActivityEventRefresh";
@@ -122,19 +120,6 @@ function RosteringNavBadge({ active }: { active: boolean }) {
   );
 }
 
-function IssuesNavBadge({ active }: { active: boolean }) {
-  const { data } = useGetIssuesUnseenCount(UNSEEN_QUERY_OPTIONS);
-  useActivityEventRefresh(getGetIssuesUnseenCountQueryKey());
-  return (
-    <NavBadge
-      count={data?.count ?? 0}
-      active={active}
-      testId="badge-issues-unseen"
-      label="issues"
-    />
-  );
-}
-
 function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -192,20 +177,6 @@ function Layout({ children }: { children: React.ReactNode }) {
                 onClick={() => setLocation("/raci")}
               >
                 RACI
-              </button>
-              <button 
-                className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center ${location === "/issues" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
-                onClick={() => setLocation("/issues")}
-              >
-                Issues
-                <IssuesNavBadge active={location === "/issues"} />
-              </button>
-              <button
-                className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/requests" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
-                onClick={() => setLocation("/requests")}
-                data-testid="link-requests"
-              >
-                Requests
               </button>
               {isAdmin && (
                 <>
