@@ -3,7 +3,6 @@ import {
   useGetUsageSummary,
   useGetDailyUsage,
   useGetUsageByApp,
-  useGetUsageMix,
   useGetUsageBySchool,
   useGetAppEngagement,
   useGetAdditionalResources,
@@ -31,7 +30,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
-import { MixDonut } from "@/components/charts/MixDonut";
 import { ResourceSparkline, ResourceTrendBadge } from "@/components/charts/ResourceSparkline";
 import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
 import { UploadCloud } from "lucide-react";
@@ -105,7 +103,6 @@ export default function Overview() {
     { query: { enabled: !!summary?.hasData } as any },
   );
   const { data: byApp } = useGetUsageByApp();
-  const { data: mix } = useGetUsageMix();
   const { data: bySchool } = useGetUsageBySchool();
   const { data: engagement } = useGetAppEngagement();
   const { data: resources } = useGetAdditionalResources();
@@ -457,27 +454,6 @@ export default function Overview() {
           })()}
         </DialogContent>
       </Dialog>
-
-      <div className="grid md:grid-cols-3 gap-4">
-        {[
-          { title: "Devices", data: mix?.devices },
-          { title: "Browsers", data: mix?.browsers },
-          { title: "Login methods", data: mix?.loginMethods },
-        ].map(({ title, data }) => (
-          <Card key={title}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data && data.length > 0 ? (
-                <MixDonut data={data} />
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No data.</p>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       <Card>
         <CardHeader className="pb-2">
