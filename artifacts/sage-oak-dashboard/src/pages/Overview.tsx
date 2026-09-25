@@ -3,7 +3,6 @@ import {
   useGetUsageSummary,
   useGetDailyUsage,
   useGetUsageByApp,
-  useGetUsageMix,
   useGetUsageBySchool,
   useGetAppEngagement,
   useGetAdditionalResources,
@@ -31,7 +30,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
-import { MixDonut } from "@/components/charts/MixDonut";
 import { ResourceSparkline, ResourceTrendBadge } from "@/components/charts/ResourceSparkline";
 import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
 import { UploadCloud } from "lucide-react";
@@ -105,7 +103,6 @@ export default function Overview() {
     { query: { enabled: !!summary?.hasData } as any },
   );
   const { data: byApp } = useGetUsageByApp();
-  const { data: mix } = useGetUsageMix();
   const { data: bySchool } = useGetUsageBySchool();
   const { data: engagement } = useGetAppEngagement();
   const { data: resources } = useGetAdditionalResources();
@@ -375,23 +372,25 @@ export default function Overview() {
                         <button
                           type="button"
                           onClick={() => setExpandedResource(r.link)}
-                          className="w-full flex items-center justify-between gap-2 text-sm rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left cursor-pointer"
+                          className="w-full grid grid-cols-[minmax(0,1fr)_7rem_auto_max-content] items-center gap-3 text-sm rounded-md px-1 py-0.5 -mx-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-left cursor-pointer"
                           title="Click to see full usage history"
                           data-testid={`resource-row-${r.link}`}
                         >
                           <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
-                          <span className="flex items-center gap-3 shrink-0">
+                          <span className="w-28 justify-self-start">
                             <ResourceSparkline points={points} />
+                          </span>
+                          <span className="justify-self-start">
                             <ResourceTrendBadge points={points} />
+                          </span>
+                          <span className="tabular-nums whitespace-nowrap">
                             {(resourceStats.uniqueUsers || resourceStats.totalAccesses) && (
-                              <span className="tabular-nums whitespace-nowrap">
-                                {[
-                                  resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
-                                  resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </span>
+                              [
+                                resourceStats.uniqueUsers ? `${fmt(r.uniqueUsers)} users` : null,
+                                resourceStats.totalAccesses ? `${fmt(r.totalAccesses)} opens` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
                             )}
                           </span>
                         </button>
@@ -457,27 +456,6 @@ export default function Overview() {
           })()}
         </DialogContent>
       </Dialog>
-
-      <div className="grid md:grid-cols-3 gap-4">
-        {[
-          { title: "Devices", data: mix?.devices },
-          { title: "Browsers", data: mix?.browsers },
-          { title: "Login methods", data: mix?.loginMethods },
-        ].map(({ title, data }) => (
-          <Card key={title}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data && data.length > 0 ? (
-                <MixDonut data={data} />
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No data.</p>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       <Card>
         <CardHeader className="pb-2">

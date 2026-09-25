@@ -180,20 +180,8 @@ function Layout({ children }: { children: React.ReactNode }) {
               </button>
               {isAdmin && (
                 <>
-                  <button 
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/upload" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
-                    onClick={() => setLocation("/upload")}
-                  >
-                    Upload
-                  </button>
-                  <button 
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/users" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
-                    onClick={() => setLocation("/users")}
-                  >
-                    Users
-                  </button>
                   <button
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/settings" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${location === "/settings" || location.startsWith("/settings/") ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                     onClick={() => setLocation("/settings")}
                     data-testid="link-settings"
                   >
@@ -246,6 +234,8 @@ function Router() {
         <Route path="/raci" component={Raci} />
         <Route path="/issues">{() => <AdminRoute component={Issues} />}</Route>
         <Route path="/requests">{() => <AdminRoute component={Requests} />}</Route>
+        <Route path="/settings/upload">{() => <AdminRoute component={Upload} />}</Route>
+        <Route path="/settings/users">{() => <AdminRoute component={Users} />}</Route>
         <Route path="/upload">{() => <AdminRoute component={Upload} />}</Route>
         <Route path="/users">{() => <AdminRoute component={Users} />}</Route>
         <Route path="/settings">{() => <AdminRoute component={SettingsPage} />}</Route>
