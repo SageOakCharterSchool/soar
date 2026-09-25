@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   useListRequests,
   useCreateRequest,
   useUpdateRequest,
   useDeleteRequest,
   useListRaciAppOptions,
-  useMarkRequestsSeen,
-  getGetRequestsUnseenCountQueryKey,
   getListRequestsQueryKey,
   type ListRequestsStatus,
   type AppRequestInputRequestType,
@@ -260,40 +258,6 @@ export default function Requests() {
   const updateRequest = useUpdateRequest();
   const deleteRequest = useDeleteRequest();
 
-  // Record this visit once so the Requests nav badge clears. The server
-  // responds with the *previous* last-seen time, which we keep for the rest
-  // of the visit so the "new" markers stay visible until the next page view.
-  const markSeen = useMarkRequestsSeen();
-  const markedRef = useRef(false);
-  const [lastSeenAt, setLastSeenAt] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (markedRef.current) return;
-    markedRef.current = true;
-    markSeen.mutate(undefined, {
-      onSuccess: (res) => {
-        setLastSeenAt(res.lastSeenAt ?? null);
-        queryClient.invalidateQueries({
-          queryKey: getGetRequestsUnseenCountQueryKey(),
-        });
-      },
-      onError: () => setLastSeenAt(null),
-    });
-  }, [markSeen, queryClient]);
-
-  const isNewForMe = (request: {
-    createdAt: string;
-    statusUpdatedAt?: string | null;
-  }) => {
-    if (typeof lastSeenAt !== "string") return false;
-    const seen = new Date(lastSeenAt).getTime();
-    if (new Date(request.createdAt).getTime() > seen) return true;
-    return (
-      request.statusUpdatedAt != null &&
-      new Date(request.statusUpdatedAt).getTime() > seen
-    );
-  };
-  const newCount = (requests ?? []).filter(isNewForMe).length;
-
   const invalidate = () =>
     queryClient.invalidateQueries({
       predicate: (q) =>
@@ -344,17 +308,7 @@ export default function Requests() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h2 className="text-2xl font-bold tracking-tight">Requests</h2>
-          {newCount > 0 && (
-            <Badge
-              className="border-transparent bg-sky-600 text-white hover:bg-sky-600 dark:bg-sky-500 dark:text-sky-950"
-              data-testid="badge-requests-new-since-visit"
-            >
-              {newCount} new since your last visit
-            </Badge>
-          )}
-        </div>
+        <h2 className="text-2xl font-bold tracking-tight">Requests</h2>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex gap-1 flex-wrap">
             {FILTERS.map((f) => (
@@ -402,14 +356,6 @@ export default function Requests() {
                     </Badge>
                     {request.appName && (
                       <Badge variant="outline">{request.appName}</Badge>
-                    )}
-                    {isNewForMe(request) && (
-                      <Badge
-                        className="h-4 border-transparent bg-sky-100 px-1.5 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-900/40 dark:text-sky-300"
-                        data-testid={`badge-request-new-${request.id}`}
-                      >
-                        New
-                      </Badge>
                     )}
                   </div>
                   {request.details && <p className="text-sm">{request.details}</p>}
