@@ -30,7 +30,11 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useLocation } from "wouter";
 import { DailyUsageChart } from "@/components/charts/DailyUsageChart";
 import { TopAppsChart } from "@/components/charts/TopAppsChart";
-import { ResourceSparkline, ResourceTrendBadge } from "@/components/charts/ResourceSparkline";
+import {
+  ResourceSparkline,
+  ResourceTrendBadge,
+  type ResourceSparklinePoint,
+} from "@/components/charts/ResourceSparkline";
 import { ResourceHistoryChart } from "@/components/charts/ResourceHistoryChart";
 import { UploadCloud } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -111,6 +115,24 @@ export default function Overview() {
   const historyByLink = useMemo(() => {
     const m = new Map<string, NonNullable<typeof resourceHistory>["resources"][number]["points"]>();
     for (const r of resourceHistory?.resources ?? []) m.set(r.link, r.points);
+    return m;
+  }, [resourceHistory]);
+
+  const sparklineHistoryByLink = useMemo(() => {
+    const dates = resourceHistory?.snapshotDates ?? [];
+    const m = new Map<string, ResourceSparklinePoint[]>();
+    for (const resource of resourceHistory?.resources ?? []) {
+      const pointsByDate = new Map(resource.points.map((point) => [point.snapshotDate, point]));
+      m.set(
+        resource.link,
+        dates.map((snapshotDate) => {
+          const point = pointsByDate.get(snapshotDate);
+          return point
+            ? point
+            : { snapshotDate, uniqueUsers: null, totalAccesses: null };
+        }),
+      );
+    }
     return m;
   }, [resourceHistory]);
 
@@ -373,6 +395,7 @@ export default function Overview() {
                 <ul className="space-y-1">
                   {displayResources.map((r) => {
                     const points = historyByLink.get(r.link) ?? [];
+                    const sparklinePoints = sparklineHistoryByLink.get(r.link) ?? points;
                     return (
                       <li key={r.link}>
                         <button
@@ -384,7 +407,7 @@ export default function Overview() {
                         >
                           <span className="text-muted-foreground min-w-0 truncate">{r.link}</span>
                           <span className="w-28 justify-self-start">
-                            <ResourceSparkline points={points} />
+                            <ResourceSparkline points={sparklinePoints} />
                           </span>
                           <span className="justify-self-start">
                             <ResourceTrendBadge points={points} />
