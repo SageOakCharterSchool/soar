@@ -1,7 +1,12 @@
-import { LineChart, Line, Tooltip, ResponsiveContainer, YAxis } from "recharts";
+import { LineChart, Line, Tooltip, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 
 type Point = { snapshotDate: string; uniqueUsers: number; totalAccesses: number };
+export type ResourceSparklinePoint = {
+  snapshotDate: string;
+  uniqueUsers: number | null;
+  totalAccesses: number | null;
+};
 
 const FLAT_THRESHOLD_PCT = 2;
 
@@ -60,8 +65,9 @@ export function ResourceTrendBadge({ points }: { points: Point[] }) {
   );
 }
 
-export function ResourceSparkline({ points }: { points: Point[] }) {
-  if (points.length < 2) {
+export function ResourceSparkline({ points }: { points: ResourceSparklinePoint[] }) {
+  const pointsWithData = points.filter((point) => point.uniqueUsers != null);
+  if (pointsWithData.length < 2) {
     return (
       <span className="text-xs text-muted-foreground italic">not enough history</span>
     );
@@ -70,6 +76,7 @@ export function ResourceSparkline({ points }: { points: Point[] }) {
     <div className="h-8 w-28" data-testid="resource-sparkline">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 4, right: 2, bottom: 2, left: 2 }}>
+          <XAxis dataKey="snapshotDate" hide />
           <YAxis hide domain={["dataMin", "dataMax"]} />
           <Tooltip
             cursor={false}
@@ -80,7 +87,7 @@ export function ResourceSparkline({ points }: { points: Point[] }) {
                 <div className="rounded-md border bg-popover px-2 py-1 text-xs shadow-md">
                   <div className="font-medium">{p.snapshotDate}</div>
                   <div className="tabular-nums">
-                    {p.uniqueUsers.toLocaleString()} users · {p.totalAccesses.toLocaleString()} opens
+                    {p.uniqueUsers == null ? "No data" : `${p.uniqueUsers.toLocaleString()} users · ${p.totalAccesses?.toLocaleString() ?? "—"} opens`}
                   </div>
                 </div>
               );
@@ -92,6 +99,7 @@ export function ResourceSparkline({ points }: { points: Point[] }) {
             stroke="hsl(var(--primary))"
             strokeWidth={1.5}
             dot={false}
+            connectNulls={false}
             isAnimationActive={false}
           />
         </LineChart>

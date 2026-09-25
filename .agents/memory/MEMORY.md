@@ -17,3 +17,4 @@
 - [Drizzle text enum is TS-only](drizzle-text-enum-ts-only.md) — text({enum}) has no DB constraint; widening allowed values is a schema-type edit, not a migration.
 - [RACI link lifecycle](raci-link-lifecycle.md) — board chips die silently when app re-imports orphan raci_rows.application_id; app-creating code must relink by name.
 - [GitHub push via connector token](github-push-via-connector.md) — when Git pane auth is broken, the GitHub connector token can push over HTTPS; must override lfs.url to GitHub or LFS hangs on the ssh proxy.
+- [Shared sparkline time axes](shared-sparkline-time-axes.md) — compare resource history on one snapshot-date domain; preserve missing dates as gaps, not zeros.
