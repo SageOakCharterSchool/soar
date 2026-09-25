@@ -364,6 +364,12 @@ export default function Overview() {
             {displayResources.length > 0 && (
               <div className="mt-6">
                 <h4 className="text-sm font-medium mb-2">Additional resources</h4>
+                <div className="grid grid-cols-[minmax(0,1fr)_7rem_auto_max-content] items-center gap-3 px-1 text-xs text-muted-foreground">
+                  <span>Resource</span>
+                  <span>Usage trend</span>
+                  <span>Change</span>
+                  <span>Current totals</span>
+                </div>
                 <ul className="space-y-1">
                   {displayResources.map((r) => {
                     const points = historyByLink.get(r.link) ?? [];
