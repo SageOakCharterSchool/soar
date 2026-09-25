@@ -20,3 +20,5 @@ The presence of `resource-usage` files proves the raw reports are available, not
 **Why:** A directory listing cannot establish the CSV schema, and the adapter can silently ignore additional columns while the dashboard remains empty.
 
 **How to apply:** Inspect a real CSV header before concluding the source lacks a dimension. If the columns exist, extend the daily adapter and its aggregates; if not, obtain a separate Clever export/API source.
+
+Clever's documented download-field list confirms the resource-usage export contains date, SIS/Clever user and school identifiers, resource type/name/ID, access count, and school name. It does not list device, browser, or login-method fields.
