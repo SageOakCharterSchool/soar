@@ -27,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ArrowDown, ArrowUp, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { SettingsNav } from "@/components/SettingsNav";
 
 const MAX_LOGO_BYTES = 300 * 1024;
 
@@ -536,6 +537,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4 max-w-3xl" data-testid="page-settings">
+      <SettingsNav />
       <div>
         <h2 className="text-xl font-semibold">Settings</h2>
         <p className="text-sm text-muted-foreground">

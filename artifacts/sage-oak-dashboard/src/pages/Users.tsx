@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { SettingsNav } from "@/components/SettingsNav";
 import {
   Select,
   SelectContent,
@@ -212,6 +213,7 @@ export default function Users() {
 
   return (
     <div className="space-y-4 max-w-4xl">
+      <SettingsNav />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-2xl font-bold tracking-tight">Users</h2>
         <Dialog open={open} onOpenChange={setOpen}>

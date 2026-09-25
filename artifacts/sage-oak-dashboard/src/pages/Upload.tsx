@@ -23,6 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { UploadCloud, FileText, X, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import { SortableHead, useTableSort } from "@/hooks/useTableSort";
+import { SettingsNav } from "@/components/SettingsNav";
 
 interface PendingFile {
   name: string;
@@ -136,6 +137,7 @@ export default function Upload() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <SettingsNav />
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Upload Data</h2>
         <p className="text-muted-foreground text-sm mt-1">
